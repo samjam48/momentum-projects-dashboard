@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "momentum-backend"
+version = "0.1.0"
+description = "Momentum backend scaffold"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+addopts = "--cov=app --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["app"]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

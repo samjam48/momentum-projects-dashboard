@@ -1,0 +1,111 @@
+:root {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #1f1712;
+  background:
+    radial-gradient(circle at top, rgba(214, 140, 96, 0.16), transparent 40%),
+    linear-gradient(180deg, #f6efe2 0%, #efe2cf 100%);
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+}
+
+.app-panel {
+  width: min(920px, 100%);
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 28px;
+  background: rgba(255, 250, 244, 0.84);
+  box-shadow: 0 32px 80px rgba(72, 45, 27, 0.12);
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #9c5d35;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.app-title {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 4.2rem);
+  line-height: 0.95;
+}
+
+.app-copy {
+  max-width: 42rem;
+  margin: 1rem 0 0;
+  color: #5b4a3f;
+  font-size: 1rem;
+}
+
+.checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist-card {
+  padding: 1.1rem 1.2rem;
+  border-radius: 18px;
+  background: #fff8f0;
+  border: 1px solid rgba(156, 93, 53, 0.18);
+}
+
+.checklist-card strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.checklist-card span {
+  color: #695448;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .app-panel {
+    padding: 1.5rem;
+    border-radius: 22px;
+  }
+}

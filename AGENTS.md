@@ -2,7 +2,8 @@
 ---
 ## What This Project Is
 A self-hosted personal dashboard (FastAPI + SQLModel + SQLite → React + TypeScript + Tailwind).
-Full spec: `/docs/PRD.md` (what/why) and `/docs/TRD.md` (how/schema/stack). Read those when you need depth.
+Full spec: `/docs/V1-PRD.md` (what/why) and `/docs/V1-TRD.md` (how/schema/stack). Read those when you need depth.
+Project-specific role prompts live in `/agents/`. Use the agent file that matches the current phase of work.
 ---
 ## Hard Constraints
 1. **No commits to ****`main`****.** All work on feature branches: `feat/`, `fix/`, `chore/`.
@@ -13,7 +14,7 @@ Full spec: `/docs/PRD.md` (what/why) and `/docs/TRD.md` (how/schema/stack). 
 6. **No schema changes without Alembic.** Run `alembic revision --autogenerate` — never raw SQL DDL.
 7. **No ****`any`**** in TypeScript. No untyped Python.** `mypy --strict` and `tsc --noEmit` must pass clean.
 8. **No ****`git push`**** without owner instruction.** Prepare the branch and commit, then stop and report.
-9. **No changes outside current task scope.** If you spot something else to fix, add it to `BACKLOG.md`.
+9. **No changes outside current task scope.** If you spot something else to fix, add it to `plans/BACKLOG.md`.
 10. **No secrets committed.** `.env`, `data/`, `*.db` are in `.gitignore`. Stop immediately if you accidentally stage them.
 11. **Keep commits small and trackable.** Prefer one logical change per commit, even during early scaffolding.
 ---
