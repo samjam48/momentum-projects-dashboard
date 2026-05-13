@@ -2,6 +2,12 @@
 
 Future phases beyond the current sprint live here. Nothing in this file is in scope for Phase 0.
 
+## Phase 0 — Scaffold
+- Basic folder/file structure created (don't make all individual empty files yet)
+- Docker setup
+- Installation - Python, TypeScript, React, Vite, SQLite, PyTest, viTest
+- Agents creation
+
 ## Phase 1 — Projects + Tasks + Kanban
 - Projects CRUD
 - Tasks CRUD with status, priority, and dates
