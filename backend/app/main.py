@@ -1,13 +1,29 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.db.database import init_db
 from app.routers.health import router as health_router
+from app.routers.projects import router as projects_router
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    init_db()
+    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version=settings.app_version)
+    app = FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        lifespan=lifespan,
+    )
     app.include_router(health_router, prefix=settings.api_v1_prefix, tags=["health"])
+    app.include_router(projects_router, prefix=settings.api_v1_prefix, tags=["projects"])
     return app
 
 
