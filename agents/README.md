@@ -8,3 +8,5 @@ Start with `AGENTS.md` for repo-wide rules, then use the agent file that matches
 - `planner.md` turns an approved phase or feature into implementation tickets.
 - `test-writer.md` turns approved ticket acceptance criteria into failing tests only.
 - `implementer.md` writes the minimum production changes needed to satisfy failing tests.
+- `reviewer.md` reviews the branch diff for code quality, architecture, and convention issues.
+- `pr-checker.md` runs the full quality gate sequence and reports pass or fail without fixing.
