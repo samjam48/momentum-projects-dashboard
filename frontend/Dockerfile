@@ -2,7 +2,13 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+COPY package.json package-lock.json ./
+COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY vite.config.ts eslint.config.js index.html ./
+COPY src ./src
+
+RUN npm ci
+
 EXPOSE 3000
 
-# Placeholder runtime until the Vite app and dependency install land.
-CMD ["node", "-e", "require('http').createServer((_, res) => { res.writeHead(200, {'Content-Type': 'text/plain'}); res.end('Momentum frontend scaffold'); }).listen(3000, '0.0.0.0')"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]

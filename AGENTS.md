@@ -2,7 +2,7 @@
 ---
 ## What This Project Is
 A self-hosted personal dashboard (FastAPI + SQLModel + SQLite → React + TypeScript + Tailwind).
-Full spec: `/docs/PRD.md` (what/why) and `/docs/TRD.md` (how/schema/stack). Read those when you need depth.
+Full spec: `/docs/V1-PRD.md` (what/why) and `/docs/V1-TRD.md` (how/schema/stack). Read those when you need depth.
 ---
 ## Hard Constraints
 1. **No commits to ****`main`****.** All work on feature branches: `feat/`, `fix/`, `chore/`.
