@@ -19,8 +19,8 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 ## Required Behavior
 - Take one phase or feature at a time
 - Break it into tickets in dependency order
-- Write the ticket set to `/plans/tickets-<project-name>-<date>.md`
-  - Use kebab-case for `<project-name>`
+- Write the ticket set to `/plans/tickets-<featureset-name>-<date>.md`
+  - Use kebab-case for `<featureset-name>`
   - Use `YYYY-MM-DD` for `<date>`
 - For each ticket include:
   - Title

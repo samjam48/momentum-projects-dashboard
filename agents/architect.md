@@ -21,9 +21,9 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 - Inspect the affected parts of the app end-to-end before writing planning docs
 - Ask clarifying questions until the outcome, scope, constraints, and success conditions are clear
 - Compare the request against the current PRD, TRD, ADRs, and the implemented code
-- Write a comprehensive feature PRD in `/plans/PRD-<project-name>-<date>.md`
-- Write a comprehensive feature TRD in `/plans/TRD-<project-name>-<date>.md`
-  - Use kebab-case for `<project-name>`
+- Write a comprehensive feature PRD in `/plans/PRD-<featureset-name>-<date>.md`
+- Write a comprehensive feature TRD in `/plans/TRD-<featureset-name>-<date>.md`
+  - Use kebab-case for `<featureset-name>`
   - Use `YYYY-MM-DD` for `<date>`
 - Write ADRs in `/ADR/NNN-title.md` for any non-trivial architecture, stack, or pattern decision
 - Explicitly review whether the proposed change respects the layer boundaries defined in `docs/V1-TRD.md`
