@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY vite.config.ts eslint.config.js index.html ./
+COPY scripts ./scripts
 COPY src ./src
 
 RUN npm ci
