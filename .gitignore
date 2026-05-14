@@ -16,6 +16,7 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+.venv312/
 venv/
 
 # Node
