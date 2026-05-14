@@ -1,5 +1,5 @@
 # Momentum — Technical Reference Document (TRD)
-**Version:** 1.1 — May 2026 | **Owner:** Sam | **Status:** Approved
+**Version:** 1.2 — May 2026 | **Owner:** Sam | **Status:** Approved (amended post Phase 1 UX workshop)
 
 ---
 
@@ -11,7 +11,8 @@
 | Build tool | Vite | 5 | Fast HMR, minimal config |
 | Language | TypeScript | 5.x | Type safety; Cursor/Claude Code friendly |
 | Styling | Tailwind CSS | v4 | Token-mapped utilities; co-located responsive styles |
-| Charts | Recharts | 2.x | React-native, composable, SSR-safe |
+| UI components | shadcn/ui | — | Copy-paste into `components/ui/`; agents use before bespoke CSS |
+| Charts | Recharts | 2.x | React-native, composable, SSR-safe; Tremor optional later |
 | Animation | Framer Motion | 11 | Spring physics; entrance animations; Kanban drag feel |
 | Drag and drop | @dnd-kit/core | 6 | Accessible, headless; pairs well with Framer Motion |
 | Server state | TanStack Query | v5 | Caching, mutations, optimistic updates |
@@ -47,6 +48,7 @@ momentum/
 │   │   │   ├── database.py           # Engine + session factory
 │   │   │   └── migrations/           # Alembic env + version files
 │   │   ├── models/                   # SQLModel table definitions (DB + schema)
+│   │   │   ├── venture.py
 │   │   │   ├── project.py
 │   │   │   ├── task.py
 │   │   │   ├── time_log.py
@@ -55,6 +57,7 @@ momentum/
 │   │   │   ├── goal.py
 │   │   │   └── goal_period.py
 │   │   ├── routers/                  # FastAPI APIRouter per resource
+│   │   │   ├── ventures.py
 │   │   │   ├── projects.py
 │   │   │   ├── tasks.py
 │   │   │   ├── time_logs.py
@@ -82,6 +85,7 @@ momentum/
 │   │   ├── App.tsx
 │   │   ├── api/                      # axios client + TanStack Query hooks
 │   │   │   ├── client.ts
+│   │   │   ├── ventures.ts
 │   │   │   ├── projects.ts
 │   │   │   ├── tasks.ts
 │   │   │   ├── income.ts
@@ -92,10 +96,10 @@ momentum/
 │   │   │   ├── kanban/               # KanbanBoard, KanbanColumn, TaskCard, TaskModal
 │   │   │   ├── goals/                # GoalCard, ProgressRing, StreakGrid, GoalForm
 │   │   │   ├── income/               # StreamList, EntryTable, EntryForm, StreamForm
-│   │   │   └── ui/                   # Button, Modal, Badge, Input, Select, Skeleton
+│   │   │   └── ui/                   # shadcn: Button, Dialog, Card, Select, Checkbox, …
 │   │   ├── pages/
 │   │   │   ├── Dashboard.tsx
-│   │   │   ├── Kanban.tsx
+│   │   │   ├── Projects.tsx          # Task + project Kanban toggle; summary table
 │   │   │   ├── Income.tsx
 │   │   │   ├── Goals.tsx
 │   │   │   └── Reports.tsx
@@ -131,13 +135,33 @@ momentum/
 
 All primary keys are UUID strings. All timestamps are UTC ISO 8601.
 
-### `projects`
+**Implementation status:** Phase 1 shipped `projects` and `tasks` without ventures. Phase 1.6 adds `ventures` and extends existing tables per below. UX spec: `plans/phase-1.5-ux.md`.
+
+### `ventures` *(Phase 1.6)*
 ```sql
 id           TEXT PRIMARY KEY        -- uuid4
 name         TEXT NOT NULL
 description  TEXT
-colour       TEXT                    -- hex string, e.g. "#d97048"
+colour       TEXT                    -- one of 12 palette hex values
+category     TEXT DEFAULT 'hustle'   -- hustle | business | investment | property | education
+icon         TEXT                    -- optional icon key or URL
 status       TEXT DEFAULT 'active'   -- active | archived
+created_at   DATETIME NOT NULL
+updated_at   DATETIME NOT NULL
+```
+
+### `projects`
+```sql
+id           TEXT PRIMARY KEY        -- uuid4
+venture_id   TEXT REFERENCES ventures(id)   -- NOT NULL after Phase 1.6 migration
+name         TEXT NOT NULL
+description  TEXT
+colour       TEXT                    -- one of 12 palette hex values
+icon         TEXT                    -- optional (Phase 1.6)
+is_asset     BOOLEAN DEFAULT FALSE   -- true = recurring income-bearing unit (Phase 1.6)
+status       TEXT DEFAULT 'active'   -- active | archived (Phase 1)
+             -- Phase 1.6 project Kanban: idea | active | paused | shipped
+kanban_order INTEGER                 -- sort within project-board column (Phase 1.6)
 created_at   DATETIME NOT NULL
 updated_at   DATETIME NOT NULL
 ```
@@ -148,6 +172,7 @@ id               TEXT PRIMARY KEY
 project_id       TEXT NOT NULL REFERENCES projects(id)
 title            TEXT NOT NULL
 description      TEXT
+task_type        TEXT DEFAULT 'admin'     -- writing | research | code | meeting | admin (Phase 1.6)
 status           TEXT DEFAULT 'backlog'   -- backlog | in_progress | review | done
 priority         TEXT DEFAULT 'medium'    -- low | medium | high | urgent
 estimated_hours  REAL
@@ -175,7 +200,8 @@ created_at   DATETIME NOT NULL
 ### `income_streams`
 ```sql
 id           TEXT PRIMARY KEY
-project_id   TEXT REFERENCES projects(id)   -- nullable
+venture_id   TEXT NOT NULL REFERENCES ventures(id)   -- Phase 2; primary rollup key
+project_id   TEXT REFERENCES projects(id)             -- nullable drill-down
 name         TEXT NOT NULL
 type         TEXT       -- recurring | one_off | consulting | rental | affiliate | other
 status       TEXT DEFAULT 'active'           -- active | inactive | projected
@@ -203,7 +229,8 @@ created_at      DATETIME NOT NULL
 ### `goals`
 ```sql
 id               TEXT PRIMARY KEY
-project_id       TEXT REFERENCES projects(id)   -- nullable = global goal
+venture_id       TEXT REFERENCES ventures(id)   -- Phase 3; nullable if project-only
+project_id       TEXT REFERENCES projects(id)   -- nullable if venture-only
 title            TEXT NOT NULL
 description      TEXT
 goal_type        TEXT NOT NULL   -- numeric | completion | habit
@@ -239,10 +266,20 @@ updated_at      DATETIME NOT NULL
 
 All routes: `GET /api/v1/...` — JSON only. Auth: `X-API-Key` header (v1). FastAPI auto-generates OpenAPI 3.1 at `/docs`.
 
+### Ventures *(Phase 1.6)*
+```
+GET    /api/v1/ventures                     List (filter: status, category)
+POST   /api/v1/ventures                     Create
+GET    /api/v1/ventures/{id}                Detail
+PATCH  /api/v1/ventures/{id}                Update
+DELETE /api/v1/ventures/{id}                Archive (soft delete)
+GET    /api/v1/ventures/{id}/summary        Aggregated stats (Phase 3)
+```
+
 ### Projects
 ```
-GET    /api/v1/projects                     List (filter: status)
-POST   /api/v1/projects                     Create
+GET    /api/v1/projects                     List (filter: status, venture_id)
+POST   /api/v1/projects                     Create (requires venture_id after 1.6)
 GET    /api/v1/projects/{id}                Detail
 PATCH  /api/v1/projects/{id}                Update
 DELETE /api/v1/projects/{id}                Archive (soft delete)
@@ -256,14 +293,15 @@ POST   /api/v1/tasks                        Create
 GET    /api/v1/tasks/{id}                   Detail
 PATCH  /api/v1/tasks/{id}                   Update
 DELETE /api/v1/tasks/{id}                   Delete
-PATCH  /api/v1/tasks/{id}/status            Quick status update (Kanban drag)
+PATCH  /api/v1/tasks/{id}/status            Quick status update (task Kanban drag)
+PATCH  /api/v1/projects/{id}/status         Project Kanban drag (Phase 1.6)
 GET    /api/v1/tasks/{id}/time-logs         List time logs for task
 POST   /api/v1/tasks/{id}/time-logs         Add time log
 ```
 
 ### Income
 ```
-GET    /api/v1/income/streams               List streams (filter: project_id, status)
+GET    /api/v1/income/streams               List streams (filter: venture_id, project_id, status)
 POST   /api/v1/income/streams               Create stream
 GET    /api/v1/income/streams/{id}          Detail
 PATCH  /api/v1/income/streams/{id}          Update
@@ -271,12 +309,12 @@ GET    /api/v1/income/entries               List entries (filter: stream_id, yea
 POST   /api/v1/income/entries               Create entry
 PATCH  /api/v1/income/entries/{id}          Update entry
 DELETE /api/v1/income/entries/{id}          Delete entry
-GET    /api/v1/income/summary               MTD/QTD/YTD rollup, by-stream breakdown
+GET    /api/v1/income/summary               MTD/QTD/YTD rollup, by-venture and by-stream breakdown
 ```
 
 ### Goals
 ```
-GET    /api/v1/goals                        List (filter: project_id, cadence, status)
+GET    /api/v1/goals                        List (filter: venture_id, project_id, cadence, status)
 POST   /api/v1/goals                        Create + auto-generate first period
 PATCH  /api/v1/goals/{id}                   Update
 GET    /api/v1/goals/{id}/periods           All periods for a goal
@@ -346,7 +384,7 @@ SQLite → PostgreSQL switch: **env var only**. No code changes required. SQLMod
 `AGENTS.md` is read by every agent at session start. It contains:
 - Current sprint goals (what to build this session)
 - Architecture rules ("no business logic in routers", "all DB access via services")
-- Style rules ("use `cn()` for Tailwind classes", "Framer Motion for all animations")
+- Style rules ("use shadcn/ui primitives first", "use `cn()` for Tailwind classes", "Framer Motion for Kanban drag")
 - Anti-patterns ("no hardcoded lists", "no direct `fetch()` in components")
 - Open decisions / questions
 
