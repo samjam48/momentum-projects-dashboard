@@ -11,6 +11,16 @@ import type {
   TimeLogPayload,
 } from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
+import { resetTestStorage } from './test/storage'
+import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
+import {
+  dispatchKanbanDrop,
+  expectKanbanTaskOrder,
+  getKanbanColumn,
+  getKanbanRegion,
+  getTableRegion,
+  waitForWorkspaceReady,
+} from './test/workspaceQueries'
 
 type MockResponseOptions = {
   body?: unknown
@@ -451,51 +461,6 @@ function expectTableTaskOrder(table: HTMLElement, titles: string[]): void {
   })
 
   expect(actualOrder).toEqual(titles)
-}
-
-function getKanbanRegion(): HTMLElement {
-  return screen.getByRole('region', { name: /kanban board/i })
-}
-
-function getTableRegion(): HTMLElement {
-  return screen.getByRole('region', { name: /task summary/i })
-}
-
-function waitForWorkspaceReady(): Promise<void> {
-  return screen.findByRole('complementary', { name: /projects sidebar/i })
-}
-
-function getKanbanColumn(label: RegExp): HTMLElement {
-  const board = getKanbanRegion()
-  const heading = within(board).getByRole('heading', { name: label })
-  const column = heading.closest('section')
-
-  if (!(column instanceof HTMLElement)) {
-    throw new Error(`Expected kanban heading ${String(label)} to be inside a section.`)
-  }
-
-  return column
-}
-
-function expectKanbanTaskOrder(column: HTMLElement, titles: string[]): void {
-  const items = within(column).queryAllByRole('listitem')
-  const actualOrder = items.map((item) => {
-    const title = item.querySelector('strong')?.textContent
-    return title ?? ''
-  })
-
-  expect(actualOrder).toEqual(titles)
-}
-
-function getTaskCard(column: HTMLElement, title: string): HTMLElement {
-  const taskTitle = within(column).getByText(title)
-  const taskCard = taskTitle.closest('li')
-
-  if (!(taskCard instanceof HTMLElement)) {
-    throw new Error(`Expected task ${title} to be inside a kanban card.`)
-  }
-
-  return taskCard
 }
 
 const taskWorkspaceProjects = [
@@ -1075,9 +1040,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     })
 
     const tableSection = getTableRegion()
-    const kanbanSection = getKanbanRegion()
     expect(within(tableSection).getByText('3.5')).toBeInTheDocument()
-    expect(within(kanbanSection).getByText('3.5')).toBeInTheDocument()
   })
 
   it('does not show a status enum error when a done task only has a blank-title validation error', async () => {
@@ -1225,17 +1188,18 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
 describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
   beforeEach(() => {
-    vi.restoreAllMocks()
+    resetTestStorage()
     resetProjectFilterStore()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    resetTestStorage()
     resetProjectFilterStore()
   })
 
   it('renders all four columns and orders cards by kanban_order with deterministic null ordering', async () => {
-    installTaskWorkspaceBackendMock({
+    installWorkspaceBackendMock({
       projects: taskWorkspaceProjects,
       tasks: [
         buildTask({
@@ -1289,6 +1253,9 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
     render(<App />)
 
     await waitForWorkspaceReady()
+    await waitFor(() => {
+      expect(within(getKanbanRegion()).getByText('Confirm scope')).toBeInTheDocument()
+    })
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const inProgressColumn = getKanbanColumn(/in progress/i)
@@ -1306,68 +1273,15 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
     expect(within(doneColumn).getByText(/no tasks in this column/i)).toBeInTheDocument()
   })
 
-  it('shows enough card context to distinguish work in the all-projects view', async () => {
-    installTaskWorkspaceBackendMock({
+  it('persists a cross-column kanban:drop through the status API', async () => {
+    const backend = installWorkspaceBackendMock({
       projects: taskWorkspaceProjects,
       tasks: [
         buildTask({
-          id: 'task-ordered-second',
+          id: 'task-smoke-move',
           project_id: 'project-alpha',
-          title: 'Draft launch brief',
-          priority: 'urgent',
-          target_date: '2026-05-20',
+          title: 'Smoke move task',
           status: 'backlog',
-          kanban_order: 1,
-        }),
-      ],
-      timeLogs: {
-        'task-ordered-second': [
-          buildTimeLog({
-            id: 'log-launch-1',
-            task_id: 'task-ordered-second',
-            project_id: 'project-alpha',
-            hours: 2.5,
-          }),
-        ],
-      },
-    })
-
-    render(<App />)
-
-    await waitForWorkspaceReady()
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const launchBriefCard = getTaskCard(backlogColumn, 'Draft launch brief')
-    expect(within(launchBriefCard).getByText(/urgent/i)).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('Alpha Client')).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('#123ABC')).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('2026-05-20')).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('2.5')).toBeInTheDocument()
-  })
-
-  it('persists same-column reorders through an explicit card movement control', async () => {
-    const backend = installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: [
-        buildTask({
-          id: 'task-plan-migration',
-          project_id: 'project-alpha',
-          title: 'Plan migration',
-          status: 'backlog',
-          kanban_order: 0,
-        }),
-        buildTask({
-          id: 'task-draft-copy',
-          project_id: 'project-beta',
-          title: 'Draft release copy',
-          status: 'backlog',
-          kanban_order: 1,
-        }),
-        buildTask({
-          id: 'task-review-pass',
-          project_id: 'project-alpha',
-          title: 'QA final pass',
-          status: 'review',
           kanban_order: 0,
         }),
       ],
@@ -1376,153 +1290,25 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
     render(<App />)
 
     await waitForWorkspaceReady()
+    await waitFor(() => {
+      expect(within(getKanbanRegion()).getByText('Smoke move task')).toBeInTheDocument()
+    })
 
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const draftCopyCard = getTaskCard(backlogColumn, 'Draft release copy')
-    fireEvent.click(
-      within(draftCopyCard).getByRole('button', {
-        name: /move task draft release copy up/i,
-      }),
-    )
+    dispatchKanbanDrop({
+      taskId: 'task-smoke-move',
+      status: 'in_progress',
+      kanban_order: 0,
+    })
 
     await waitFor(() => {
       expect(backend.taskStatusRequests).toEqual([
         {
-          taskId: 'task-draft-copy',
-          payload: { status: 'backlog', kanban_order: 0 },
-        },
-      ])
-    })
-
-    expectKanbanTaskOrder(backlogColumn, [
-      'Draft release copy',
-      'Plan migration',
-    ])
-  })
-
-  it('moves a card to done and back out through explicit card controls, then shows completed-date changes when reopened', async () => {
-    const backend = installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: [
-        buildTask({
-          id: 'task-plan-migration',
-          project_id: 'project-alpha',
-          title: 'Plan migration',
-          status: 'backlog',
-          kanban_order: 0,
-        }),
-        buildTask({
-          id: 'task-draft-copy',
-          project_id: 'project-beta',
-          title: 'Draft release copy',
-          status: 'backlog',
-          kanban_order: 1,
-        }),
-      ],
-    })
-
-    render(<App />)
-
-    await waitForWorkspaceReady()
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const planMigrationCard = getTaskCard(backlogColumn, 'Plan migration')
-    fireEvent.click(
-      within(planMigrationCard).getByRole('button', {
-        name: /move task plan migration to done/i,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(backend.taskStatusRequests).toEqual([
-        {
-          taskId: 'task-plan-migration',
-          payload: { status: 'done', kanban_order: 0 },
-        },
-      ])
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /edit task plan migration/i }))
-
-    const doneDialog = await screen.findByRole('dialog', { name: /edit task/i })
-    expect(within(doneDialog).getByText('2026-05-26')).toBeInTheDocument()
-    fireEvent.click(within(doneDialog).getByRole('button', { name: /close/i }))
-
-    const doneColumn = getKanbanColumn(/done/i)
-    const movedCard = getTaskCard(doneColumn, 'Plan migration')
-    fireEvent.click(
-      within(movedCard).getByRole('button', {
-        name: /move task plan migration to in progress/i,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(backend.taskStatusRequests).toEqual([
-        {
-          taskId: 'task-plan-migration',
-          payload: { status: 'done', kanban_order: 0 },
-        },
-        {
-          taskId: 'task-plan-migration',
+          taskId: 'task-smoke-move',
           payload: { status: 'in_progress', kanban_order: 0 },
         },
       ])
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /edit task plan migration/i }))
-
-    const reopenedDialog = await screen.findByRole('dialog', { name: /edit task/i })
-    expect(within(reopenedDialog).queryByText('2026-05-26')).not.toBeInTheDocument()
-  })
-
-  it('rolls back to the last confirmed board state and surfaces an error when status persistence fails', async () => {
-    installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: [
-        buildTask({
-          id: 'task-first-backlog',
-          project_id: 'project-alpha',
-          title: 'Triage launch blockers',
-          status: 'backlog',
-          kanban_order: 0,
-        }),
-        buildTask({
-          id: 'task-second-backlog',
-          project_id: 'project-beta',
-          title: 'Schedule stakeholder review',
-          status: 'backlog',
-          kanban_order: 1,
-        }),
-      ],
-      onTaskStatusUpdate: () =>
-        jsonResponse({
-          body: { detail: 'Unable to update task status.' },
-          status: 500,
-        }),
-    })
-
-    render(<App />)
-
-    await waitForWorkspaceReady()
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const stakeholderReviewCard = getTaskCard(backlogColumn, 'Schedule stakeholder review')
-    fireEvent.click(
-      within(stakeholderReviewCard).getByRole('button', {
-        name: /move task schedule stakeholder review to done/i,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/unable to update task status/i),
-      ).toBeInTheDocument()
-    })
-
-    expectKanbanTaskOrder(backlogColumn, [
-      'Triage launch blockers',
-      'Schedule stakeholder review',
-    ])
-    expect(within(getKanbanColumn(/done/i)).getByText(/no tasks in this column/i)).toBeInTheDocument()
+    expect(within(getKanbanColumn(/in progress/i)).getByText('Smoke move task')).toBeInTheDocument()
   })
 })

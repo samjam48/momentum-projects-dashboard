@@ -1,4 +1,12 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+
+import type { TaskStatus } from '../api/types'
+
+export type KanbanDropDetail = {
+  kanban_order: number | null
+  status: TaskStatus
+  taskId: string
+}
 
 export function getSidebar(): HTMLElement {
   return screen.getByRole('complementary', { name: /projects sidebar/i })
@@ -28,4 +36,123 @@ export function queryHexStrings(container: HTMLElement): HTMLElement[] {
       element.childElementCount === 0 &&
       hexPattern.test(element.textContent ?? ''),
   ) as HTMLElement[]
+}
+
+export function getKanbanBoard(): HTMLElement {
+  const region = getKanbanRegion()
+  const board =
+    region.querySelector('.kanban-grid-row') ?? region.querySelector('.kanban-grid')
+
+  if (!(board instanceof HTMLElement)) {
+    throw new Error('Expected kanban board grid element inside the kanban region.')
+  }
+
+  return board
+}
+
+export function getKanbanColumn(label: RegExp): HTMLElement {
+  const board = getKanbanBoard()
+  const heading = within(board).getByRole('heading', { name: label })
+  const column = heading.closest('section')
+
+  if (!(column instanceof HTMLElement)) {
+    throw new Error(`Expected kanban heading ${String(label)} to be inside a section.`)
+  }
+
+  return column
+}
+
+export function getTaskCard(column: HTMLElement, title: string): HTMLElement {
+  const taskTitle = within(column).getByTestId('kanban-task-title')
+  expect(taskTitle).toHaveTextContent(title)
+  const taskCard = taskTitle.closest('li')
+
+  if (!(taskCard instanceof HTMLElement)) {
+    throw new Error(`Expected task ${title} to be inside a kanban card.`)
+  }
+
+  return taskCard
+}
+
+export function getTaskCardByTitle(column: HTMLElement, title: string): HTMLElement {
+  const taskTitle = within(column).getByText(title)
+  const taskCard = taskTitle.closest('li')
+
+  if (!(taskCard instanceof HTMLElement)) {
+    throw new Error(`Expected task ${title} to be inside a kanban card.`)
+  }
+
+  return taskCard
+}
+
+export async function waitForKanbanCard(
+  title: string,
+  columnLabel: RegExp = /backlog/i,
+): Promise<HTMLElement> {
+  const column = getKanbanColumn(columnLabel)
+  await waitFor(() => {
+    expect(within(column).getByTestId('kanban-task-title')).toHaveTextContent(title)
+  })
+  return getTaskCard(column, title)
+}
+
+export async function waitForKanbanTaskVisible(
+  title: string,
+  columnLabel: RegExp = /backlog/i,
+): Promise<void> {
+  const column = getKanbanColumn(columnLabel)
+  await waitFor(() => {
+    expect(within(column).getByText(title)).toBeInTheDocument()
+  })
+}
+
+export function expectKanbanTaskOrder(column: HTMLElement, titles: string[]): void {
+  const heading = within(column).getByRole('heading')
+  const label = heading.textContent?.trim() ?? ''
+  const freshColumn = getKanbanColumn(new RegExp(label, 'i'))
+  const items = freshColumn.querySelectorAll('ul.task-list > li')
+  const actualOrder = Array.from(items).map((item) => {
+    const title =
+      within(item as HTMLElement).getByTestId('kanban-task-title').textContent?.trim() ?? ''
+    return title
+  })
+
+  expect(actualOrder).toEqual(titles)
+}
+
+export function dispatchKanbanDrop(detail: KanbanDropDetail): void {
+  const board = getKanbanBoard()
+  fireEvent(
+    board,
+    new CustomEvent('kanban:drop', {
+      bubbles: true,
+      detail,
+    }),
+  )
+}
+
+export function getBoardOptionsButton(): HTMLElement {
+  return screen.getByRole('button', { name: /board options/i })
+}
+
+export function openBoardOptionsMenu(): HTMLElement {
+  const trigger = getBoardOptionsButton()
+  fireEvent.click(trigger)
+
+  const menu = screen.getByRole('menu', { name: /board options/i })
+  return menu
+}
+
+export function getBoardOptionsCheckbox(label: RegExp): HTMLElement {
+  const menu = screen.getByRole('menu', { name: /board options/i })
+  return within(menu).getByRole('menuitemcheckbox', { name: label })
+}
+
+export function queryKanbanCardMoveButtons(card: HTMLElement): HTMLElement[] {
+  return within(card)
+    .queryAllByRole('button')
+    .filter((button) => {
+      const name = button.getAttribute('aria-label') ?? button.textContent ?? ''
+      return /drag task|move task .* (up|down|to)/i.test(name)
+    })
 }

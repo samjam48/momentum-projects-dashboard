@@ -623,10 +623,86 @@ textarea {
   opacity: 0.9;
 }
 
-.kanban-task-context {
-  display: grid;
-  gap: 0.45rem;
+.kanban-task-linear {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
 }
+
+.kanban-task-colour-dot {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+}
+
+.kanban-task-body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.kanban-task-title {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.kanban-task-title:hover {
+  text-decoration: underline;
+}
+
+.kanban-task-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.board-options-menu {
+  position: relative;
+}
+
+.board-options-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 12rem;
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 14px;
+  background: #fff8f0;
+  box-shadow: 0 12px 32px rgba(72, 45, 27, 0.12);
+  padding: 0.35rem;
+}
+
+.board-options-item {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+}
+
+.board-options-item:hover {
+  background: rgba(217, 112, 72, 0.1);
+}
+
+.board-options-item[aria-checked='true'] {
+  font-weight: 700;
+}
+
 
 .kanban-project-name {
   font-weight: 700;

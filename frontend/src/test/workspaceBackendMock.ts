@@ -143,9 +143,17 @@ function reorderTasksInColumn(
   })
 }
 
+export type TaskStatusRequest = {
+  payload: TaskStatusPayload
+  taskId: string
+}
+
 export function installWorkspaceBackendMock(
   options: WorkspaceBackendOptions,
-): { fetchMock: ReturnType<typeof vi.fn<typeof fetch>> } {
+): {
+  fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
+  taskStatusRequests: TaskStatusRequest[]
+} {
   const projects = [...(options.projects ?? [])]
   const tasks = [...(options.tasks ?? [])]
   const timeLogsByTask = new Map<string, TimeLog[]>(
@@ -158,6 +166,7 @@ export function installWorkspaceBackendMock(
   let taskCreateCount = 0
   let taskStatusUpdateCount = 0
   let timeLogCreateCount = 0
+  const taskStatusRequests: TaskStatusRequest[] = []
 
   const actualHoursForTask = (taskId: string): number => {
     const timeLogs = timeLogsByTask.get(taskId) ?? []
@@ -367,6 +376,7 @@ export function installWorkspaceBackendMock(
 
         taskStatusUpdateCount += 1
         const payload = body as TaskStatusPayload
+        taskStatusRequests.push({ taskId, payload })
 
         const handlerResponse = options.onTaskStatusUpdate
           ? await options.onTaskStatusUpdate(taskId, payload, taskStatusUpdateCount)
@@ -432,5 +442,5 @@ export function installWorkspaceBackendMock(
   )
 
   vi.stubGlobal('fetch', fetchMock)
-  return { fetchMock }
+  return { fetchMock, taskStatusRequests }
 }

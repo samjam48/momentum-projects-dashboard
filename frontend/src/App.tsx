@@ -11,12 +11,11 @@ import {
 import {
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { ApiError } from './api/client'
 import { useProjectMutations, useProjects } from './api/projects'
@@ -33,6 +32,7 @@ import type {
   TimeLogPayload,
 } from './api/types'
 import { AppShell } from './components/layout/AppShell'
+import { KanbanTaskCard } from './components/kanban/KanbanTaskCard'
 import { ProjectDialog } from './components/ProjectDialog'
 import { DEFAULT_PROJECT_COLOUR } from './lib/projectPalette'
 import { ProjectsPage } from './pages/ProjectsPage'
@@ -44,6 +44,8 @@ import {
   useProjectFilterStore,
 } from './stores/projectFilter'
 import type { ProjectFilterState } from './stores/projectFilter'
+import type { BoardDisplayOptions } from './stores/boardDisplayOptions'
+import { useBoardDisplayOptionsStore, hydrateBoardDisplayOptionsFromStorage } from './stores/boardDisplayOptions'
 
 type ProjectFormState = {
   name: string
@@ -550,17 +552,6 @@ function taskOrderByStatus(tasks: Task[], status: TaskStatus): Task[] {
   return sortTasksForKanban(tasks.filter((task) => task.status === status))
 }
 
-function getTaskStatusMoveOptions(
-  tasks: Task[],
-  task: Task,
-): Array<{ kanban_order: number; label: string; status: TaskStatus }> {
-  return STATUS_OPTIONS.filter((option) => option.value !== task.status).map((option) => ({
-    status: option.value,
-    kanban_order: taskOrderByStatus(tasks, option.value).length,
-    label: formatStatusLabel(option.value),
-  }))
-}
-
 function getKanbanDropDetailFromDragEvent(
   tasks: Task[],
   event: DragEndEvent,
@@ -620,150 +611,22 @@ function getKanbanDropDetailFromDragEvent(
   }
 }
 
-function KanbanTaskCard({
-  allTasks,
-  draggingDisabled,
-  onMoveTask,
-  project,
-  task,
-  taskIndex,
-  totalTasks,
-}: {
-  allTasks: Task[]
-  draggingDisabled: boolean
-  onMoveTask: (detail: KanbanDropDetail) => void
-  project: Project | null
-  task: Task
-  taskIndex: number
-  totalTasks: number
-}): JSX.Element {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: kanbanTaskId(task.id),
-      data: {
-        type: 'task',
-        taskId: task.id,
-        status: task.status,
-      } satisfies KanbanDragTaskData,
-      disabled: draggingDisabled,
-    })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-  const statusMoveOptions = getTaskStatusMoveOptions(allTasks, task)
-
-  return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      className={`task-card kanban-task-card${isDragging ? ' task-card-dragging' : ''}`}
-    >
-      <div className="task-card-header">
-        <strong>{task.title}</strong>
-        <span className="status-pill">{task.priority}</span>
-      </div>
-
-      <div className="kanban-task-context">
-        <div className="identity-stack">
-          <span className="kanban-project-name">
-            {project?.name ?? 'Unknown project'}
-          </span>
-          {project?.colour ? (
-            <span className="colour-tag" style={{ backgroundColor: project.colour }}>
-              {project.colour}
-            </span>
-          ) : (
-            <span className="colour-tag colour-tag-neutral">No colour</span>
-          )}
-        </div>
-
-        {task.target_date ? <p className="task-meta">{task.target_date}</p> : null}
-        {task.actual_hours !== null ? (
-          <p className="task-meta">{formatValue(task.actual_hours)}</p>
-        ) : null}
-      </div>
-
-      <div className="kanban-task-actions">
-        <button
-          type="button"
-          className="secondary-button"
-          aria-label={`Drag task ${task.title}`}
-          {...attributes}
-          {...listeners}
-        >
-          Drag
-        </button>
-
-        {taskIndex > 0 ? (
-          <button
-            type="button"
-            className="secondary-button"
-            aria-label={`Move task ${task.title} up`}
-            onClick={() =>
-              onMoveTask({
-                taskId: task.id,
-                status: task.status,
-                kanban_order: taskIndex - 1,
-              })
-            }
-          >
-            Up
-          </button>
-        ) : null}
-
-        {taskIndex < totalTasks - 1 ? (
-          <button
-            type="button"
-            className="secondary-button"
-            aria-label={`Move task ${task.title} down`}
-            onClick={() =>
-              onMoveTask({
-                taskId: task.id,
-                status: task.status,
-                kanban_order: taskIndex + 1,
-              })
-            }
-          >
-            Down
-          </button>
-        ) : null}
-
-        {statusMoveOptions.map((option) => (
-          <button
-            key={option.status}
-            type="button"
-            className="secondary-button"
-            aria-label={`Move task ${task.title} to ${option.label}`}
-            onClick={() =>
-              onMoveTask({
-                taskId: task.id,
-                status: option.status,
-                kanban_order: option.kanban_order,
-              })
-            }
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </li>
-  )
-}
 
 function KanbanColumn({
-  allTasks,
+  boardDisplayOptions,
   draggingDisabled,
-  onMoveTask,
+  onOpenTask,
   projectsById,
+  showProjectNameOnCard,
   status,
   tasks,
   title,
 }: {
-  allTasks: Task[]
+  boardDisplayOptions: BoardDisplayOptions
   draggingDisabled: boolean
-  onMoveTask: (detail: KanbanDropDetail) => void
+  onOpenTask: (task: Task) => void
   projectsById: Record<string, Project>
+  showProjectNameOnCard: boolean
   status: TaskStatus
   tasks: Task[]
   title: string
@@ -798,16 +661,15 @@ function KanbanColumn({
           </div>
         ) : (
           <ul className="task-list">
-            {tasks.map((task, index) => (
+            {tasks.map((task) => (
               <KanbanTaskCard
                 key={task.id}
-                allTasks={allTasks}
+                boardDisplayOptions={boardDisplayOptions}
                 draggingDisabled={draggingDisabled}
-                onMoveTask={onMoveTask}
+                onOpenTask={onOpenTask}
                 project={projectsById[task.project_id] ?? null}
+                showProjectNameOnCard={showProjectNameOnCard}
                 task={task}
-                taskIndex={index}
-                totalTasks={tasks.length}
               />
             ))}
           </ul>
@@ -1170,6 +1032,15 @@ function App() {
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const [optimisticTasks, setOptimisticTasks] = useState<Task[] | null>(null)
   const [kanbanMutationError, setKanbanMutationError] = useState<string | null>(null)
+  const boardDisplayOptions = useBoardDisplayOptionsStore(
+    useShallow((state) => ({
+      showActualHours: state.showActualHours,
+      showDueDate: state.showDueDate,
+      showPriority: state.showPriority,
+      showProjectName: state.showProjectName,
+      showStatusBadge: state.showStatusBadge,
+    })),
+  )
 
   const projectMutations = useProjectMutations(async () => {
     await projectsQuery.reload()
@@ -1222,6 +1093,10 @@ function App() {
     },
   )
   const boardInteractionDisabled = tasksQuery.isLoading || taskMutations.isSaving
+
+  useEffect(() => {
+    hydrateBoardDisplayOptionsFromStorage()
+  }, [])
 
   useEffect(() => {
     setLocallyArchivedProjectIds((currentIds) =>
@@ -1649,6 +1524,9 @@ function App() {
           ? (projectsById[sidebarSelectedProjectIds[0]]?.name ?? '1 project')
           : `${sidebarSelectedProjectIds.length} projects`
   const tasksAreBlocked = activeProjects.length === 0
+  const isSingleProjectView = selectedProjectId !== DEFAULT_PROJECT_FILTER
+  const showProjectNameOnCard =
+    !isSingleProjectView || boardDisplayOptions.showProjectName
 
   if (!workspaceReady) {
     return (
@@ -1681,10 +1559,11 @@ function App() {
           {STATUS_OPTIONS.map((statusOption) => (
             <KanbanColumn
               key={statusOption.value}
-              allTasks={displayTasks}
+              boardDisplayOptions={boardDisplayOptions}
               draggingDisabled={boardInteractionDisabled}
-              onMoveTask={(detail) => void handleKanbanDrop(detail)}
+              onOpenTask={openEditTaskDialog}
               projectsById={projectsById}
+              showProjectNameOnCard={showProjectNameOnCard}
               status={statusOption.value}
               tasks={taskOrderByStatus(displayTasks, statusOption.value)}
               title={statusOption.label}

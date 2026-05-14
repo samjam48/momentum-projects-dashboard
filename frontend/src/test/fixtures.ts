@@ -2,6 +2,8 @@ import type { Project, Task, TimeLog } from '../api/types'
 import { PROJECT_PALETTE } from '../lib/projectPalette'
 import { SIDEBAR_PROJECT_FILTER_STORAGE_KEY } from '../stores/projectFilter'
 
+export const BOARD_DISPLAY_OPTIONS_STORAGE_KEY = 'momentum.boardDisplayOptions'
+
 export { PROJECT_PALETTE, SIDEBAR_PROJECT_FILTER_STORAGE_KEY }
 
 export function buildProject(overrides: Partial<Project>): Project {
