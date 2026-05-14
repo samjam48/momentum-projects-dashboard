@@ -33,16 +33,16 @@ npm run test -- --coverage  # ≥ 70%
 ```
 `make lint` and `make test` run these. Use them.
 ---
-## Current Sprint — Phase 1: Projects + Tasks + Kanban
-**Goal:** Deliver the first usable workflow for managing projects and tasks end to end.
+## Current Sprint — Phase 1b: UX / IA Foundation
+**Goal:** Refactor the Phase 1 frontend onto the app shell, design tokens, and Projects page layout defined in `plans/phase-1.5-ux.md`, without changing backend schema.
 **Done when:**
-- Projects can be created, updated, listed, and archived through the API and UI
-- Tasks can be created, edited, deleted, filtered by project, and moved across Kanban columns
-- The task detail modal supports manual time logs and shows derived actual hours and completion state
-- The Kanban board and task summary table stay consistent with backend state after edits and drag-and-drop
-- All quality gates pass for the Phase 1 implementation
-**In scope:** Projects CRUD, tasks CRUD with status/priority/dates, task summary table, task modal, manual time log, project filter, and Kanban drag-and-drop with persisted ordering.
-**Out of scope:** Income tracking, goal calculations, project summary metrics that depend on later phases, Toggl sync, dashboard widgets, reports, dark mode, and polish work outside the Phase 1 task workspace.
+- App shell delivers top nav, sidebar scaffold, and Projects page with toolbar + full-width task Kanban + summary table below
+- shadcn/ui primitives and `tokens.css` are wired; terracotta palette tokens are in use
+- Project/task modal UX, sidebar filtering, and Linear-density Kanban cards ship per tickets `1b-2` and `1b-3`
+- Phase 1 workflows (CRUD, filter, drag-and-drop, time logs) remain functional on the new layout
+- All quality gates pass for the Phase 1b implementation
+**In scope:** Tickets `1b-1` through `1b-3` in `plans/tickets-phase-1b-ux-2026-05-14.md` — shell, modals, colour picker, sidebar filter, board options, card-level drag.
+**Out of scope:** Venture entity, asset flag, project Kanban board, income/goals/dashboard pages, server-persisted preferences, settings purge, and schema migrations (Phase 1.6+).
 ---
 ## Definition of Done
 1. All acceptance criteria tests pass
