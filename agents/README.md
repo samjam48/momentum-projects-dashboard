@@ -8,9 +8,9 @@ For a **major feature or full phase build**, use `orchestrator.md` as the single
 
 Specialized agents (invoked by the orchestrator, not run in parallel):
 
-- `orchestrator.md` controls gated, sequential flow across a phase or ticket pipeline.
-- `architect.md` shapes feature requests into PRD, TRD, and ADR outputs.
-- `planner.md` turns an approved phase or feature into implementation tickets.
+- `orchestrator.md` controls gated, sequential flow: planning once per feature (Architect → Planner), then per-ticket Test Writer → Implementer → Reviewer → commit, then developer verification and PR Checker.
+- `architect.md` runs **once per major feature** — shapes PRD, TRD, and ADR outputs and confirms UX/DB detail with the owner.
+- `planner.md` runs **once per major feature** — produces the full detailed ticket file.
 - `test-writer.md` turns approved ticket acceptance criteria into failing tests only.
 - `implementer.md` writes the minimum production changes needed to satisfy failing tests.
 - `reviewer.md` reviews the branch diff for code quality, architecture, and convention issues.

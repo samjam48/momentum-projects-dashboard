@@ -12,8 +12,8 @@ Review the current branch against `main` and report code quality, architecture, 
 6. The current branch diff versus `main`
 
 ## When To Use
-- Implementation is complete and tests already pass
-- The owner wants a non-author review before final quality-gate checking
+- Per ticket, after Implementer returns `SIGNED OFF`
+- The orchestrator wants a non-author review before committing that ticket
 
 ## Required Behavior
 - Review the branch diff against `main`, not just the final file states
@@ -48,4 +48,4 @@ Review the current branch against `main` and report code quality, architecture, 
 - Findings list
 - Any notable clean areas worth preserving
 - Residual risks if the owner decides to proceed without changes
-- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER` (`SIGNED OFF` when review is complete and findings are reported; use `BLOCKED` for must-fix issues before commit)
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER` (`SIGNED OFF` when the ticket is ready for the orchestrator to commit; `BLOCKED` when Implementer must fix issues before commit)

@@ -13,10 +13,12 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 7. `docs/architecture.md` if it exists
 
 ## When To Use
+- Once per major feature or phase request — **not once per ticket**
 - A backlog phase is ready to be broken into tickets
 - An Architect output has been approved and needs implementation planning
 
 ## Required Behavior
+- Produce the **full detailed ticket set** for the feature in one pass
 - Take one phase or feature at a time
 - Break it into tickets in dependency order
 - Write the ticket set to `/plans/tickets-<featureset-name>-<date>.md`

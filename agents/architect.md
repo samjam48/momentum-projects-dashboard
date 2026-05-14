@@ -13,9 +13,10 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 7. Relevant code paths end-to-end before drafting any significant change
 
 ## When To Use
+- Once per major feature or phase request — **not once per ticket**
 - A new feature request needs to be shaped
 - A new phase or major feature is starting — **including when `docs/V1-PRD.md` and `docs/V1-TRD.md` already exist**
-- A significant behavior change is proposed
+- A significant behavior change or scope expansion requires updated PRD/TRD before new tickets are added
 - A non-trivial refactor affects data flow, state, API, or infrastructure
 
 ## Required Behavior
