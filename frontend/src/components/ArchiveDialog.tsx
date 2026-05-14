@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
 import { listProjects } from '../api/projects'
-import type { Project } from '../api/types'
+import { listTasks } from '../api/tasks'
+import type { Project, Task } from '../api/types'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -14,15 +15,27 @@ import {
 type ArchiveTab = 'projects' | 'tasks'
 
 type ArchiveDialogProps = {
+  activeProjects: Project[]
   onEditProject: (project: Project) => void
 }
 
-export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Element {
+export function ArchiveDialog({
+  activeProjects,
+  onEditProject,
+}: ArchiveDialogProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false)
+  const [projectsLoadError, setProjectsLoadError] = useState<string | null>(null)
+  const [tasksLoadError, setTasksLoadError] = useState<string | null>(null)
+
+  const projectsById = activeProjects.reduce<Record<string, Project>>((projectMap, project) => {
+    projectMap[project.id] = project
+    return projectMap
+  }, {})
 
   useEffect(() => {
     if (!open) {
@@ -30,8 +43,8 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
     }
 
     let cancelled = false
-    setIsLoading(true)
-    setLoadError(null)
+    setIsLoadingProjects(true)
+    setProjectsLoadError(null)
 
     void listProjects('archived')
       .then((projects) => {
@@ -41,13 +54,13 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
       })
       .catch(() => {
         if (!cancelled) {
-          setLoadError('Unable to load archived projects.')
+          setProjectsLoadError('Unable to load archived projects.')
           setArchivedProjects([])
         }
       })
       .finally(() => {
         if (!cancelled) {
-          setIsLoading(false)
+          setIsLoadingProjects(false)
         }
       })
 
@@ -56,6 +69,38 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open || activeTab !== 'tasks') {
+      return
+    }
+
+    let cancelled = false
+    setIsLoadingTasks(true)
+    setTasksLoadError(null)
+
+    void listTasks({ status: 'archived' })
+      .then((tasks) => {
+        if (!cancelled) {
+          setArchivedTasks(tasks)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTasksLoadError('Unable to load archived tasks.')
+          setArchivedTasks([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingTasks(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, open])
+
   return (
     <Dialog
       open={open}
@@ -63,6 +108,7 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
         setOpen(nextOpen)
         if (!nextOpen) {
           setActiveTab('projects')
+          setArchivedTasks([])
         }
       }}
     >
@@ -100,12 +146,12 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
 
         {activeTab === 'projects' ? (
           <ArchiveTabPanel>
-            {loadError ? <p className="form-error">{loadError}</p> : null}
-            {isLoading ? <p className="muted-copy">Loading archived projects…</p> : null}
-            {!isLoading && archivedProjects.length === 0 ? (
+            {projectsLoadError ? <p className="form-error">{projectsLoadError}</p> : null}
+            {isLoadingProjects ? <p className="muted-copy">Loading archived projects…</p> : null}
+            {!isLoadingProjects && archivedProjects.length === 0 ? (
               <p className="muted-copy">No archived projects.</p>
             ) : null}
-            {!isLoading && archivedProjects.length > 0 ? (
+            {!isLoadingProjects && archivedProjects.length > 0 ? (
               <ul className="archive-project-list">
                 {archivedProjects.map((project) => (
                   <li key={project.id}>
@@ -132,7 +178,33 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
           </ArchiveTabPanel>
         ) : (
           <ArchiveTabPanel>
-            <p className="muted-copy">No archived tasks.</p>
+            {tasksLoadError ? <p className="form-error">{tasksLoadError}</p> : null}
+            {isLoadingTasks ? <p className="muted-copy">Loading archived tasks…</p> : null}
+            {!isLoadingTasks && archivedTasks.length === 0 ? (
+              <p className="muted-copy">No archived tasks.</p>
+            ) : null}
+            {!isLoadingTasks && archivedTasks.length > 0 ? (
+              <ul className="archive-task-list">
+                {archivedTasks.map((task) => {
+                  const project = projectsById[task.project_id]
+
+                  return (
+                    <li key={task.id}>
+                      <div className="archive-task-row">
+                        <span
+                          aria-hidden
+                          className="project-colour-dot"
+                          data-testid={`archive-task-dot-${task.project_id}`}
+                          style={{ backgroundColor: project?.colour ?? undefined }}
+                        />
+                        <span>{task.title}</span>
+                        {project ? <span className="archive-task-project">{project.name}</span> : null}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : null}
           </ArchiveTabPanel>
         )}
       </DialogContent>

@@ -105,7 +105,7 @@ export function Sidebar({
         )}
       </div>
 
-      <ArchiveDialog onEditProject={onEditProject} />
+      <ArchiveDialog activeProjects={activeProjects} onEditProject={onEditProject} />
     </aside>
   )
 }

@@ -966,10 +966,12 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     fireEvent.change(within(editDialog).getByRole('combobox', { name: /status/i }), {
       target: { value: 'done' },
     })
+    fireEvent.blur(within(editDialog).getByRole('combobox', { name: /status/i }))
     fireEvent.change(within(editDialog).getByLabelText(/estimated hours/i), {
       target: { value: '3' },
     })
-    fireEvent.click(within(editDialog).getByRole('button', { name: /save task/i }))
+    fireEvent.blur(within(editDialog).getByLabelText(/estimated hours/i))
+    fireEvent.click(within(editDialog).getByRole('button', { name: /close task/i }))
 
     await waitFor(() => {
       expect(within(kanbanSection).getByText('Publish sprint notes')).toBeInTheDocument()
@@ -1023,16 +1025,15 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     expect(within(dialog).getByText('Drafted launch copy')).toBeInTheDocument()
     expect(within(dialog).getByText('Adjusted final wording')).toBeInTheDocument()
 
-    fireEvent.change(within(dialog).getByLabelText(/logged date/i), {
-      target: { value: '2026-05-14' },
-    })
-    fireEvent.change(within(dialog).getByLabelText(/^hours$/i), {
+    fireEvent.click(within(dialog).getByRole('button', { name: /\+ add time log/i }))
+    const timeLogDialog = await screen.findByRole('dialog', { name: /add time log/i })
+    fireEvent.change(within(timeLogDialog).getByLabelText(/^time$/i), {
       target: { value: '1.5' },
     })
-    fireEvent.change(within(dialog).getByLabelText(/notes/i), {
+    fireEvent.change(within(timeLogDialog).getByLabelText(/notes/i), {
       target: { value: 'Final review and polish' },
     })
-    fireEvent.click(within(dialog).getByRole('button', { name: /add time log/i }))
+    fireEvent.click(within(timeLogDialog).getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => {
       expect(within(dialog).getByText('3.5')).toBeInTheDocument()
@@ -1165,23 +1166,22 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     )
 
     const detailDialog = await screen.findByRole('dialog', { name: /edit task/i })
-    fireEvent.change(within(detailDialog).getByLabelText(/logged date/i), {
-      target: { value: '2026-05-14' },
-    })
-    fireEvent.change(within(detailDialog).getByLabelText(/^hours$/i), {
+    fireEvent.click(within(detailDialog).getByRole('button', { name: /\+ add time log/i }))
+    const timeLogDialog = await screen.findByRole('dialog', { name: /add time log/i })
+    fireEvent.change(within(timeLogDialog).getByLabelText(/^time$/i), {
       target: { value: '0' },
     })
-    fireEvent.click(within(detailDialog).getByRole('button', { name: /add time log/i }))
+    fireEvent.click(within(timeLogDialog).getByRole('button', { name: /^save$/i }))
 
     expect(
-      await within(detailDialog).findByText(/hours must be greater than zero/i),
+      await within(timeLogDialog).findByText(/hours must be greater than zero/i),
     ).toBeInTheDocument()
 
-    fireEvent.change(within(detailDialog).getByLabelText(/^hours$/i), {
+    fireEvent.change(within(timeLogDialog).getByLabelText(/^time$/i), {
       target: { value: '1.25' },
     })
     expect(
-      within(detailDialog).queryByText(/hours must be greater than zero/i),
+      within(timeLogDialog).queryByText(/hours must be greater than zero/i),
     ).not.toBeInTheDocument()
   })
 })

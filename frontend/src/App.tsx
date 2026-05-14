@@ -409,6 +409,7 @@ function App() {
   const taskWorkspaceEnabled = taskWorkspacePrimed || taskDialogMode !== null
   const tasksQuery = useTasks({}, taskWorkspaceEnabled)
   const visibleTasks = tasksQuery.data
+    .filter((task) => task.status !== 'archived')
     .filter((task) => task.project_id in projectsById)
     .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
   const displayTasks = optimisticTasks ?? visibleTasks

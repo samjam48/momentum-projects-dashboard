@@ -60,6 +60,8 @@ def _ensure_task_project_is_active(session: Session, project_id: str) -> Project
 def _apply_completed_date(status_value: TaskStatus, completed_date: date | None) -> date | None:
     if status_value == "done":
         return completed_date or _utc_today()
+    if status_value == "archived":
+        return completed_date
     return None
 
 
@@ -83,6 +85,8 @@ def list_tasks(
         statement = statement.where(Task.project_id == project_id)
     if task_status is not None:
         statement = statement.where(Task.status == task_status)
+    else:
+        statement = statement.where(Task.status != "archived")
     if priority is not None:
         statement = statement.where(Task.priority == priority)
 
@@ -177,6 +181,8 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
         hours=payload.hours,
         logged_date=payload.logged_date,
         notes=payload.notes,
+        title=payload.title,
+        location=payload.location,
         source="manual",
     )
     session.add(time_log)

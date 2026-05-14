@@ -21,7 +21,13 @@ export function getTableRegion(): HTMLElement {
 }
 
 export async function waitForWorkspaceReady(): Promise<HTMLElement> {
-  return screen.findByRole('complementary', { name: /projects sidebar/i })
+  const sidebar = await screen.findByRole('complementary', { name: /projects sidebar/i })
+
+  await waitFor(() => {
+    expect(screen.queryByText(/loading workspace/i)).not.toBeInTheDocument()
+  })
+
+  return sidebar
 }
 
 export function getProjectFilterCheckbox(projectName: string): HTMLElement {

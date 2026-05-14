@@ -64,7 +64,10 @@ export async function createTask(payload: TaskPayload): Promise<Task> {
   })
 }
 
-export async function updateTask(taskId: string, payload: TaskPayload): Promise<Task> {
+export async function updateTask(
+  taskId: string,
+  payload: TaskUpdatePayload,
+): Promise<Task> {
   return apiRequest<Task>(`/api/v1/tasks/${taskId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
@@ -126,7 +129,8 @@ export function useTasks(filters: TaskFilters = {}, enabled = true): QueryState<
 
 type TaskMutations = {
   create: (payload: TaskPayload) => Promise<Task>
-  update: (taskId: string, payload: TaskPayload) => Promise<Task>
+  update: (taskId: string, payload: TaskUpdatePayload) => Promise<Task>
+  archive: (taskId: string) => Promise<Task>
   remove: (taskId: string) => Promise<void>
   updateStatus: (taskId: string, payload: TaskStatusPayload) => Promise<Task>
   error: ApiError | null
@@ -172,6 +176,11 @@ export function useTaskMutations(onSettled: () => Promise<void>): TaskMutations 
     create: (payload) => runMutation(() => createTask(payload), 'Unable to create task.'),
     update: (taskId, payload) =>
       runMutation(() => updateTask(taskId, payload), 'Unable to update task.'),
+    archive: (taskId) =>
+      runMutation(
+        () => updateTask(taskId, { status: 'archived' }),
+        'Unable to archive task.',
+      ),
     remove: (taskId) => runMutation(() => deleteTask(taskId), 'Unable to delete task.'),
     updateStatus: (taskId, payload) =>
       runMutation(

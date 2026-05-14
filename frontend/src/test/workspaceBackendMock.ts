@@ -175,7 +175,10 @@ export function installWorkspaceBackendMock(
 
   const withDerivedHours = (task: Task): Task => ({
     ...task,
-    actual_hours: actualHoursForTask(task.id),
+    actual_hours:
+      task.actual_hours !== null && task.actual_hours > 0
+        ? task.actual_hours
+        : actualHoursForTask(task.id),
   })
 
   const fetchMock = vi.fn<typeof fetch>(
@@ -270,7 +273,13 @@ export function installWorkspaceBackendMock(
 
         const filteredTasks = tasks
           .filter((task) => projectIdFilter === null || task.project_id === projectIdFilter)
-          .filter((task) => statusFilter === null || task.status === statusFilter)
+          .filter((task) => {
+            if (statusFilter !== null) {
+              return task.status === statusFilter
+            }
+
+            return task.status !== 'archived'
+          })
           .filter((task) => priorityFilter === null || task.priority === priorityFilter)
           .map(withDerivedHours)
 
@@ -317,11 +326,20 @@ export function installWorkspaceBackendMock(
             hours: payload.hours,
             logged_date: payload.logged_date,
             notes: payload.notes,
+            title: payload.title ?? null,
+            location: payload.location ?? null,
             created_at: `2026-05-13T08:00:0${timeLogCreateCount}Z`,
             updated_at: `2026-05-13T08:00:0${timeLogCreateCount}Z`,
           })
 
           timeLogsByTask.set(taskId, [...existingTimeLogs, createdTimeLog])
+          const taskIndex = tasks.findIndex((candidate) => candidate.id === taskId)
+          if (taskIndex >= 0) {
+            tasks[taskIndex] = {
+              ...tasks[taskIndex],
+              actual_hours: actualHoursForTask(taskId),
+            }
+          }
           return jsonResponse({ body: createdTimeLog, status: 201 })
         }
       }

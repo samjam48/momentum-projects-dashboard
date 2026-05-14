@@ -144,7 +144,10 @@ describe('Ticket 1b-4 Projects page polish', () => {
       const dialog = await screen.findByRole('dialog', { name: /archive/i })
 
       fireEvent.click(within(dialog).getByRole('tab', { name: /archived tasks/i }))
-      expect(within(dialog).getByText(/no archived tasks/i)).toBeInTheDocument()
+
+      await waitFor(() => {
+        expect(within(dialog).getByText(/no archived tasks/i)).toBeInTheDocument()
+      })
     })
 
     it('shows an empty state when no archived projects exist', async () => {

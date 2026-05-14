@@ -44,6 +44,8 @@ export function buildTimeLog(overrides: Partial<TimeLog>): TimeLog {
     hours: overrides.hours ?? 1,
     logged_date: overrides.logged_date ?? '2026-05-13',
     notes: overrides.notes ?? null,
+    title: overrides.title ?? null,
+    location: overrides.location ?? null,
     source: 'manual',
     created_at: overrides.created_at ?? '2026-05-13T08:00:00Z',
     updated_at: overrides.updated_at ?? '2026-05-13T08:00:00Z',
