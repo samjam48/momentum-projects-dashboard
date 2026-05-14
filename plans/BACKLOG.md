@@ -30,19 +30,22 @@ Future phases beyond the current sprint live here. Nothing in this file is in sc
 - Sidebar: venture scaffold, multi-select project filter, archive link, + Hustle placement
 - Task Kanban full width; summary table below; toolbar above board
 - Linear-density task cards; card-level drag; board options in localStorage
+- **Cleanup tickets (1b-4+):** owner UX polish in `plans/phase-1.5-ux.md` §11
 - **Scope:** current Project → Task schema only (no venture migration)
 
-## Phase 1.6 — Ventures, Assets, and Project Kanban
-- Alembic migration: `ventures` table; `projects.venture_id`, `is_asset`, project status workflow
+## Phase 1.6 — Ventures, Project Types, and Project Kanban
+- Alembic migration: `ventures` table; `projects.venture_id`, `project_type`, project status workflow
+- **`project_type`** enum on projects: `project` (default) \| `asset` \| `gig` \| `contract` — replaces boolean `is_asset`; selectable in UI; **no behavioural difference between types in 1.6** (same fields, Kanban, tasks)
 - Project statuses: `idea` | `active` | `paused` | `shipped` + project Kanban board
 - Task `type` field with semantic colours (writing, research, code, meeting, admin)
 - Venture CRUD + archive; income stream `venture_id`; goals `venture_id`
 - Sidebar: expandable venture → project tree; venture edit modal
 - Projects page toggle: Tasks board | Projects board
-- Data migration: existing projects → default venture
+- Data migration: existing projects → default venture; `is_asset = true` → `project_type = asset`
 
 ## Phase 2 — Income Tracking
-- Income streams CRUD (venture-first; optional project/asset link)
+- **Architect pass required** before implementation: income streams linked to ventures and optionally to projects by **type** (project, asset, gig, contract); **payment cadence** (weekly, monthly, one-time) for recurring vs episodic revenue; how gigs/contracts differ from assets in rollup UX
+- Income streams CRUD (venture-first; optional project link by `project_type`)
 - Income entries with actual vs projected tracking
 - Multi-currency support with GBP rollup
 - Income summary API for MTD, QTD, and YTD (venture + project breakdown)

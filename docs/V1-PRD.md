@@ -25,19 +25,23 @@ Momentum is a self-hosted personal operations dashboard for a multi-project inde
 ### 3.0 Hierarchy
 
 ```text
-Venture  →  Project / Asset  →  Task
+Venture  →  Project  →  Task
 ```
+
+Projects share one table; **project type** distinguishes general work from income-related units (asset, gig, contract).
 
 | Entity | Description |
 | --- | --- |
 | **Venture** | Top-level business line or life area (podcast business, trading bots, property, education). Code/table name: `venture`. UI label is user-selectable: hustle (default), business, investment, property, or education. |
-| **Project** | Work container inside a venture. Shorter-term initiatives (build website, research algo). |
-| **Asset** | A project flagged `is_asset` when it is an ongoing income-bearing unit (apartment, individual bot, Etsy SKU). Same table as projects. |
+| **Project** | Work container inside a venture. Default `project_type = project`. Shorter-term initiatives (build website, research algo). |
+| **Asset** | `project_type = asset` — ongoing income-bearing unit (apartment, individual bot, Etsy SKU). Same table as projects. |
+| **Gig** | `project_type = gig` — paid work, often under a hustle (design a website, edit a podcast). May pay once or on a recurring cadence (Phase 2 income). |
+| **Contract** | `project_type = contract` — formal paid engagement, often under a business (retainer, client agreement). May pay once or on a recurring cadence (Phase 2 income). |
 | **Task** | Unit of work inside a project. |
 
 Everything — tasks, income streams, goals, time logs — ultimately rolls up through this hierarchy.
 
-**Phase note:** Phase 1 shipped Project → Task only. Ventures and assets are introduced in Phase 1.6 per `plans/phase-1.5-ux.md`.
+**Phase note:** Phase 1 shipped Project → Task only. Ventures and `project_type` are introduced in Phase 1.6 per `plans/phase-1.5-ux.md`. **Until Phase 2**, selecting a non-default project type does not change project behaviour — it is classification for future income UX. Payment cadence (weekly, monthly, one-time) and stream-to-type rules are **Phase 2** scope; requires architect review before implementation.
 
 ---
 
@@ -57,17 +61,27 @@ Ventures are the top-level organisational unit.
 
 ---
 
-### 3.2 Projects & Assets
+### 3.2 Projects (by type)
 
-Projects belong to exactly one venture. Assets are projects with `is_asset = true`.
+Projects belong to exactly one venture. Type is stored as `project_type` on the same row (`project` \| `asset` \| `gig` \| `contract`; default `project`).
 
 **User can:**
 - Create a project inside a venture (name, description, colour, optional icon)
-- Mark a project as an asset when it is a recurring income source
+- Set **project type** (defaults to project; asset / gig / contract for classification)
 - Move project across Kanban columns: Idea → Active → Paused → Shipped
 - Archive a project; view archived projects via sidebar Archive link
 - Open project hub (Phase 3): stats, goals, tasks; edit via explicit control
 - Interim (Phase 1b): click project title → edit modal with archive at bottom
+
+**Type semantics (target):**
+| Type | Typical venture context | Income note (Phase 2+) |
+| --- | --- | --- |
+| `project` | Any | General work; optional income link |
+| `asset` | Business, investment, property | Recurring income unit (rental, SKU, bot) |
+| `gig` | Hustle | Paid deliverable or recurring side income |
+| `contract` | Business | Formal agreement; retainer or milestone pay |
+
+**Phase 1.6:** type selector in create/edit UI only — **no difference in fields, status workflow, or task behaviour** by type.
 
 **Archive / delete policy:**
 - **Archive** — reversible; user-visible via Archive view
@@ -78,13 +92,14 @@ Projects belong to exactly one venture. Assets are projects with `is_asset = tru
 
 ### 3.3 Income & Revenue Tracking
 
-Income streams are user-defined and flexible.
+Income streams are user-defined and flexible. **Phase 2 architect review** must finalise how streams attach to ventures and to projects by **type** (project, asset, gig, contract), and how **payment cadence** (weekly, monthly, one-time) is modelled for recurring vs one-off revenue.
 
 **Income stream properties:**
 - Name (e.g. "Podcast Sponsorships", "Flat Rental", "Affiliate")
 - **Venture** (required primary link)
-- **Project / asset** (optional drill-down)
-- Type tag (recurring / one-off / consulting / rental / affiliate / other)
+- **Project** (optional drill-down; any `project_type`)
+- **Cadence** *(Phase 2 — TBD)*: weekly \| monthly \| one_time — distinguishes recurring streams from single payouts (applies to gigs, contracts, and assets alike)
+- Type tag (recurring / one-off / consulting / rental / affiliate / other) — may align with or supplement cadence; architect to reconcile
 - Status: active / inactive / projected
 - Currency (default GBP; other currencies stored at entry level with GBP conversion)
 

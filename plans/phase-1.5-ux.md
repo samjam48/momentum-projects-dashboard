@@ -21,20 +21,24 @@ A larger domain change — **Venture → Project/Asset → Task** — is designe
 
 ```text
 Venture (UI label: hustle | business | investment | property | education — default "hustle")
-  └── Project / Asset (same table; `is_asset` flag)
+  └── Project (same table; `project_type`: project | asset | gig | contract — default "project")
         └── Task
 ```
 
 | Level | Role | Examples |
 | --- | --- | --- |
 | **Venture** | Permanent top-level “hustle” or business line | Podcast business, Trading bots, Etsy store, Property portfolio |
-| **Project** | Shorter-term work inside a venture | Redecorate flat, Optimise Etsy page, Research new algo |
-| **Asset** | Ongoing income-bearing unit at project level | Apartment A, Individual trading bot, Etsy listing SKU |
+| **Project** | Default work container inside a venture | Redecorate flat, Optimise Etsy page, Research new algo |
+| **Asset** | Ongoing income-bearing unit (`project_type = asset`) | Apartment A, Individual trading bot, Etsy listing SKU |
+| **Gig** | Paid one-off or recurring work, often under a hustle (`project_type = gig`) | Design a website, Edit a podcast episode |
+| **Contract** | Formal paid engagement, often under a business (`project_type = contract`) | Retainer, SaaS client agreement |
 | **Task** | Unit of work inside a project | Landing page copy, SEO audit, Deploy v2 |
 
 - A project belongs to **exactly one** venture.
 - Tasks belong to **exactly one** project.
-- **Assets** share the projects table with `is_asset = true` when the unit is a recurring income source.
+- **Project type** is a single enum on the projects row (not a separate table). Default `project` when unset.
+- **Phase 1.6:** type is selectable in UI; **no behavioural difference** between types yet — same fields, Kanban, and task flows.
+- **Phase 2+:** gigs, contracts, assets, and projects may link to income streams with **cadence** (weekly, monthly, one-time); architect to finalise schema and UX with income (see `docs/V1-PRD.md` §3.3, `plans/BACKLOG.md` Phase 2).
 
 ### Kanban boards (two views, one page)
 
@@ -172,7 +176,7 @@ Linear-style neutral card:
 
 - Project colour dot + name
 - Status badge (idea / active / paused / shipped)
-- Asset indicator when `is_asset`
+- Type indicator when not default `project` (asset / gig / contract)
 - One default metric (e.g. open task count) — options via Board options
 
 ### Project hub (interim vs future)
@@ -337,25 +341,76 @@ Phase 5+    →   Unchanged from BACKLOG
 
 ---
 
-## 11. Phase 1b cleanup backlog (caught during implementation)
+## 11. Phase 1b cleanup backlog (owner feedback, May 2026)
 
-Owner decisions logged during 1b-1 / 1b-2 — address in a **final 1b cleanup ticket** after 1b-3, not ad hoc.
+Owner review after 1b-1 / 1b-2 / 1b-3 — implement as **one or two cleanup tickets** (`1b-4`, optional `1b-5`) after sign-off. Do not land ad hoc.
 
-| Item | Owner decision | Notes |
+### 11.1 Shell, sidebar, and archive
+
+| Item | Decision | Detail |
 | --- | --- | --- |
-| **View archive** | Modal listing archived projects (and later ventures/tasks) | API exists: `GET /api/v1/projects?status=archived`. Current footer link is a no-op stub (`#` + `preventDefault`). Replace with Dialog modal for 1b; full archive page later. |
-| **Archive filter rollback** | Fixed in 1b-2 | Filter reset moved to archive success path; snapshot restore on API failure. |
-| **Dual filter UX copy** | Cleanup | Toolbar dropdown + sidebar checkboxes are coordinated in code; polish labels / empty-state copy when filters disagree. |
-| **Task API `project_id` filter** | Defer | 1b-2 loads all tasks and filters client-side for multi-select; revisit server-side filter when task volume warrants it. |
-| **Colour picker keyboard** | Defer | Enter/Space on focused swatch optional polish; trigger focus ring sufficient for now. |
-| **Loading sidebar dead form** | Defer to 1b-2+ cleanup | Remove no-op form during `!workspaceReady` when modals own all project flows. |
-| **TopNav `/projects` href** | Defer | No client router yet; use non-navigating control until routing ticket. |
-| **App.tsx size** | Defer | ~1.8k lines; extract Kanban/table/dialog wiring in cleanup or post-1b chore. |
-| **Kanban card hex tags** | Done in 1b-3 | Linear cards use colour dot; no hex on cards. |
-| **Board options keyboard** | Defer — late-stage usability | Owner: not needed while features still changing; full keyboard nav after feature set stabilises. |
-| **Kanban drag / card-surface DnD** | Defer — 1b cleanup or later | Owner: card-surface drag needs stabilisation; revisit after more features land (nested button + touch). |
-| **Venture colour underline on task titles** | Defer — 1.6 | All-projects view underline uses venture colour; ventures not in schema until 1.6. |
-| **Duplicate Kanban test helpers** | Fixed post-1b-3 review | `App.test.tsx` imports shared `workspaceQueries`; Ticket 5 slimmed to smoke. |
+| **View archive** | Ship in cleanup | Replace footer stub with **Dialog** listing archived items. Toggle: **archived projects** \| **archived tasks**. Projects: `GET /api/v1/projects?status=archived`. Tasks: archive via task modal (see §11.2); list archived tasks when API supports `status=archived` or equivalent. Full archive page later. |
+| **Dual filter UX copy** | Polish | Toolbar dropdown + sidebar checkboxes work; align labels and empty states so mismatched filters are not confusing. |
+| **Loading sidebar** | Fix | No misleading dead form while app is still loading (`!workspaceReady`). |
+| **TopNav Projects link** | Fix | No client router yet — avoid `<a href>` that hard-navigates away; use non-navigating control. |
+| **App.tsx extraction** | Cleanup | Slim ~1.8k-line file — extract Kanban / table / dialog wiring into components. |
+| **Sidebar checkboxes** | Redesign | All projects checked by default (keep). **Checkbox on the right** of each row; **project colour dot only on the left** (no coloured title chip in row). Checkbox: transparent or very low-opacity fill; **darker outline when checked**, lighter when unchecked. |
+| **Icon set** | Standardise | Use one flat icon library site-wide (e.g. Lucide via shadcn). **No emoji** for controls. |
+
+### 11.2 Board options and Kanban
+
+| Item | Decision | Detail |
+| --- | --- | --- |
+| **Board options control** | Gear icon | Replace large button with **gear icon** at **right of Kanban title bar**. Menu items: smaller text; **checkboxes left-aligned** (same pattern as sidebar project checkboxes), not bold labels. |
+| **Column headers** | Status pills | Column titles use the **same pill style** as card status badges (Backlog, In Progress, etc.). |
+| **Status on cards** | Remove from board options | Status is implied by column — drop status from optional card fields. |
+| **Card layout** | Linear polish | **5px padding** on each card. **Project colour dot top-right** (same height as title). **Project name not shown by default** under title; when enabled in board options, show as **pill** tinted to project colour. |
+| **Title hover** | Underline only | Remove background colour on title hover (unreadable); keep **underline** only. |
+| **Due date format** | `MMM DD` | Three-letter month + day: `May 14`, `Sep 09`, `Dec 23`. |
+| **Column layout** | Four columns | **Four vertical columns** in one row (not 2×2 grid). Horizontal scroll on narrow viewports. |
+| **Kanban drag** | Stabilise | Card-surface drag still rough (title button inside draggable, touch). Revisit activation constraints and nested interactive elements. |
+| **Board options keyboard** | Defer | Full keyboard operation after feature set stabilises. |
+| **Colour picker keyboard** | Optional | Enter/Space on swatches — polish when convenient. |
+
+### 11.3 Task summary table
+
+| Item | Decision | Detail |
+| --- | --- | --- |
+| **Section title** | Match Projects bar | **Task summary** — bold, same typographic treatment as **Projects** in page toolbar. |
+| **Filter subtitle** | Human copy | Replace “Shared filter target: …” with **“Showing all projects”**, **“Showing N projects”**, or **“Showing {project name}”** when one selected. |
+| **Table sort** | Gear + dropdown | Sort via **gear icon** (right of section title bar), dropdown labelled **Sort by** with column options. Keep or replace header-click sort — dropdown must be the obvious entry point. |
+
+### 11.4 Task modals and time logs
+
+| Item | Decision | Detail |
+| --- | --- | --- |
+| **Remove dev/meta copy** | All task dialogs | Drop placeholder strings that read like implementation notes, e.g. “Create a task in the Phase 1 workspace”, “Backend-derived completion…”, “Manual entries refresh task totals…”. **UI copy rule:** labels describe user actions and data, not system behaviour. |
+| **New task modal** | Minimal | No “Task detail” section header; no blank Actual hours / completed date block; no “Save the task before adding manual time logs.” |
+| **Edit task modal — chrome** | Dialog UX | **X icon** closes (no “Close” button). **No “Title” label** — task name is **editable h3**; click to edit inline. |
+| **Edit task — save model** | Blur / close save | Persist on **blur** or **close** when edited. **Cancel** discards unsaved edits. Primary footer: **Cancel** (current Save styling). Secondary: **Archive** as grey text link (no outline, same padding as old Cancel) — archives task; view in archive toggle. True delete deferred. |
+| **Time logs section** | Restructure | Title: **Time logs** only. **Actual hours** and **completed date** at **top**. Listed entries below; **+ Add time log** directly under title or list (no inline date/hours/notes form). |
+| **Add time log** | Sub-modal | Opens Dialog: **title**, **notes**, **location**, **date**, **time** (hours). Only **time** required; rest nullable. Save / Cancel. |
+| **Time log list item** | Compact row | **Title bold** (primary line). Date and location below in smaller, lighter text. **Click row** to view notes (expand or secondary modal). |
+| **Create task copy** | Minimal | Remove “New task” / “Edit task” instructional subtitles. |
+
+### 11.5 Still deferred (unchanged)
+
+| Item | When | Notes |
+| --- | --- | --- |
+| **Task API `project_id` filter** | Scale | Client-side multi-select filter; server filter when volume warrants. |
+| **Venture colour underline** | 1.6 | Ventures not in schema until Phase 1.6. |
+| **Archive filter rollback** | Done in 1b-2 | Filter reset on archive success. |
+| **Kanban card hex tags** | Done in 1b-3 | Colour dot only. |
+| **Duplicate Kanban test helpers** | Done post-1b-3 | Shared `workspaceQueries` in tests. |
+
+### 11.6 Suggested ticket split
+
+| Ticket | Scope |
+| --- | --- |
+| **1b-4 — Projects page polish** | §11.1 (except task archive list if blocked on API), §11.2, §11.3, App.tsx extraction |
+| **1b-5 — Task modal and time logs** | §11.4, archived tasks in archive modal, task archive API if needed |
+
+Planner may merge into a single **1b-4** if acceptance criteria stay reviewable in one PR.
 
 ---
 
@@ -370,7 +425,7 @@ Owner decisions logged during 1b-1 / 1b-2 — address in a **final 1b cleanup ti
 | Q5 | Project statuses: idea, active, paused, shipped |
 | Q6 | One Projects page; toggle Tasks / Projects boards |
 | Q7 | Sidebar: ventures with expandable project lists |
-| Q8 | Income venture-first; assets flagged on projects |
+| Q8 | Income venture-first; `project_type` on projects (project \| asset \| gig \| contract); cadence in Phase 2 |
 | Q9 | Goals on venture and/or project |
 | Q10 | **1b before 1.6** — UX on current schema first |
 | Q11–13 | Edit in modal now; hub page later; multi-select filter; + Hustle only in sidebar |

@@ -19,6 +19,8 @@
 1. **1b-1** establishes shell and page skeleton so later tickets have stable mount points.
 2. **1b-2** moves create/edit flows into Dialog modals and wires sidebar filtering — depends on shell/sidebar from 1b-1.
 3. **1b-3** refines Kanban card density and drag interaction — depends on Projects page layout from 1b-1 and modal patterns from 1b-2.
+4. **1b-4** polishes Projects page shell, Kanban, summary table, and archive dialog (projects tab) — depends on 1b-1–1b-3 layout and interaction baseline.
+5. **1b-5** refines task modal UX, time-log sub-modal, and archived-tasks archive tab — depends on 1b-2 modal patterns; archive task action may depend on API gap resolution in Unresolved Dependencies.
 
 ---
 
@@ -93,7 +95,69 @@
 
 ---
 
+## Ticket 1b-4 — Projects Page Polish (Shell, Kanban, Summary Table)
+
+### Acceptance Criteria
+
+- **View archive (projects):** Replace sidebar footer **View archive** stub with a shadcn `Dialog`. On open, fetch and list archived projects via `GET /api/v1/projects?status=archived`. Each row shows project name and colour dot; click opens read-only or edit dialog per existing project patterns (archived projects must not appear in the active sidebar list). Dialog includes a toggle or tabs for **Archived projects** | **Archived tasks**; **Archived tasks** tab may render a placeholder empty state until 1b-5 ships (do not block 1b-4 on task archive API).
+- **Dual filter UX copy:** Toolbar **All projects** dropdown and sidebar multi-select checkboxes remain functionally unchanged. Align labels and empty-state copy so combined filters are understandable (e.g. empty Kanban when sidebar selection excludes all visible toolbar targets shows guidance referencing sidebar selection, not internal keys like “Shared filter target”).
+- **Loading sidebar:** While `!workspaceReady`, sidebar must not render a misleading dead project form or interactive filter chrome; show skeleton, muted loading copy, or hide filter rows until data is ready.
+- **TopNav Projects link:** **Projects** nav item must not use `<a href>` that triggers a full document navigation (no client router yet). Use a non-navigating control (`button` or `role="button"`) that preserves current-page behaviour and active styling.
+- **Sidebar row layout:** Keep all projects checked by default. Per row: **project colour dot on the left**; project title (click opens edit dialog); **checkbox on the right**. Remove coloured title chip from the row. Checkbox styling: transparent or very low-opacity fill; **darker outline when checked**, lighter when unchecked (match board-options checkbox pattern).
+- **Icon set:** Standardise interactive controls on the Projects page and shell to **Lucide** icons via shadcn-compatible imports (`lucide-react`). Remove emoji used as control icons in scope (gear, close, add, archive affordances, etc.).
+- **App.tsx extraction:** Slim monolithic `App.tsx` by extracting Kanban board wiring, task summary table wiring, and dialog orchestration into dedicated components under `components/` or `pages/` (e.g. `TaskKanbanBoard`, `TaskSummaryTable`, workspace dialog host). `App.tsx` composes shell + page + query/mutation hooks; no regression to Phase 1 workflows.
+- **Board options control:** Replace large **Board options** button with a **gear icon** at the **right of the Kanban section title bar**. Dropdown menu: smaller text; each option is a **left-aligned checkbox** (same visual pattern as sidebar project checkboxes), not bold labels. Remove **status** from optional card fields (status is implied by column). Preferences remain in `localStorage`.
+- **Kanban columns:** Exactly **four vertical columns** in one horizontal row (Backlog, In Progress, Review, Done) — not a 2×2 grid. Narrow viewports: horizontal scroll. Column headers use the **same pill/badge style** as task status badges on cards.
+- **Kanban cards (Linear polish):** **5px padding** on each card. **Project colour dot top-right**, aligned to title line height. **Project name hidden by default**; when enabled in board options, show as a **pill tinted to project colour** (not plain text under title). Title hover: **underline only** — remove background highlight on hover. Default metric due date formatted **`MMM DD`** (three-letter month + day, e.g. `May 14`, `Sep 09`, `Dec 23`). Card-surface drag remains; stabilise interaction (activation constraints, nested title button vs draggable root) so title click opens modal without spurious drags on mouse and touch.
+- **Task summary table:** Section title **Task summary** uses the same bold typographic treatment as **Projects** in the page toolbar. Replace “Shared filter target: …” subtitle with human copy: **“Showing all projects”**, **“Showing N projects”**, or **“Showing {project name}”** when exactly one project is selected. Sort via **gear icon** to the right of the section title bar; dropdown labelled **Sort by** lists column sort options. Dropdown is the obvious sort entry point (header-click sort may remain but must not be the only discoverable control).
+- Add or update frontend tests for archive dialog (projects list), sidebar loading state, TopNav non-navigation, filter subtitle copy, board-options gear placement, four-column layout, due-date format, table sort gear, and App extraction landmarks (imports/render without behaviour regression).
+
+### Edge Cases
+
+- Archive dialog with zero archived projects shows clear empty state.
+- Archive dialog open while project list refetches does not flash active projects into archived list.
+- Sidebar with zero active projects: no misleading checkboxes; empty state consistent with toolbar.
+- Board options `localStorage` missing or corrupt: safe defaults (due date on, no project-name pill, no priority badge); status option ignored if present in stale storage.
+- Kanban drag disabled while status mutation in flight (preserve 1b-3 rollback behaviour).
+- Table sort gear and Kanban board options gear are independently operable and labelled for assistive tech.
+- Full keyboard traversal of board options menu deferred post-stabilisation (§11.2); focus trap in archive dialog still required.
+- Colour picker Enter/Space on swatches: optional polish when convenient; not a blocker for 1b-4.
+
+---
+
+## Ticket 1b-5 — Task Modal, Time Logs, and Archived Tasks
+
+### Acceptance Criteria
+
+- **Remove dev/meta copy:** All task dialogs drop implementation-note placeholder strings (e.g. “Create a task in the Phase 1 workspace”, “Backend-derived completion…”, “Manual entries refresh task totals…”). Copy describes user actions and data fields only.
+- **New task modal:** Minimal chrome — no “Task detail” section header; no blank Actual hours / completed date block on create; no “Save the task before adding manual time logs.” Remove instructional subtitles (“New task”, “Edit task”).
+- **Edit task modal — chrome:** **X icon** closes dialog (no footer **Close** button). No **Title** label — task name is an **editable heading** (`h3`-level); click/focus enables inline edit.
+- **Edit task — save model:** Persist field changes on **blur** and on **dialog close** when dirty. Footer primary **Cancel** uses prior Save button styling and **discards unsaved edits**. Footer secondary **Archive** is a grey text link (no outline; padding consistent with former Cancel) — triggers task archive flow (see below). Remove standalone **Save** button.
+- **Time logs section (edit modal):** Section title **Time logs** only. **Actual hours** and **completed date** displayed at the **top** of the section (read-only aggregates from task). Listed entries below. **+ Add time log** sits directly under the section title or list — **no** inline date/hours/notes form on the main modal.
+- **Add time log sub-modal:** **+ Add time log** opens a nested `Dialog` with fields: **title**, **notes**, **location**, **date**, **time** (hours). Only **time** (hours) is required; title, notes, location, and date nullable/default sensibly. Footer **Save** / **Cancel**. On save, call existing `POST /api/v1/tasks/{id}/time-logs` with `hours`, `logged_date`, and `notes` (map title/location into `notes` per Unresolved Dependencies until schema supports separate columns). Invalidate task and time-log queries; refresh actual hours in parent modal.
+- **Time log list item:** Compact row — **title bold** on primary line (derive display title from stored notes convention or notes first line if title not persisted separately). **Date** and **location** on secondary line in smaller, lighter text. **Click row** opens notes detail (expand in place or lightweight secondary dialog).
+- **Archived tasks in archive modal:** Complete the **Archived tasks** tab from 1b-4 archive dialog. List archived tasks when API supports `GET /api/v1/tasks?status=archived` or equivalent soft-archive filter. Rows show task title and project name/dot; click opens read-only task detail or edit modal per product rules for archived items.
+- **Task archive action:** **Archive** in edit modal soft-archives the task (removes from active Kanban and sidebar-scoped views) and surfaces it under **Archived tasks**. Prefer existing PATCH/status or dedicated archive endpoint without schema change if available; if no soft-archive exists, follow Unresolved Dependencies (do **not** use hard `DELETE` as user-facing archive without owner sign-off).
+- Add or update frontend tests for stripped copy, inline title edit, blur/close save, Cancel discard, Archive affordance, time-log sub-modal validation (hours required), list row layout, and archived-tasks tab behaviour (or placeholder until API lands).
+
+### Edge Cases
+
+- Cancel with dirty inline title reverts to last saved title.
+- Close dialog via X or overlay with dirty fields persists (blur/close save) unless Cancel was explicitly clicked.
+- Archive while edits pending: define order (save then archive, or archive discards pending) and test; on failure show error without removing task from board.
+- New task modal: time logs section hidden or disabled until task exists (no confusing add-time-log on unsaved create).
+- Time log sub-modal: invalid or zero hours blocks save with field-level error; date defaults to today when omitted.
+- Sub-modal open: parent task modal remains mounted; escape closes sub-modal first.
+- Archived tasks tab empty state when API returns `[]`.
+- Task on archived project: archive/list behaviour consistent with backend rules (409 on mutate if project archived).
+- Clicking time log row with empty notes still opens detail without error.
+
+---
+
 ## Unresolved Dependencies
 
 - Owner approval on draft hex tokens is recorded in Phase 1.5; implementation uses those values unless revised.
 - Phase 1.6 tickets (ventures, assets, project Kanban) are out of scope for this file.
+- **Task soft-archive API gap:** Tasks currently expose Kanban statuses only (`backlog` | `in_progress` | `review` | `done`); `DELETE /api/v1/tasks/{id}` hard-deletes. There is no `GET /api/v1/tasks?status=archived`. **1b-5** archived-tasks tab and **Archive** action need owner decision: (a) minimal backend follow-up (e.g. `archived` status or `archived_at` + list filter) without broader schema churn, or (b) defer archived-tasks tab until API exists while shipping modal/time-log UX. Do not masquerade hard delete as archive.
+- **Time log title and location fields:** `time_logs` table has `hours`, `logged_date`, `notes` only. Sub-modal **title** and **location** require either owner-approved Alembic addition to `time_logs` or an interim mapping into `notes` with a documented parse/display convention; prefer (a) if owner wants faithful §11.4 list rows without hacks.
+- **Board options and table sort keyboard polish** remain deferred per §11.2 until feature set stabilises.

@@ -158,7 +158,7 @@ name         TEXT NOT NULL
 description  TEXT
 colour       TEXT                    -- one of 12 palette hex values
 icon         TEXT                    -- optional (Phase 1.6)
-is_asset     BOOLEAN DEFAULT FALSE   -- true = recurring income-bearing unit (Phase 1.6)
+project_type TEXT DEFAULT 'project'   -- project | asset | gig | contract (Phase 1.6); replaces is_asset
 status       TEXT DEFAULT 'active'   -- active | archived (Phase 1)
              -- Phase 1.6 project Kanban: idea | active | paused | shipped
 kanban_order INTEGER                 -- sort within project-board column (Phase 1.6)
@@ -201,8 +201,9 @@ created_at   DATETIME NOT NULL
 ```sql
 id           TEXT PRIMARY KEY
 venture_id   TEXT NOT NULL REFERENCES ventures(id)   -- Phase 2; primary rollup key
-project_id   TEXT REFERENCES projects(id)             -- nullable drill-down
+project_id   TEXT REFERENCES projects(id)             -- nullable drill-down (any project_type)
 name         TEXT NOT NULL
+cadence      TEXT       -- weekly | monthly | one_time (Phase 2 — architect TBD)
 type         TEXT       -- recurring | one_off | consulting | rental | affiliate | other
 status       TEXT DEFAULT 'active'           -- active | inactive | projected
 default_currency  TEXT DEFAULT 'GBP'
@@ -210,6 +211,8 @@ notes        TEXT
 created_at   DATETIME NOT NULL
 updated_at   DATETIME NOT NULL
 ```
+
+**Phase 2 note:** Linking income to `project_type` (asset vs gig vs contract) and cadence requires an architect pass before migration — see `plans/BACKLOG.md` Phase 2 and PRD §3.3.
 
 ### `income_entries`
 ```sql
