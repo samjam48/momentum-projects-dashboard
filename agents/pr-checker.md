@@ -9,8 +9,8 @@ Run the full project quality gate sequence and report pass or fail for each gate
 3. Any project instructions that define required verification commands
 
 ## When To Use
-- Review feedback has been addressed or intentionally accepted
-- The owner wants a final pre-merge quality gate report
+- After the developer signs off following the orchestrator's end-of-batch verification handoff
+- Not per ticket — runs once before merge readiness, after `make lint` and `make test` have been run by the developer
 
 ## Required Behavior
 - Run the full backend and frontend quality gates defined in `AGENTS.md`
@@ -41,3 +41,4 @@ Run the full project quality gate sequence and report pass or fail for each gate
 - Pass or fail for each gate
 - Exact failure reason for any failing gate
 - Final summary stating whether the branch is ready for owner review
+- Final status line: `SIGNED OFF` (all gates pass) or `BLOCKED` (one or more gates failed)

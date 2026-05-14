@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+from uuid import uuid4
+
+from sqlmodel import Field, SQLModel
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+class TimeLog(SQLModel, table=True):
+    __tablename__ = "time_logs"
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    task_id: str = Field(foreign_key="tasks.id", nullable=False)
+    project_id: str = Field(foreign_key="projects.id", nullable=False)
+    hours: float
+    logged_date: date
+    source: str = Field(default="manual", nullable=False)
+    external_id: str | None = None
+    notes: str | None = None
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)

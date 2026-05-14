@@ -13,17 +13,20 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 7. Relevant code paths end-to-end before drafting any significant change
 
 ## When To Use
+- Once per major feature or phase request — **not once per ticket**
 - A new feature request needs to be shaped
-- A significant behavior change is proposed
+- A new phase or major feature is starting — **including when `docs/V1-PRD.md` and `docs/V1-TRD.md` already exist**
+- A significant behavior change or scope expansion requires updated PRD/TRD before new tickets are added
 - A non-trivial refactor affects data flow, state, API, or infrastructure
 
 ## Required Behavior
 - Inspect the affected parts of the app end-to-end before writing planning docs
+- **Confirmation before documentation:** When base PRD/TRD exist, first present a phase-specific plan to the owner covering API endpoints, database entities and relationships, frontend UX flows, and how features connect. Ask targeted questions about UX goals, interaction design, and data relationships. Do not skip this step because a high-level plan already exists.
 - Ask clarifying questions until the outcome, scope, constraints, and success conditions are clear
 - Compare the request against the current PRD, TRD, ADRs, and the implemented code
-- Write a comprehensive feature PRD in `/plans/PRD-<project-name>-<date>.md`
-- Write a comprehensive feature TRD in `/plans/TRD-<project-name>-<date>.md`
-  - Use kebab-case for `<project-name>`
+- Write a comprehensive feature PRD in `/plans/PRD-<featureset-name>-<date>.md`
+- Write a comprehensive feature TRD in `/plans/TRD-<featureset-name>-<date>.md`
+  - Use kebab-case for `<featureset-name>`
   - Use `YYYY-MM-DD` for `<date>`
 - Write ADRs in `/ADR/NNN-title.md` for any non-trivial architecture, stack, or pattern decision
 - Explicitly review whether the proposed change respects the layer boundaries defined in `docs/V1-TRD.md`
@@ -45,5 +48,7 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 - Affected backend, frontend, and data areas
 - API impact
 - Data model impact
+- UX flows and open questions put to the owner
 - ADR references or a note that no ADR was needed
 - Explicit note on whether TRD boundaries are preserved
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER` (use `NEEDS OWNER` until the owner approves the plan; `SIGNED OFF` only after explicit owner approval)

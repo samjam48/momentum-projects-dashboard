@@ -33,25 +33,53 @@ select {
   font: inherit;
 }
 
+button {
+  border: 0;
+  border-radius: 999px;
+  background: #9c5d35;
+  color: #fff8f0;
+  cursor: pointer;
+  padding: 0.75rem 1.1rem;
+  transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #824c29;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid rgba(90, 58, 37, 0.18);
+  border-radius: 16px;
+  background: #fffaf4;
+  color: #1f1712;
+  padding: 0.8rem 0.95rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
 #root {
   min-height: 100vh;
 }
 
-.app-shell {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
+.workspace-shell {
+  width: min(1240px, 100%);
+  margin: 0 auto;
   padding: 2rem;
 }
 
-.app-panel {
-  width: min(920px, 100%);
-  border: 1px solid rgba(90, 58, 37, 0.14);
-  border-radius: 28px;
-  background: rgba(255, 250, 244, 0.84);
-  box-shadow: 0 32px 80px rgba(72, 45, 27, 0.12);
-  padding: 2rem;
-  backdrop-filter: blur(10px);
+.workspace-hero {
+  margin-bottom: 1.5rem;
 }
 
 .eyebrow {
@@ -63,49 +91,461 @@ select {
   text-transform: uppercase;
 }
 
-.app-title {
+.workspace-hero h1,
+.workspace-panel h2,
+.workspace-panel h3 {
   margin: 0;
-  font-size: clamp(2.5rem, 5vw, 4.2rem);
-  line-height: 0.95;
 }
 
-.app-copy {
+.workspace-hero h1 {
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
+  line-height: 0.94;
+}
+
+.workspace-copy,
+.workspace-panel-header p,
+.muted-copy,
+.task-meta,
+.project-card-copy p {
+  color: #5b4a3f;
+}
+
+.workspace-copy {
   max-width: 42rem;
   margin: 1rem 0 0;
-  color: #5b4a3f;
-  font-size: 1rem;
 }
 
-.checklist {
+.workspace-grid,
+.workspace-panels-two-up {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin: 2rem 0 0;
+  gap: 1.25rem;
+}
+
+.workspace-grid {
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+}
+
+.workspace-column,
+.workspace-column-wide {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.workspace-panel {
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 28px;
+  background: rgba(255, 250, 244, 0.88);
+  box-shadow: 0 24px 70px rgba(72, 45, 27, 0.1);
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.workspace-panel-header {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.workspace-panel-header p {
+  margin: 0;
+}
+
+.project-form,
+.field,
+.identity-stack,
+.task-dialog-grid,
+.task-detail-panel,
+.task-detail-grid {
+  display: grid;
+}
+
+.project-form,
+.project-list,
+.task-list,
+.time-log-list {
+  gap: 0.9rem;
+}
+
+.field {
+  gap: 0.4rem;
+}
+
+.field span {
+  font-weight: 600;
+}
+
+.field-inline {
+  min-width: 240px;
+}
+
+.field-error,
+.form-error {
+  color: #ad2831;
+}
+
+.field-error {
+  font-size: 0.92rem;
+}
+
+.form-error {
+  margin: 0;
+}
+
+.form-actions,
+.filter-row,
+.task-toolbar,
+.project-card,
+.project-card-actions,
+.task-card-header,
+.task-form-row,
+.task-dialog-header,
+.task-detail-grid {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.form-actions,
+.task-toolbar {
+  align-items: center;
+}
+
+.secondary-button {
+  background: #ead7c0;
+  color: #4d3729;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #dec3a5;
+}
+
+.danger-button {
+  background: #c8553d;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #a7422e;
+}
+
+.project-list,
+.task-list,
+.time-log-list {
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.checklist-card {
-  padding: 1.1rem 1.2rem;
-  border-radius: 18px;
-  background: #fff8f0;
+.project-card,
+.task-card,
+.time-log-card,
+.kanban-column {
   border: 1px solid rgba(156, 93, 53, 0.18);
+  border-radius: 20px;
+  background: #fff8f0;
+  padding: 1rem;
 }
 
-.checklist-card strong {
-  display: block;
-  font-size: 1rem;
-  margin-bottom: 0.35rem;
+.project-card {
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
-.checklist-card span {
-  color: #695448;
-  font-size: 0.95rem;
+.project-card-copy {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.project-card-copy p,
+.task-meta {
+  margin: 0;
+}
+
+.project-card-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.identity-stack {
+  gap: 0.45rem;
+}
+
+.colour-tag,
+.status-pill,
+.filter-summary {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.colour-tag,
+.status-pill {
+  padding: 0.25rem 0.7rem;
+}
+
+.colour-tag {
+  color: #1f1712;
+}
+
+.colour-tag-neutral {
+  background: #ead7c0;
+}
+
+.filter-row,
+.task-card-header {
+  justify-content: space-between;
+}
+
+.filter-row {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-summary {
+  min-height: 50px;
+  background: #fff1de;
+  color: #7f4726;
+  padding: 0.8rem 1rem;
+}
+
+.task-toolbar {
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.workspace-panels-two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.task-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.kanban-task-card {
+  cursor: grab;
+  touch-action: none;
+}
+
+.kanban-task-card:active {
+  cursor: grabbing;
+}
+
+.task-card-dragging {
+  box-shadow: 0 18px 40px rgba(72, 45, 27, 0.16);
+  opacity: 0.9;
+}
+
+.kanban-task-context {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.kanban-project-name {
+  font-weight: 700;
+}
+
+.task-card-header,
+.task-dialog-header,
+.task-form-row {
+  align-items: center;
+}
+
+.status-pill {
+  background: #f3e2ce;
+  color: #6c4227;
+  text-transform: capitalize;
+}
+
+.status-done {
+  background: #d9edd5;
+  color: #1f5d2f;
+}
+
+.status-in_progress {
+  background: #dcebf7;
+  color: #245072;
+}
+
+.status-review {
+  background: #f8e2b5;
+  color: #7a4c00;
+}
+
+.kanban-column-over {
+  border-color: rgba(156, 93, 53, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(156, 93, 53, 0.12);
+}
+
+.kanban-empty-state {
+  display: grid;
+  align-content: center;
+  min-height: 120px;
+  border: 1px dashed rgba(156, 93, 53, 0.24);
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(31, 23, 18, 0.42);
+}
+
+.task-dialog {
+  width: min(1080px, 100%);
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 28px;
+  background: #fffaf4;
+  box-shadow: 0 24px 70px rgba(72, 45, 27, 0.18);
+  padding: 1.5rem;
+}
+
+.task-dialog-header {
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.task-dialog-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+}
+
+.task-form-row,
+.task-detail-grid {
+  flex-wrap: wrap;
+}
+
+.task-form-row .field {
+  flex: 1 1 220px;
+}
+
+.task-detail-panel {
+  gap: 1rem;
+}
+
+.task-detail-grid {
+  margin: 0;
+}
+
+.task-detail-grid div {
+  flex: 1 1 160px;
+  border-radius: 18px;
+  background: #fff1de;
+  padding: 0.95rem;
+}
+
+.task-detail-grid dt {
+  font-weight: 700;
+}
+
+.task-detail-grid dd {
+  margin: 0.35rem 0 0;
+}
+
+.task-detail-section {
+  margin-top: 0.25rem;
+}
+
+.time-log-card {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.kanban-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.kanban-column {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+  min-height: 220px;
+}
+
+.task-table-wrap {
+  overflow-x: auto;
+}
+
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.task-table th,
+.task-table td {
+  border-bottom: 1px solid rgba(90, 58, 37, 0.12);
+  padding: 0.85rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.task-table th {
+  font-size: 0.92rem;
+}
+
+.table-sort-button {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+}
+
+.table-sort-button:hover:not(:disabled) {
+  transform: none;
+  background: none;
+  color: #824c29;
+}
+
+@media (max-width: 960px) {
+  .workspace-grid,
+  .workspace-panels-two-up {
+    grid-template-columns: 1fr;
+  }
+
+  .task-dialog-grid,
+  .kanban-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
-  .app-panel {
-    padding: 1.5rem;
+  .workspace-shell {
+    padding: 1rem;
+  }
+
+  .workspace-panel {
+    padding: 1.2rem;
+    border-radius: 22px;
+  }
+
+  .project-card,
+  .task-card,
+  .time-log-card,
+  .kanban-column,
+  .project-card-actions,
+  .filter-row,
+  .task-dialog-header,
+  .task-detail-grid {
+    display: grid;
+  }
+
+  .dialog-backdrop {
+    padding: 0.75rem;
+  }
+
+  .task-dialog {
+    padding: 1rem;
     border-radius: 22px;
   }
 }

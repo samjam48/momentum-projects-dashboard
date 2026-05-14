@@ -39,3 +39,4 @@ Write the minimum production code needed to make the failing tests pass without 
 - Tests run
 - Lint and type checks run
 - Any remaining risks or follow-up notes
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER`

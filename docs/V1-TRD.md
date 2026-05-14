@@ -6,7 +6,7 @@
 ## 1. Stack Decisions
 
 | Layer | Technology | Version | Rationale |
-|-------|-----------|---------|-----------|
+| --- | --- | --- | --- |
 | Frontend framework | React | 18 | Component model suits dashboard; excellent ecosystem |
 | Build tool | Vite | 5 | Fast HMR, minimal config |
 | Language | TypeScript | 5.x | Type safety; Cursor/Claude Code friendly |
@@ -334,7 +334,7 @@ SQLite → PostgreSQL switch: **env var only**. No code changes required. SQLMod
 ### Agent Roles
 
 | Agent | Model | Primary Responsibility |
-|-------|-------|----------------------|
+| --- | --- | --- |
 | Architect | Claude Opus/Sonnet | Enforces TRD; reviews PRD changes; writes ADRs |
 | Planner | Claude Sonnet | Breaks features into tickets with acceptance criteria |
 | Test Writer | Claude Code / Cursor | Writes failing tests from acceptance criteria |
@@ -362,7 +362,7 @@ SQLite → PostgreSQL switch: **env var only**. No code changes required. SQLMod
 
 ### Code Quality Gates (CI)
 | Check | Tool | Threshold |
-|-------|------|-----------|
+| --- | --- | --- |
 | Cyclomatic complexity | radon (Python) | ≤ 10 per function |
 | Backend test coverage | pytest-cov | ≥ 80% |
 | Frontend test coverage | Vitest | ≥ 70% |
