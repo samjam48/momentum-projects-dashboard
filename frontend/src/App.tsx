@@ -33,9 +33,14 @@ import type {
   TimeLogPayload,
 } from './api/types'
 import { AppShell } from './components/layout/AppShell'
+import { ProjectDialog } from './components/ProjectDialog'
+import { DEFAULT_PROJECT_COLOUR } from './lib/projectPalette'
 import { ProjectsPage } from './pages/ProjectsPage'
 import {
   DEFAULT_PROJECT_FILTER,
+  deriveToolbarProjectId,
+  getSidebarSelectedProjectIds,
+  SIDEBAR_PROJECT_FILTER_STORAGE_KEY,
   useProjectFilterStore,
 } from './stores/projectFilter'
 import type { ProjectFilterState } from './stores/projectFilter'
@@ -86,6 +91,8 @@ type TimeLogFormErrors = {
   notes?: string
   form?: string
 }
+
+type ProjectDialogMode = 'create' | 'edit' | null
 
 type TaskSortKey = 'target_date' | 'priority' | 'project_name'
 
@@ -206,21 +213,6 @@ function timeLogFieldErrors(error: ApiError | null): TimeLogFormErrors {
     notes: error.fieldErrors.notes,
     form: error.formError ?? undefined,
   }
-}
-
-function projectIdentity(project: Project): JSX.Element {
-  return (
-    <div className="identity-stack">
-      <strong>{project.name}</strong>
-      {project.colour ? (
-        <span className="colour-tag" style={{ backgroundColor: project.colour }}>
-          {project.colour}
-        </span>
-      ) : (
-        <span className="colour-tag colour-tag-neutral">No colour</span>
-      )}
-    </div>
-  )
 }
 
 function formatStatusLabel(status: TaskStatus): string {
@@ -1145,10 +1137,19 @@ function App() {
   const selectedProjectId = useProjectFilterStore(
     (state: ProjectFilterState): string => state.selectedProjectId,
   )
-  const setSelectedProjectId = useProjectFilterStore(
-    (state: ProjectFilterState): ProjectFilterState['setSelectedProjectId'] =>
-      state.setSelectedProjectId,
+  const selectedProjectIds = useProjectFilterStore(
+    (state: ProjectFilterState): ProjectFilterState['selectedProjectIds'] =>
+      state.selectedProjectIds,
   )
+  const setToolbarProjectFilter = useProjectFilterStore(
+    (state: ProjectFilterState): ProjectFilterState['setToolbarProjectFilter'] =>
+      state.setToolbarProjectFilter,
+  )
+  const resetSidebarToAllProjects = useProjectFilterStore(
+    (state: ProjectFilterState): ProjectFilterState['resetSidebarToAllProjects'] =>
+      state.resetSidebarToAllProjects,
+  )
+  const [projectDialogMode, setProjectDialogMode] = useState<ProjectDialogMode>(null)
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [projectForm, setProjectForm] = useState<ProjectFormState>(EMPTY_PROJECT_FORM)
   const [projectFormErrors, setProjectFormErrors] = useState<ProjectFormErrors>({})
@@ -1175,24 +1176,26 @@ function App() {
   })
 
   const activeProjects = projectsQuery.data.filter(
-    (project) => !locallyArchivedProjectIds.includes(project.id),
+    (project) =>
+      project.status === 'active' && !locallyArchivedProjectIds.includes(project.id),
   )
+  const activeProjectIds = activeProjects.map((project) => project.id)
+  const activeProjectIdsKey = activeProjectIds.join('|')
+  const storedProjectIdsKey = selectedProjectIds?.join('|') ?? ''
+  const sidebarSelectedProjectIds = getSidebarSelectedProjectIds(
+    selectedProjectIds,
+    activeProjectIds,
+  )
+  const hasSidebarProjectSelection = sidebarSelectedProjectIds.length > 0
   const projectsById = activeProjects.reduce<Record<string, Project>>((projectMap, project) => {
     projectMap[project.id] = project
     return projectMap
   }, {})
-  const selectedProject = activeProjects.find((project) => project.id === selectedProjectId) ?? null
-  const filteredProjectId =
-    selectedProjectId === DEFAULT_PROJECT_FILTER ? undefined : selectedProjectId
-  const taskWorkspaceEnabled =
-    taskWorkspacePrimed ||
-    selectedProjectId !== DEFAULT_PROJECT_FILTER ||
-    taskDialogMode !== null
-  const tasksQuery = useTasks(
-    filteredProjectId ? { projectId: filteredProjectId } : {},
-    taskWorkspaceEnabled,
-  )
-  const visibleTasks = tasksQuery.data.filter((task) => task.project_id in projectsById)
+  const taskWorkspaceEnabled = taskWorkspacePrimed || taskDialogMode !== null
+  const tasksQuery = useTasks({}, taskWorkspaceEnabled)
+  const visibleTasks = tasksQuery.data
+    .filter((task) => task.project_id in projectsById)
+    .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
   const displayTasks = optimisticTasks ?? visibleTasks
   const sortedTasks = sortTasks(displayTasks, projectsById, taskSort)
   const selectedTask = sortedTasks.find((task) => task.id === activeTaskId) ?? null
@@ -1247,20 +1250,37 @@ function App() {
 
   useEffect(() => {
     setOptimisticTasks(null)
-  }, [filteredProjectId, tasksQuery.data])
+  }, [storedProjectIdsKey, tasksQuery.data])
 
   useEffect(() => {
     setKanbanMutationError(null)
-  }, [filteredProjectId])
+  }, [storedProjectIdsKey])
 
   useEffect(() => {
+    if (activeProjectIds.length === 0) {
+      return
+    }
+
+    const sidebarIds = getSidebarSelectedProjectIds(selectedProjectIds, activeProjectIds)
+    const toolbarProjectId = deriveToolbarProjectId(sidebarIds, activeProjectIds)
+
+    if (selectedProjectId !== toolbarProjectId) {
+      useProjectFilterStore.setState({ selectedProjectId: toolbarProjectId })
+    }
+  }, [activeProjectIdsKey, selectedProjectId, storedProjectIdsKey])
+
+  useEffect(() => {
+    if (activeProjectIds.length === 0) {
+      return
+    }
+
     if (
       selectedProjectId !== DEFAULT_PROJECT_FILTER &&
       !activeProjects.some((project) => project.id === selectedProjectId)
     ) {
-      setSelectedProjectId(DEFAULT_PROJECT_FILTER)
+      setToolbarProjectFilter(DEFAULT_PROJECT_FILTER, activeProjectIds)
     }
-  }, [activeProjects, selectedProjectId, setSelectedProjectId])
+  }, [activeProjectIdsKey, activeProjects, selectedProjectId, setToolbarProjectFilter])
 
   useEffect(() => {
     if (taskDialogMode === 'edit' && activeTaskId && !selectedTask) {
@@ -1311,8 +1331,20 @@ function App() {
   }
 
   const resetProjectForm = (): void => {
+    setProjectDialogMode(null)
     setEditingProjectId(null)
     setProjectForm(EMPTY_PROJECT_FORM)
+    setProjectFormErrors({})
+    projectMutations.resetError()
+  }
+
+  const openCreateProjectDialog = (): void => {
+    setProjectDialogMode('create')
+    setEditingProjectId(null)
+    setProjectForm({
+      ...EMPTY_PROJECT_FORM,
+      colour: DEFAULT_PROJECT_COLOUR,
+    })
     setProjectFormErrors({})
     projectMutations.resetError()
   }
@@ -1342,6 +1374,7 @@ function App() {
   }
 
   const handleProjectEdit = (project: Project): void => {
+    setProjectDialogMode('edit')
     setEditingProjectId(project.id)
     setProjectForm(formStateFromProject(project))
     setProjectFormErrors({})
@@ -1350,21 +1383,49 @@ function App() {
 
   const handleProjectArchive = async (projectId: string): Promise<void> => {
     setProjectFormErrors({})
+    const wasOnlySidebarSelection =
+      sidebarSelectedProjectIds.length === 1 && sidebarSelectedProjectIds[0] === projectId
+    const toolbarFilteredToArchivedProject = selectedProjectId === projectId
+    const filterSnapshot = {
+      selectedProjectId,
+      selectedProjectIds,
+    }
+
     setLocallyArchivedProjectIds((currentIds) =>
       currentIds.includes(projectId) ? currentIds : [...currentIds, projectId],
     )
 
-    if (selectedProjectId === projectId) {
-      setSelectedProjectId(DEFAULT_PROJECT_FILTER)
-    }
-
     try {
       await projectMutations.archive(projectId)
+      await projectsQuery.reload()
+      const remainingActiveProjectIds = activeProjectIds.filter(
+        (activeProjectId) => activeProjectId !== projectId,
+      )
+      if (toolbarFilteredToArchivedProject) {
+        setToolbarProjectFilter(DEFAULT_PROJECT_FILTER, remainingActiveProjectIds)
+      }
+      if (wasOnlySidebarSelection) {
+        resetSidebarToAllProjects(remainingActiveProjectIds)
+      }
       await tasksQuery.reload()
+      resetProjectForm()
     } catch (caughtError) {
       setLocallyArchivedProjectIds((currentIds) =>
         currentIds.filter((currentId) => currentId !== projectId),
       )
+
+      if (filterSnapshot.selectedProjectIds === null) {
+        localStorage.removeItem(SIDEBAR_PROJECT_FILTER_STORAGE_KEY)
+      } else {
+        localStorage.setItem(
+          SIDEBAR_PROJECT_FILTER_STORAGE_KEY,
+          JSON.stringify(filterSnapshot.selectedProjectIds),
+        )
+      }
+      useProjectFilterStore.setState({
+        selectedProjectId: filterSnapshot.selectedProjectId,
+        selectedProjectIds: filterSnapshot.selectedProjectIds,
+      })
 
       if (caughtError instanceof ApiError) {
         setProjectFormErrors(projectFieldErrors(caughtError))
@@ -1387,8 +1448,9 @@ function App() {
 
   const openCreateTaskDialog = (): void => {
     const defaultProjectId =
-      filteredProjectId && filteredProjectId in projectsById
-        ? filteredProjectId
+      sidebarSelectedProjectIds.length === 1 &&
+      sidebarSelectedProjectIds[0] in projectsById
+        ? sidebarSelectedProjectIds[0]
         : activeProjects[0]?.id ?? ''
 
     setTaskDialogMode('create')
@@ -1578,25 +1640,24 @@ function App() {
     }
   }, [handleKanbanDrop])
 
-  const projectFilterLabel = selectedProject ? selectedProject.name : 'All projects'
+  const projectFilterLabel =
+    sidebarSelectedProjectIds.length === 0
+      ? 'No projects'
+      : sidebarSelectedProjectIds.length === activeProjects.length
+        ? 'All projects'
+        : sidebarSelectedProjectIds.length === 1
+          ? (projectsById[sidebarSelectedProjectIds[0]]?.name ?? '1 project')
+          : `${sidebarSelectedProjectIds.length} projects`
   const tasksAreBlocked = activeProjects.length === 0
 
   if (!workspaceReady) {
     return (
       <AppShell
         activeProjects={[]}
-        editingProjectId={null}
-        onArchiveProject={() => undefined}
-        onCancelEdit={() => undefined}
+        onCreateProject={() => undefined}
         onEditProject={() => undefined}
-        onProjectFieldChange={() => undefined}
-        onProjectSubmit={() => Promise.resolve()}
-        projectForm={EMPTY_PROJECT_FORM}
-        projectFormErrors={{}}
         projectsError={null}
         projectsLoading
-        projectMutationsSaving={false}
-        renderProjectIdentity={projectIdentity}
       >
         <section className="workspace-panel">
           <p className="muted-copy">Loading workspace…</p>
@@ -1605,7 +1666,7 @@ function App() {
     )
   }
 
-  const kanbanSection = (
+  const kanbanSection = hasSidebarProjectSelection ? (
     <>
       {tasksQuery.error ? <p className="form-error">{tasksQuery.error}</p> : null}
       {kanbanMutationError ? <p className="form-error">{kanbanMutationError}</p> : null}
@@ -1632,9 +1693,11 @@ function App() {
         </div>
       </DndContext>
     </>
+  ) : (
+    <p className="muted-copy">No projects selected. Choose one or more projects in the sidebar.</p>
   )
 
-  const tableSection = (
+  const tableSection = hasSidebarProjectSelection ? (
     <>
       <header className="workspace-panel-header">
         <h2>Task summary</h2>
@@ -1749,23 +1812,35 @@ function App() {
         </table>
       </div>
     </>
+  ) : (
+    <>
+      <header className="workspace-panel-header">
+        <h2>Task summary</h2>
+        <p>Shared filter target: {projectFilterLabel}</p>
+      </header>
+      <div className="task-table-wrap">
+        <table className="task-table">
+          <tbody>
+            <tr>
+              <td>
+                <p className="muted-copy">
+                  No projects selected. Choose one or more projects in the sidebar.
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 
   return (
     <AppShell
       activeProjects={activeProjects}
-      editingProjectId={editingProjectId}
-      onArchiveProject={(projectId) => void handleProjectArchive(projectId)}
-      onCancelEdit={resetProjectForm}
+      onCreateProject={openCreateProjectDialog}
       onEditProject={handleProjectEdit}
-      onProjectFieldChange={handleProjectInputChange}
-      onProjectSubmit={handleProjectSubmit}
-      projectForm={projectForm}
-      projectFormErrors={projectFormErrors}
       projectsError={projectsQuery.error}
       projectsLoading={projectsQuery.isLoading}
-      projectMutationsSaving={projectMutations.isSaving}
-      renderProjectIdentity={projectIdentity}
     >
       <ProjectsPage
         activeProjects={activeProjects}
@@ -1773,10 +1848,31 @@ function App() {
         onOpenCreateTask={openCreateTaskDialog}
         projectFilterLabel={projectFilterLabel}
         selectedProjectId={selectedProjectId}
-        setSelectedProjectId={setSelectedProjectId}
+        setToolbarProjectFilter={(projectId) => {
+          setToolbarProjectFilter(projectId, activeProjectIds)
+        }}
         tableSection={tableSection}
         tasksAreBlocked={tasksAreBlocked}
       />
+
+      {projectDialogMode ? (
+        <ProjectDialog
+          editingProjectId={editingProjectId}
+          formErrors={projectFormErrors}
+          formState={projectForm}
+          isOpen
+          isSaving={projectMutations.isSaving}
+          mode={projectDialogMode}
+          onArchive={
+            editingProjectId
+              ? () => void handleProjectArchive(editingProjectId)
+              : undefined
+          }
+          onClose={resetProjectForm}
+          onFieldChange={handleProjectInputChange}
+          onSubmit={handleProjectSubmit}
+        />
+      ) : null}
 
       {taskDialogMode ? (
         <TaskDialog

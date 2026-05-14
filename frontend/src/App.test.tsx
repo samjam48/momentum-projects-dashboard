@@ -580,10 +580,12 @@ describe('Ticket 3 project management and shared data layer', () => {
 
     await waitForWorkspaceReady()
 
-    expect(screen.getByTestId('project-card-project-podcast')).toBeInTheDocument()
-    expect(screen.getByTestId('project-card-project-newsletter')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-project-project-podcast')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
     expect(
-      within(screen.getByTestId('project-card-project-podcast')).getByText('#D97048'),
+      within(screen.getByTestId('sidebar-project-project-podcast')).getByTestId(
+        'project-colour-dot',
+      ),
     ).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /project filter/i })).toBeInTheDocument()
     expect(getKanbanRegion()).toBeInTheDocument()
@@ -691,45 +693,52 @@ describe('Ticket 3 project management and shared data layer', () => {
 
     render(<App />)
 
-    await screen.findByTestId('project-card-project-podcast')
+    await screen.findByTestId('sidebar-project-project-podcast')
 
-    fireEvent.change(screen.getByLabelText(/project name/i), {
+    fireEvent.click(screen.getByRole('button', { name: /new project/i }))
+    const createDialog = await screen.findByRole('dialog', { name: /new project/i })
+
+    fireEvent.change(within(createDialog).getByLabelText(/project name/i), {
       target: { value: 'Newsletter' },
     })
-    fireEvent.change(screen.getByLabelText(/project description/i), {
+    fireEvent.change(within(createDialog).getByLabelText(/project description/i), {
       target: { value: 'Weekly letters' },
     })
-    fireEvent.change(screen.getByLabelText(/project colour/i), {
-      target: { value: '#123ABC' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+    fireEvent.click(within(createDialog).getByRole('button', { name: /^colour$/i }))
+    fireEvent.click(
+      within(createDialog).getByRole('radio', { name: /colour swatch slate blue/i }),
+    )
+    fireEvent.click(within(createDialog).getByRole('button', { name: /create project/i }))
 
-    expect(await screen.findByTestId('project-card-project-newsletter')).toBeInTheDocument()
+    expect(await screen.findByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
 
-    const newsletterCard = screen.getByTestId('project-card-project-newsletter')
-    fireEvent.click(within(newsletterCard).getByRole('button', { name: /edit/i }))
-    fireEvent.change(screen.getByLabelText(/project name/i), {
+    fireEvent.click(screen.getByRole('button', { name: /^newsletter$/i }))
+    const editDialog = await screen.findByRole('dialog', { name: /edit project/i })
+
+    fireEvent.change(within(editDialog).getByLabelText(/project name/i), {
       target: { value: 'Newsletter Updated' },
     })
-    fireEvent.change(screen.getByLabelText(/project description/i), {
+    fireEvent.change(within(editDialog).getByLabelText(/project description/i), {
       target: { value: 'Weekly letters revised' },
     })
-    fireEvent.change(screen.getByLabelText(/project colour/i), {
-      target: { value: '#456DEF' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /save project/i }))
+    fireEvent.click(within(editDialog).getByRole('button', { name: /^colour$/i }))
+    fireEvent.click(
+      within(editDialog).getByRole('radio', { name: /colour swatch sky/i }),
+    )
+    fireEvent.click(within(editDialog).getByRole('button', { name: /save project/i }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('project-card-project-newsletter')).toHaveTextContent(
+      expect(screen.getByTestId('sidebar-project-project-newsletter')).toHaveTextContent(
         'Newsletter Updated',
       )
     })
 
-    const updatedCard = screen.getByTestId('project-card-project-newsletter')
-    fireEvent.click(within(updatedCard).getByRole('button', { name: /archive/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^newsletter updated$/i }))
+    const archiveDialog = await screen.findByRole('dialog', { name: /edit project/i })
+    fireEvent.click(within(archiveDialog).getByRole('button', { name: /archive project/i }))
 
     await waitFor(() => {
-      expect(screen.queryByTestId('project-card-project-newsletter')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('sidebar-project-project-newsletter')).not.toBeInTheDocument()
     })
   })
 
@@ -746,17 +755,17 @@ describe('Ticket 3 project management and shared data layer', () => {
 
     await waitForWorkspaceReady()
 
-    fireEvent.change(screen.getByLabelText(/project name/i), {
+    fireEvent.click(screen.getByRole('button', { name: /new project/i }))
+    const dialog = await screen.findByRole('dialog', { name: /new project/i })
+
+    fireEvent.change(within(dialog).getByLabelText(/project name/i), {
       target: { value: 'Podcast' },
     })
-    fireEvent.change(screen.getByLabelText(/project colour/i), {
-      target: { value: 'orange' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /create project/i }))
 
-    expect(await screen.findByText(/colour must match/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/project name/i)).toHaveValue('Podcast')
-    expect(screen.getByLabelText(/project colour/i)).toHaveValue('orange')
+    expect(await within(dialog).findByText(/colour must match/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/project name/i)).toHaveValue('Podcast')
+    expect(screen.getByRole('dialog', { name: /new project/i })).toBeInTheDocument()
   })
 
   it('falls back to all projects when the selected project is archived', async () => {
@@ -805,8 +814,9 @@ describe('Ticket 3 project management and shared data layer', () => {
     fireEvent.change(filter, { target: { value: 'project-newsletter' } })
     expect(filter).toHaveValue('project-newsletter')
 
-    const newsletterCard = screen.getByTestId('project-card-project-newsletter')
-    fireEvent.click(within(newsletterCard).getByRole('button', { name: /archive/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^newsletter$/i }))
+    const dialog = await screen.findByRole('dialog', { name: /edit project/i })
+    fireEvent.click(within(dialog).getByRole('button', { name: /archive project/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /project filter/i })).toHaveValue('all')

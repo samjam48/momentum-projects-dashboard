@@ -10,7 +10,7 @@ type ProjectsPageProps = {
   onOpenCreateTask: () => void
   projectFilterLabel: string
   selectedProjectId: string
-  setSelectedProjectId: (projectId: string) => void
+  setToolbarProjectFilter: (projectId: string) => void
   tableSection: ReactNode
   tasksAreBlocked: boolean
 }
@@ -21,7 +21,7 @@ export function ProjectsPage({
   onOpenCreateTask,
   projectFilterLabel,
   selectedProjectId,
-  setSelectedProjectId,
+  setToolbarProjectFilter,
   tableSection,
   tasksAreBlocked,
 }: ProjectsPageProps): JSX.Element {
@@ -54,7 +54,7 @@ export function ProjectsPage({
           <select
             aria-label="Project filter"
             value={selectedProjectId}
-            onChange={(event) => setSelectedProjectId(event.target.value)}
+            onChange={(event) => setToolbarProjectFilter(event.target.value)}
           >
             <option value={DEFAULT_PROJECT_FILTER}>All projects</option>
             {activeProjects.map((project) => (
