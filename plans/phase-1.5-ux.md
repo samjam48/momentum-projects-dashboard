@@ -329,7 +329,7 @@ Phase 5+    →   Unchanged from BACKLOG
 | Item | When |
 | --- | --- |
 | Owner sign-off on draft hex tokens (§5) | Before 1b-1 |
-| Low-fi Canvas wireframes | Done — `canvases/phase-1b-wireframes.canvas.tsx` |
+| Low-fi Canvas wireframes | `plans/wireframes/phase-1b-wireframes.canvas.tsx` |
 | Venture sidebar expand/collapse UI detail | 1.6 ticket writing |
 | `task_type` enum final list | 1.6 (admin listed once) |
 | Settings + hidden-delete purge | Future backlog |
