@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 
-import App from '../App'
+import App from '../../App'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

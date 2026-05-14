@@ -273,63 +273,16 @@ textarea {
   background: #a7422e !important;
 }
 
-.workspace-shell {
-  width: min(1240px, 100%);
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.workspace-hero {
-  margin-bottom: 1.5rem;
-}
-
-.eyebrow {
-  margin: 0 0 0.75rem;
-  color: #9c5d35;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.workspace-hero h1,
 .workspace-panel h2,
 .workspace-panel h3 {
   margin: 0;
 }
 
-.workspace-hero h1 {
-  font-size: clamp(2.6rem, 5vw, 4.4rem);
-  line-height: 0.94;
-}
-
-.workspace-copy,
 .workspace-panel-header p,
 .muted-copy,
 .task-meta,
 .project-card-copy p {
   color: #5b4a3f;
-}
-
-.workspace-copy {
-  max-width: 42rem;
-  margin: 1rem 0 0;
-}
-
-.workspace-grid,
-.workspace-panels-two-up {
-  display: grid;
-  gap: 1.25rem;
-}
-
-.workspace-grid {
-  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
-}
-
-.workspace-column,
-.workspace-column-wide {
-  display: grid;
-  gap: 1.25rem;
 }
 
 .workspace-panel {
@@ -513,10 +466,6 @@ textarea {
 .task-toolbar {
   margin-top: 1rem;
   flex-wrap: wrap;
-}
-
-.workspace-panels-two-up {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .task-card {
@@ -709,11 +658,6 @@ textarea {
 }
 
 @media (max-width: 960px) {
-  .workspace-grid,
-  .workspace-panels-two-up {
-    grid-template-columns: 1fr;
-  }
-
   .task-dialog-grid,
   .kanban-grid {
     grid-template-columns: 1fr;
@@ -721,10 +665,6 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .workspace-shell {
-    padding: 1rem;
-  }
-
   .workspace-panel {
     padding: 1.2rem;
     border-radius: 22px;
