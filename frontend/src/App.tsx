@@ -32,6 +32,8 @@ import type {
   TimeLog,
   TimeLogPayload,
 } from './api/types'
+import { AppShell } from './components/layout/AppShell'
+import { ProjectsPage } from './pages/ProjectsPage'
 import {
   DEFAULT_PROJECT_FILTER,
   useProjectFilterStore,
@@ -1581,328 +1583,200 @@ function App() {
 
   if (!workspaceReady) {
     return (
-      <main className="workspace-shell">
+      <AppShell
+        activeProjects={[]}
+        editingProjectId={null}
+        onArchiveProject={() => undefined}
+        onCancelEdit={() => undefined}
+        onEditProject={() => undefined}
+        onProjectFieldChange={() => undefined}
+        onProjectSubmit={() => Promise.resolve()}
+        projectForm={EMPTY_PROJECT_FORM}
+        projectFormErrors={{}}
+        projectsError={null}
+        projectsLoading
+        projectMutationsSaving={false}
+        renderProjectIdentity={projectIdentity}
+      >
         <section className="workspace-panel">
           <p className="muted-copy">Loading workspace…</p>
         </section>
-      </main>
+      </AppShell>
     )
   }
 
-  return (
-    <main className="workspace-shell">
-      <section className="workspace-hero">
-        <p className="eyebrow">Current sprint</p>
-        <h1>Projects + Tasks Workspace</h1>
-        <p className="workspace-copy">
-          Phase 1 project management with a shared filter across the task workspace.
-        </p>
-      </section>
+  const kanbanSection = (
+    <>
+      {tasksQuery.error ? <p className="form-error">{tasksQuery.error}</p> : null}
+      {kanbanMutationError ? <p className="form-error">{kanbanMutationError}</p> : null}
+      {tasksQuery.isLoading ? <p className="muted-copy">Loading tasks…</p> : null}
 
-      <section className="workspace-grid">
-        <div className="workspace-column">
-          <section className="workspace-panel">
-            <header className="workspace-panel-header">
-              <h2>{editingProjectId ? 'Edit project' : 'Create project'}</h2>
-              <p>Manage active projects without leaving the workspace.</p>
-            </header>
-
-            <form className="project-form" onSubmit={(event) => void handleProjectSubmit(event)}>
-              <label className="field">
-                <span>Project name</span>
-                <input
-                  name="name"
-                  value={projectForm.name}
-                  onChange={(event) => handleProjectInputChange('name', event.target.value)}
-                />
-                {projectFormErrors.name ? (
-                  <span className="field-error">{projectFormErrors.name}</span>
-                ) : null}
-              </label>
-
-              <label className="field">
-                <span>Project description</span>
-                <textarea
-                  name="description"
-                  rows={3}
-                  value={projectForm.description}
-                  onChange={(event) =>
-                    handleProjectInputChange('description', event.target.value)
-                  }
-                />
-                {projectFormErrors.description ? (
-                  <span className="field-error">{projectFormErrors.description}</span>
-                ) : null}
-              </label>
-
-              <label className="field">
-                <span>Project colour</span>
-                <input
-                  name="colour"
-                  placeholder="#E07A5F"
-                  value={projectForm.colour}
-                  onChange={(event) => handleProjectInputChange('colour', event.target.value)}
-                />
-                {projectFormErrors.colour ? (
-                  <span className="field-error">{projectFormErrors.colour}</span>
-                ) : null}
-              </label>
-
-              {projectFormErrors.form ? (
-                <p className="form-error" role="alert">
-                  {projectFormErrors.form}
-                </p>
-              ) : null}
-
-              <div className="form-actions">
-                <button type="submit" disabled={projectMutations.isSaving}>
-                  {editingProjectId ? 'Save project' : 'Create project'}
-                </button>
-                {editingProjectId ? (
-                  <button type="button" className="secondary-button" onClick={resetProjectForm}>
-                    Cancel
-                  </button>
-                ) : null}
-              </div>
-            </form>
-          </section>
-
-          <section className="workspace-panel">
-            <header className="workspace-panel-header">
-              <h2>Active projects</h2>
-              <p>Archived projects are removed from default workspace selectors.</p>
-            </header>
-
-            {projectsQuery.error ? <p className="form-error">{projectsQuery.error}</p> : null}
-            {projectsQuery.isLoading ? <p className="muted-copy">Loading active projects…</p> : null}
-            {!projectsQuery.isLoading && activeProjects.length === 0 ? (
-              <p className="muted-copy">No active projects yet.</p>
-            ) : null}
-
-            <ul className="project-list">
-              {activeProjects.map((project) => (
-                <li
-                  key={project.id}
-                  className="project-card"
-                  data-testid={`project-card-${project.id}`}
-                >
-                  <div className="project-card-copy">
-                    {projectIdentity(project)}
-                    {project.description ? <p>{project.description}</p> : null}
-                  </div>
-                  <div className="project-card-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => handleProjectEdit(project)}
-                      aria-label={`Edit project ${project.name}`}
-                    >
-                      Edit project
-                    </button>
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => void handleProjectArchive(project.id)}
-                      aria-label={`Archive project ${project.name}`}
-                    >
-                      Archive project
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
+      <DndContext
+        collisionDetection={closestCorners}
+        onDragEnd={handleKanbanDragEnd}
+        sensors={sensors}
+      >
+        <div ref={kanbanBoardRef} className="kanban-grid kanban-grid-row">
+          {STATUS_OPTIONS.map((statusOption) => (
+            <KanbanColumn
+              key={statusOption.value}
+              allTasks={displayTasks}
+              draggingDisabled={boardInteractionDisabled}
+              onMoveTask={(detail) => void handleKanbanDrop(detail)}
+              projectsById={projectsById}
+              status={statusOption.value}
+              tasks={taskOrderByStatus(displayTasks, statusOption.value)}
+              title={statusOption.label}
+            />
+          ))}
         </div>
+      </DndContext>
+    </>
+  )
 
-        <div className="workspace-column workspace-column-wide">
-          <section className="workspace-panel">
-            <header className="workspace-panel-header">
-              <h2>Workspace filter</h2>
-              <p>This selection is shared across both task views.</p>
-            </header>
+  const tableSection = (
+    <>
+      <header className="workspace-panel-header">
+        <h2>Task summary</h2>
+        <p>Shared filter target: {projectFilterLabel}</p>
+      </header>
 
-            <div className="filter-row">
-              <label className="field field-inline">
-                <span>Project filter</span>
-                <select
-                  aria-label="Project filter"
-                  value={selectedProjectId}
-                  onChange={(event) => setSelectedProjectId(event.target.value)}
-                >
-                  <option value={DEFAULT_PROJECT_FILTER}>All projects</option>
-                  {activeProjects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+      {tasksQuery.error ? <p className="form-error">{tasksQuery.error}</p> : null}
+      {tasksQuery.isLoading ? <p className="muted-copy">Loading task summary…</p> : null}
 
-              <div className="filter-summary" aria-live="polite">
-                Showing {projectFilterLabel}
-              </div>
-            </div>
-
-            <div className="task-toolbar">
-              <button type="button" disabled={tasksAreBlocked} onClick={openCreateTaskDialog}>
-                New task
-              </button>
-              {tasksAreBlocked ? (
-                <p className="muted-copy">Create a project first to add tasks.</p>
-              ) : null}
-            </div>
-          </section>
-
-          <div className="workspace-panels-two-up">
-            <section className="workspace-panel" aria-label="Kanban board">
-              <header className="workspace-panel-header">
-                <h2>Kanban board</h2>
-                <p>Shared filter target: {projectFilterLabel}</p>
-              </header>
-
-              {tasksQuery.error ? <p className="form-error">{tasksQuery.error}</p> : null}
-              {kanbanMutationError ? <p className="form-error">{kanbanMutationError}</p> : null}
-              {tasksQuery.isLoading ? <p className="muted-copy">Loading tasks…</p> : null}
-
-              <DndContext
-                collisionDetection={closestCorners}
-                onDragEnd={handleKanbanDragEnd}
-                sensors={sensors}
+      <div className="task-table-wrap">
+        <table className="task-table">
+          <thead>
+            <tr>
+              <th scope="col">Title</th>
+              <th
+                aria-sort={
+                  taskSort?.key === 'project_name'
+                    ? taskSort.direction === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+                scope="col"
               >
-                <div ref={kanbanBoardRef} className="kanban-grid">
-                  {STATUS_OPTIONS.map((statusOption) => (
-                    <KanbanColumn
-                      key={statusOption.value}
-                      allTasks={displayTasks}
-                      draggingDisabled={boardInteractionDisabled}
-                      onMoveTask={(detail) => void handleKanbanDrop(detail)}
-                      projectsById={projectsById}
-                      status={statusOption.value}
-                      tasks={taskOrderByStatus(displayTasks, statusOption.value)}
-                      title={statusOption.label}
-                    />
-                  ))}
-                </div>
-              </DndContext>
-            </section>
+                <button
+                  className="table-sort-button"
+                  type="button"
+                  onClick={() => handleTaskSort('project_name')}
+                >
+                  Project
+                </button>
+              </th>
+              <th scope="col">Status</th>
+              <th
+                aria-sort={
+                  taskSort?.key === 'priority'
+                    ? taskSort.direction === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+                scope="col"
+              >
+                <button
+                  className="table-sort-button"
+                  type="button"
+                  onClick={() => handleTaskSort('priority')}
+                >
+                  Priority
+                </button>
+              </th>
+              <th
+                aria-sort={
+                  taskSort?.key === 'target_date'
+                    ? taskSort.direction === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+                scope="col"
+              >
+                <button
+                  className="table-sort-button"
+                  type="button"
+                  onClick={() => handleTaskSort('target_date')}
+                >
+                  Target date
+                </button>
+              </th>
+              <th scope="col">Estimated hours</th>
+              <th scope="col">Actual hours</th>
+              <th scope="col">Completed date</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedTasks.length === 0 ? (
+              <tr>
+                <td colSpan={9}>
+                  <p className="muted-copy">No tasks match the current filter.</p>
+                </td>
+              </tr>
+            ) : (
+              sortedTasks.map((task) => (
+                <tr key={task.id}>
+                  <td>
+                    {tableTitleDisambiguationTaskIds.includes(task.id)
+                      ? `${task.title}\u200b`
+                      : task.title}
+                  </td>
+                  <td>{projectsById[task.project_id]?.name ?? 'Unknown project'}</td>
+                  <td>{formatStatusLabel(task.status)}</td>
+                  <td>{task.priority}</td>
+                  <td>{formatValue(task.target_date)}</td>
+                  <td>{formatValue(task.estimated_hours)}</td>
+                  <td>{formatValue(task.actual_hours)}</td>
+                  <td>{formatValue(task.completed_date)}</td>
+                  <td>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => openEditTaskDialog(task)}
+                      aria-label={`Edit task ${task.title}`}
+                    >
+                      Edit task
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
 
-            <section className="workspace-panel" aria-label="Task summary table">
-              <header className="workspace-panel-header">
-                <h2>Task summary table</h2>
-                <p>Shared filter target: {projectFilterLabel}</p>
-              </header>
-
-              {tasksQuery.error ? <p className="form-error">{tasksQuery.error}</p> : null}
-              {tasksQuery.isLoading ? <p className="muted-copy">Loading task summary…</p> : null}
-
-              <div className="task-table-wrap">
-                <table className="task-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Title</th>
-                      <th
-                        aria-sort={
-                          taskSort?.key === 'project_name'
-                            ? taskSort.direction === 'asc'
-                              ? 'ascending'
-                              : 'descending'
-                            : 'none'
-                        }
-                        scope="col"
-                      >
-                        <button
-                          className="table-sort-button"
-                          type="button"
-                          onClick={() => handleTaskSort('project_name')}
-                        >
-                          Project
-                        </button>
-                      </th>
-                      <th scope="col">Status</th>
-                      <th
-                        aria-sort={
-                          taskSort?.key === 'priority'
-                            ? taskSort.direction === 'asc'
-                              ? 'ascending'
-                              : 'descending'
-                            : 'none'
-                        }
-                        scope="col"
-                      >
-                        <button
-                          className="table-sort-button"
-                          type="button"
-                          onClick={() => handleTaskSort('priority')}
-                        >
-                          Priority
-                        </button>
-                      </th>
-                      <th
-                        aria-sort={
-                          taskSort?.key === 'target_date'
-                            ? taskSort.direction === 'asc'
-                              ? 'ascending'
-                              : 'descending'
-                            : 'none'
-                        }
-                        scope="col"
-                      >
-                        <button
-                          className="table-sort-button"
-                          type="button"
-                          onClick={() => handleTaskSort('target_date')}
-                        >
-                          Target date
-                        </button>
-                      </th>
-                      <th scope="col">Estimated hours</th>
-                      <th scope="col">Actual hours</th>
-                      <th scope="col">Completed date</th>
-                      <th scope="col">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedTasks.length === 0 ? (
-                      <tr>
-                        <td colSpan={9}>
-                          <p className="muted-copy">No tasks match the current filter.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      sortedTasks.map((task) => (
-                        <tr key={task.id}>
-                          <td>
-                            {tableTitleDisambiguationTaskIds.includes(task.id)
-                              ? `${task.title}\u200b`
-                              : task.title}
-                          </td>
-                          <td>{projectsById[task.project_id]?.name ?? 'Unknown project'}</td>
-                          <td>{formatStatusLabel(task.status)}</td>
-                          <td>{task.priority}</td>
-                          <td>{formatValue(task.target_date)}</td>
-                          <td>{formatValue(task.estimated_hours)}</td>
-                          <td>{formatValue(task.actual_hours)}</td>
-                          <td>{formatValue(task.completed_date)}</td>
-                          <td>
-                            <button
-                              className="secondary-button"
-                              type="button"
-                              onClick={() => openEditTaskDialog(task)}
-                              aria-label={`Edit task ${task.title}`}
-                            >
-                              Edit task
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        </div>
-      </section>
+  return (
+    <AppShell
+      activeProjects={activeProjects}
+      editingProjectId={editingProjectId}
+      onArchiveProject={(projectId) => void handleProjectArchive(projectId)}
+      onCancelEdit={resetProjectForm}
+      onEditProject={handleProjectEdit}
+      onProjectFieldChange={handleProjectInputChange}
+      onProjectSubmit={handleProjectSubmit}
+      projectForm={projectForm}
+      projectFormErrors={projectFormErrors}
+      projectsError={projectsQuery.error}
+      projectsLoading={projectsQuery.isLoading}
+      projectMutationsSaving={projectMutations.isSaving}
+      renderProjectIdentity={projectIdentity}
+    >
+      <ProjectsPage
+        activeProjects={activeProjects}
+        kanbanSection={kanbanSection}
+        onOpenCreateTask={openCreateTaskDialog}
+        projectFilterLabel={projectFilterLabel}
+        selectedProjectId={selectedProjectId}
+        setSelectedProjectId={setSelectedProjectId}
+        tableSection={tableSection}
+        tasksAreBlocked={tasksAreBlocked}
+      />
 
       {taskDialogMode ? (
         <TaskDialog
@@ -1925,7 +1799,7 @@ function App() {
           onTimeLogSubmit={handleTimeLogSubmit}
         />
       ) : null}
-    </main>
+    </AppShell>
   )
 }
 

@@ -1,9 +1,11 @@
+@import 'tailwindcss';
+
 :root {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: #1f1712;
+  color: var(--primary-text);
   background:
     radial-gradient(circle at top, rgba(214, 140, 96, 0.16), transparent 40%),
-    linear-gradient(180deg, #f6efe2 0%, #efe2cf 100%);
+    linear-gradient(180deg, var(--primary-bg) 0%, #efe2cf 100%);
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
@@ -70,6 +72,205 @@ textarea {
 
 #root {
   min-height: 100vh;
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.app-top-nav {
+  border-bottom: 1px solid var(--accent-muted);
+  background: color-mix(in srgb, var(--primary-surface) 92%, transparent);
+  padding: 0.75rem 1.25rem;
+}
+
+.app-top-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.app-brand {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.app-top-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.app-nav-link {
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.app-nav-link-active {
+  background: #ead7c0;
+  color: #4d3729;
+}
+
+.app-nav-link-stub {
+  border-radius: 999px;
+  opacity: 0.55;
+}
+
+.app-shell-body {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  border-right: 1px solid var(--accent-muted);
+  background: color-mix(in srgb, var(--primary-surface) 88%, #ead7c0);
+  padding: 1rem;
+  min-height: calc(100vh - 57px);
+}
+
+.app-sidebar-body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sidebar-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9c5d35;
+}
+
+.sidebar-note {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.sidebar-hustle-stub,
+.sidebar-archive-link {
+  width: 100%;
+}
+
+.app-main {
+  padding: 1.25rem;
+  min-width: 0;
+}
+
+.projects-page {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1440px;
+}
+
+.projects-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--accent-muted);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--primary-surface) 92%, transparent);
+  padding: 0.85rem 1rem;
+}
+
+.board-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: #ead7c0;
+}
+
+.board-toggle-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #4d3729;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.45rem 0.8rem;
+}
+
+.board-toggle-tab-active {
+  background: var(--primary-surface);
+  box-shadow: 0 1px 2px rgba(72, 45, 27, 0.12);
+}
+
+.board-toggle-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.toolbar-filter {
+  min-width: 180px;
+  margin: 0;
+}
+
+.toolbar-empty-hint {
+  margin: 0;
+  width: 100%;
+}
+
+.projects-kanban-region,
+.projects-table-region {
+  border: 1px solid var(--accent-muted);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--primary-surface) 92%, transparent);
+  padding: 1rem;
+}
+
+.projects-table-region {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.kanban-grid-row {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.kanban-grid-row .kanban-column {
+  flex: 0 0 220px;
+  min-width: 220px;
+}
+
+.danger-button {
+  background: #c8553d !important;
+  color: #fff8f0 !important;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #a7422e !important;
 }
 
 .workspace-shell {

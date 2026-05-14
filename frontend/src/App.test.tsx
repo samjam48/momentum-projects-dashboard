@@ -440,17 +440,6 @@ function installTaskWorkspaceBackendMock(
   return { taskStatusRequests }
 }
 
-function getSectionByHeading(name: RegExp): HTMLElement {
-  const heading = screen.getByRole('heading', { name })
-  const section = heading.closest('section')
-
-  if (!(section instanceof HTMLElement)) {
-    throw new Error(`Expected heading ${String(name)} to be inside a section.`)
-  }
-
-  return section
-}
-
 function expectTableTaskOrder(table: HTMLElement, titles: string[]): void {
   const rows = within(table).getAllByRole('row').slice(1)
   expect(rows).toHaveLength(titles.length)
@@ -464,8 +453,20 @@ function expectTableTaskOrder(table: HTMLElement, titles: string[]): void {
   expect(actualOrder).toEqual(titles)
 }
 
+function getKanbanRegion(): HTMLElement {
+  return screen.getByRole('region', { name: /kanban board/i })
+}
+
+function getTableRegion(): HTMLElement {
+  return screen.getByRole('region', { name: /task summary/i })
+}
+
+function waitForWorkspaceReady(): Promise<void> {
+  return screen.findByRole('complementary', { name: /projects sidebar/i })
+}
+
 function getKanbanColumn(label: RegExp): HTMLElement {
-  const board = getSectionByHeading(/kanban board/i)
+  const board = getKanbanRegion()
   const heading = within(board).getByRole('heading', { name: label })
   const column = heading.closest('section')
 
@@ -577,19 +578,16 @@ describe('Ticket 3 project management and shared data layer', () => {
 
     render(<App />)
 
-    expect(
-      await screen.findByRole('heading', { name: /projects \+ tasks workspace/i }),
-    ).toBeInTheDocument()
+    await waitForWorkspaceReady()
+
     expect(screen.getByTestId('project-card-project-podcast')).toBeInTheDocument()
     expect(screen.getByTestId('project-card-project-newsletter')).toBeInTheDocument()
     expect(
       within(screen.getByTestId('project-card-project-podcast')).getByText('#D97048'),
     ).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /project filter/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: /kanban board/i })).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 2, name: /task summary table/i }),
-    ).toBeInTheDocument()
+    expect(getKanbanRegion()).toBeInTheDocument()
+    expect(getTableRegion()).toBeInTheDocument()
   })
 
   it('supports create, edit, and archive flows without a page reload', async () => {
@@ -746,7 +744,7 @@ describe('Ticket 3 project management and shared data layer', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     fireEvent.change(screen.getByLabelText(/project name/i), {
       target: { value: 'Podcast' },
@@ -844,9 +842,9 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
-    const tableSection = getSectionByHeading(/task summary table/i)
+    const tableSection = getTableRegion()
     const table = within(tableSection).getByRole('table')
 
     expectTableTaskOrder(table, [
@@ -929,12 +927,12 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     expect(screen.getByRole('combobox', { name: /project filter/i })).toHaveValue('all')
 
-    const tableSection = getSectionByHeading(/task summary table/i)
-    const kanbanSection = getSectionByHeading(/kanban board/i)
+    const tableSection = getTableRegion()
+    const kanbanSection = getKanbanRegion()
 
     await waitFor(() => {
       expect(within(tableSection).getByText('Launch solo workspace')).toBeInTheDocument()
@@ -950,7 +948,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -982,7 +980,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       expect(screen.getByText('Publish sprint notes')).toBeInTheDocument()
     })
 
-    const kanbanSection = getSectionByHeading(/kanban board/i)
+    const kanbanSection = getKanbanRegion()
     expect(within(kanbanSection).getByText('Publish sprint notes')).toBeInTheDocument()
 
     fireEvent.click(
@@ -1036,7 +1034,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     fireEvent.click(
       screen.getByRole('button', { name: /edit task write release notes/i }),
@@ -1066,8 +1064,8 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       expect(within(dialog).getByText('Final review and polish')).toBeInTheDocument()
     })
 
-    const tableSection = getSectionByHeading(/task summary table/i)
-    const kanbanSection = getSectionByHeading(/kanban board/i)
+    const tableSection = getTableRegion()
+    const kanbanSection = getKanbanRegion()
     expect(within(tableSection).getByText('3.5')).toBeInTheDocument()
     expect(within(kanbanSection).getByText('3.5')).toBeInTheDocument()
   })
@@ -1080,7 +1078,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1112,7 +1110,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1158,7 +1156,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1280,7 +1278,7 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const inProgressColumn = getKanbanColumn(/in progress/i)
@@ -1326,7 +1324,7 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const launchBriefCard = getTaskCard(backlogColumn, 'Draft launch brief')
@@ -1367,7 +1365,7 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const draftCopyCard = getTaskCard(backlogColumn, 'Draft release copy')
@@ -1415,7 +1413,7 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const planMigrationCard = getTaskCard(backlogColumn, 'Plan migration')
@@ -1495,7 +1493,7 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await waitForWorkspaceReady()
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const stakeholderReviewCard = getTaskCard(backlogColumn, 'Schedule stakeholder review')
