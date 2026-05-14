@@ -41,9 +41,10 @@ npm run test -- --coverage  # ≥ 70%
 - Project/task modal UX, sidebar filtering, and Linear-density Kanban cards ship per tickets `1b-2` and `1b-3`
 - Owner cleanup feedback in Phase 1.5 §11 ships per tickets `1b-4` and `1b-5` (Projects page polish; task modal, time logs, archive)
 - Owner sign-off fixes in ticket `1b-6` ship (checkbox/Kanban/modal polish, time-log E2E + delete, test hygiene, deferred cleanup)
+- Owner-reported fixes in ticket `1b-7` ship (Alembic upgrade on startup / stale SQLite time logs, checkbox transparency vs global CSS, Kanban due-date size `0.88rem`, title hover underline-only)
 - Phase 1 workflows (CRUD, filter, drag-and-drop, time logs) remain functional on the new layout
 - All quality gates pass for the Phase 1b implementation
-**In scope:** Tickets `1b-1` through `1b-6` in `plans/tickets-phase-1b-ux-2026-05-14.md` — shell, modals, Kanban, §11 cleanup, and final owner sign-off polish.
+**In scope:** Tickets `1b-1` through `1b-7` in `plans/tickets-phase-1b-ux-2026-05-14.md` — shell, modals, Kanban, Phase 1.5 cleanup, owner sign-off polish, and follow-up bugs (`1b-7`).
 **Out of scope:** Venture entity, asset flag, project Kanban board, income/goals/dashboard pages, server-persisted preferences, settings purge, and schema migrations (Phase 1.6+).
 ---
 ## Definition of Done

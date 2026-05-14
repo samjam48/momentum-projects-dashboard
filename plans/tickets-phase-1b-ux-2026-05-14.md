@@ -22,6 +22,7 @@
 4. **1b-4** polishes Projects page shell, Kanban, summary table, and archive dialog (projects tab) — depends on 1b-1–1b-3 layout and interaction baseline.
 5. **1b-5** refines task modal UX, time-log sub-modal, and archived-tasks archive tab — depends on 1b-2 modal patterns; archive task action may depend on API gap resolution in Unresolved Dependencies.
 6. **1b-6** — final owner sign-off polish after 1b-4/1b-5; fixes regressions (checkboxes, Kanban spacing, modals), time-log E2E and delete, test hygiene, and deferred cleanup items — depends on 1b-1 through 1b-5.
+7. **1b-7** — owner-reported follow-ups after 1b-6: production time-log failures on databases that pre-date applied Alembic revisions, and residual Kanban/checkbox styling conflicts with global CSS — depends on 1b-6 shipping as baseline; does not expand product scope beyond Phase 1b UX.
 
 ---
 
@@ -196,6 +197,33 @@
 - Empty-notes time-log row expand UX.
 - `AppShell.test.tsx` occasional flake under full parallel suite.
 - Sprint doc vs backend schema tension (already approved minimal migrations).
+
+---
+
+## Ticket 1b-7 — Owner-Reported Bugs (Stale DB Time Logs, Checkbox, Kanban Typography/Hover)
+
+### Context
+
+Real installs can keep an existing SQLite file while the codebase gains new columns via Alembic (e.g. `title` / `location` on `time_logs` from revision `20260514_0003`). CI and local tests often use fresh databases (`create_all` only), so mismatches go unnoticed until GET/POST `/api/v1/tasks/{id}/time-logs` hits a stale schema and returns **500**. Separately, global base styles (notably `button`) can override Radix/shadcn checkbox and Kanban title hover appearance despite ticket **1b-6** intent.
+
+### Acceptance Criteria
+
+- **Time logs / stale schema:** Ensure every normal application startup applies pending migrations so existing DB files reach current head (e.g. run Alembic **`upgrade head`** from app lifespan or equivalent single, documented hook). Add or complete **`alembic.ini`** and **`env.py`** if missing so CLI upgrades and runtime upgrades stay aligned with the same revision chain.
+- **Time logs / regression test:** Add a **backend integration test** that reproduces the stale-database scenario: DB built or trimmed to omit columns introduced by `20260514_0003` (or equivalent “pre-migration” snapshot), then assert time-log endpoints fail before upgrade and succeed after **`upgrade head`** (or assert migration runs and endpoints return non-5xx for valid requests). Fresh-db behaviour remains covered; full suite and coverage gates still pass.
+- **Checkbox:** Checked state uses a **fully transparent / clear** fill that matches the parent surface (Kanban card, dropdown menu row, sidebar row, etc.) — **no** dark brown or accent-filled indicator box. Unchecked/checked states remain distinguishable via border/tick (per **1b-6** tick/outline rules). Fix must account for **global `button` (or other)** rules that override Radix `Checkbox`/`button` parts.
+- **Kanban due date:** Due-date text on task cards uses the **same font size as status/column pills**, specifically **`0.88rem`** (not larger).
+- **Kanban title hover:** Task title control on cards: **hover = underline only** — **no** hover background (including brown/accent wash), **no** `transform` (scale/translate/nudge). Focus-visible styling remains accessible (focus ring or underline policy unchanged from product baseline unless required for contrast).
+
+### Edge Cases
+
+- **Migrations:** Startup upgrade is **idempotent** at head (repeated starts do not error). Behaviour when `alembic_version` is missing, wrong, or manually corrupted — fail loudly with clear logs or documented recovery (no silent partial schema).
+- **Migrations:** Concurrent multi-worker startup — document single-instance expectation for SQLite + Alembic or guard so only one process runs upgrades if applicable.
+- **Migrations:** User runs DB from read-only path — startup fails predictably with actionable message (no partial writes).
+- **Time-log API:** After upgrade, existing rows without new nullable columns behave per ORM/SQL defaults; POST with only legacy fields still succeeds.
+- **Checkbox:** Hover/focus/active states do not reintroduce opaque fills; **keyboard** focus visibility preserved; works inside menus, dialogs, and sidebar scroll regions.
+- **Checkbox:** Nested interactive elements (e.g. row click vs checkbox click) do not double-toggle or lose transparent styling.
+- **Due date:** Long or localized date strings do not blow layout (ellipsis or wrap per existing card constraints).
+- **Title hover:** Touch / coarse pointers: no reliance on hover-only affordance for critical actions; drag activation still works; underline does not break title hit area for modal open.
 
 ---
 
