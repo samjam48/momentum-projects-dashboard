@@ -23,6 +23,7 @@
 5. **1b-5** refines task modal UX, time-log sub-modal, and archived-tasks archive tab — depends on 1b-2 modal patterns; archive task action may depend on API gap resolution in Unresolved Dependencies.
 6. **1b-6** — final owner sign-off polish after 1b-4/1b-5; fixes regressions (checkboxes, Kanban spacing, modals), time-log E2E and delete, test hygiene, and deferred cleanup items — depends on 1b-1 through 1b-5.
 7. **1b-7** — owner-reported follow-ups after 1b-6: production time-log failures on databases that pre-date applied Alembic revisions, and residual Kanban/checkbox styling conflicts with global CSS — depends on 1b-6 shipping as baseline; does not expand product scope beyond Phase 1b UX.
+8. **1b-8** — second-pass UI polish from owner review: checkbox outline hierarchy (unchecked vs checked), Kanban column list layout so inter-card gap applies, due-date typography aligned to project pill (`0.78rem`), and time-log list as bordered cards with typographic separators, expandable notes, and confirm-before-delete — depends on 1b-6/1b-7 baseline; clarifies or supersedes conflicting sizing copy where noted in ticket body.
 
 ---
 
@@ -224,6 +225,46 @@ Real installs can keep an existing SQLite file while the codebase gains new colu
 - **Checkbox:** Nested interactive elements (e.g. row click vs checkbox click) do not double-toggle or lose transparent styling.
 - **Due date:** Long or localized date strings do not blow layout (ellipsis or wrap per existing card constraints).
 - **Title hover:** Touch / coarse pointers: no reliance on hover-only affordance for critical actions; drag activation still works; underline does not break title hit area for modal open.
+
+---
+
+## Ticket 1b-8 — Owner UI Polish Pass (Checkbox, Kanban Gap, Time-Log Cards)
+
+### Context
+
+Owner review after **`1b-6` / `1b-7`** requests visual and layout refinements that are still within Phase 1b UX scope: checkbox affordance (outline states), reliable **≥5px** vertical spacing between Kanban cards (layout mechanism, not only a `gap` rule on a non-flex parent), due-date type size aligned to the **project pill** on cards (`.kanban-project-pill`, **`0.78rem`**), and time-log rows presented as **card** surfaces with clearer information hierarchy and safer delete. Where **`1b-7`** specified due-date size relative to **column-header** pills, **`1b-8`** supersedes that: due date on the **card** matches the **project pill** size, not the column header.
+
+### Acceptance Criteria
+
+- **Checkbox (shared primitive and all Phase 1b usages in scope):**
+  - **Interior** remains **transparent / clear** in both states; **keep the current tick** (Lucide `Check` / existing tick graphic per **`1b-6`**).
+  - **Unchecked:** **visible round outline** — **lighter** border colour than the checked/selected state so the empty control reads clearly on sidebar, board-options rows, and menus.
+  - **Checked / selected:** **darker and/or thicker** outline than unchecked so selection is obvious without filling the box (still **no** opaque accent/brown interior fill).
+- **Kanban — inter-card spacing:**
+  - **`.kanban-task-list`** (or equivalent column body) is implemented so **gap/margin reliably separates cards** (e.g. **flex** or **grid** on the list container, or another documented layout pattern). A **`gap`** declaration alone is **not** sufficient if the list is not a flex/grid/formatting context — **fix the container** so **at least 5px** clear space **between** stacked cards in a column.
+- **Kanban — due date typography:**
+  - Due-date text on **task cards** uses the **same font size** as the **project pill** on the card (`.kanban-project-pill`), i.e. **`0.78rem`** — **not** the size used for **column header** status pills (which may differ).
+- **Time logs — list row presentation (task edit modal):**
+  - Each time-log entry is rendered as a **card**: **transparent/clear background**, **brown** (terracotta / token-consistent) **border**; comfortable padding; consistent with design tokens.
+  - Primary line shows **`Title · date · location`** using **middle dot** separators **with spaces** around each dot (e.g. `Title · May 14, 2026 · Remote` — exact date format follows existing app conventions). **Title must not run into the date** (wrapping, truncation, or flex rules as needed).
+  - **Delete** control is a **plain clickable “X”** text character or minimal text affordance — **not** a round brown icon button. **Confirmation dialog** (shadcn `AlertDialog` or equivalent) **before** any delete API call; cancel leaves row unchanged.
+  - **Clicking the card** (outside interactive delete, if hit targets are split) **expands** or otherwise **shows the full description/notes** for that entry; collapsed state may show truncated notes with expand affordance **or** full notes only when expanded — product choice must be **consistent** and **accessible** (keyboard/screen reader still reach expand content).
+- **Tests:** Add or update frontend tests as needed: e.g. Kanban list container uses a layout that produces non-zero inter-card gap; due-date and project-pill font-size contract **or** class coupling; time-log row renders separator dots and opens confirm on delete; expand toggles notes visibility. Backend unchanged unless delete endpoint is still missing (then follow **`1b-6`** dependency — **no new scope** beyond wiring and tests already in sprint).
+- **Quality gates:** `make lint` / `make test` pass for the implementation PR.
+
+### Edge Cases
+
+- **Checkbox:** States remain distinguishable on **primary-bg**, **primary-surface**, **menu** overlays, and **Kanban** contexts; **focus-visible** and **disabled** states do not reintroduce filled interiors; no regression of **`1b-7`** global CSS conflicts.
+- **Kanban gap:** Spacing holds with **one card**, **many cards**, **long titles**, and **horizontal column scroll**; **drag-and-drop** hit targets and **activation** unchanged; **empty column** still shows empty state without broken layout.
+- **Due date:** Very long localized dates or narrow cards: **ellipsis/truncation** or **wrap** without overlapping the project pill; **no** accidental match to **header** pill size when headers resize.
+- **Time log cards:** Missing **title**, **location**, or **date**: separators and dots **omit** empty segments gracefully (no double dots); **notes** empty: expand still **works** (shows empty detail or muted copy per product rule).
+- **Delete:** Confirm dialog **Escape** and **backdrop** behave like other modals; **confirm** triggers delete, **cancel** does not; delete errors show **inline/toast** and list stays consistent with **`1b-6`** delete rules.
+- **Expand vs click targets:** If the **whole row** toggles expand, **delete X** does not also toggle expand (**`stopPropagation`** or separate region); nested **sub-modal** stacking unchanged from **`1b-5` / `1b-6`**.
+
+### Out of Scope
+
+- New time-log **schema** fields or backend features beyond existing **`1b-5` / `1b-6`** APIs.
+- **Venture**, **project Kanban**, **income/goals/dashboard** pages, and **server-persisted** preferences.
 
 ---
 
