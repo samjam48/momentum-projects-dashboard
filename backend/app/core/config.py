@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "Momentum"
     app_version: str = "0.1.0"
     api_v1_prefix: str = "/api/v1"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173"
     database_url: str = "sqlite:///data/momentum.db"
 
     model_config = SettingsConfigDict(
