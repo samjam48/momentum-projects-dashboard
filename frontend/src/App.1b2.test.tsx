@@ -105,8 +105,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
       await waitForWorkspaceReady()
 
       const sidebar = getSidebar()
-      expect(within(sidebar).getByTestId('project-chip-project-alpha')).toBeInTheDocument()
-      expect(within(sidebar).getByTestId('project-chip-project-beta')).toBeInTheDocument()
+      expect(within(sidebar).getAllByTestId('project-colour-dot')).toHaveLength(2)
       expect(queryHexStrings(sidebar)).toHaveLength(0)
     })
 
@@ -134,7 +133,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
       await waitForWorkspaceReady()
 
       const sidebar = getSidebar()
-      expect(within(sidebar).getByRole('link', { name: /view archive/i })).toBeInTheDocument()
+      expect(within(sidebar).getByRole('button', { name: /view archive/i })).toBeInTheDocument()
     })
 
     it('shows a disabled + Hustle stub labelled for Phase 1.6', async () => {

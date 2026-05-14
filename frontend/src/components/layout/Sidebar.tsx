@@ -3,6 +3,7 @@ import {
   useProjectFilterStore,
   type ProjectFilterState,
 } from '../../stores/projectFilter'
+import { ArchiveDialog } from '../ArchiveDialog'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 
@@ -31,84 +32,80 @@ export function Sidebar({
   )
 
   const activeProjectIds = activeProjects.map((project) => project.id)
+
   return (
     <aside aria-label="Projects sidebar" className="app-sidebar">
       <div className="app-sidebar-body">
         <p className="sidebar-eyebrow">Projects</p>
         <p className="muted-copy sidebar-note">Flat list until Phase 1.6 adds ventures.</p>
 
-        <Button type="button" onClick={onCreateProject}>
-          New project
-        </Button>
+        {projectsLoading ? (
+          <div className="sidebar-loading-state" data-testid="sidebar-loading-state">
+            <p className="muted-copy">Loading projects…</p>
+          </div>
+        ) : (
+          <>
+            <Button type="button" onClick={onCreateProject}>
+              New project
+            </Button>
 
-        {projectsError ? <p className="form-error">{projectsError}</p> : null}
-        {projectsLoading ? <p className="muted-copy">Loading active projects…</p> : null}
-        {!projectsLoading && activeProjects.length === 0 ? (
-          <p className="muted-copy">No active projects yet.</p>
-        ) : null}
+            {projectsError ? <p className="form-error">{projectsError}</p> : null}
+            {activeProjects.length === 0 ? (
+              <p className="muted-copy">No active projects yet.</p>
+            ) : null}
 
-        <ul className="project-list sidebar-project-list">
-          {activeProjects.map((project) => {
-            const checked = isSidebarProjectSelected(project.id, activeProjectIds)
+            <ul className="project-list sidebar-project-list">
+              {activeProjects.map((project) => {
+                const checked = isSidebarProjectSelected(project.id, activeProjectIds)
 
-            return (
-              <li
-                key={project.id}
-                className="sidebar-project-row"
-                data-testid={`sidebar-project-${project.id}`}
-              >
-                <Checkbox
-                  aria-label={`Show ${project.name} in workspace`}
-                  checked={checked}
-                  onCheckedChange={() => {
-                    toggleSidebarProject(project.id, activeProjectIds)
-                  }}
-                />
-
-                <div
-                  className="sidebar-project-chip"
-                  data-testid={`project-chip-${project.id}`}
-                >
-                  <span
-                    aria-hidden
-                    className="project-colour-dot"
-                    data-testid="project-colour-dot"
-                    style={{ backgroundColor: project.colour ?? undefined }}
-                  />
-                  <button
-                    className="sidebar-project-title"
-                    type="button"
-                    onClick={() => onEditProject(project)}
+                return (
+                  <li
+                    key={project.id}
+                    className="sidebar-project-row"
+                    data-testid={`sidebar-project-${project.id}`}
                   >
-                    {project.name}
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+                    <span
+                      aria-hidden
+                      className="project-colour-dot"
+                      data-testid="project-colour-dot"
+                      style={{ backgroundColor: project.colour ?? undefined }}
+                    />
 
-        <Button
-          aria-disabled
-          aria-label="+ Hustle (Phase 1.6)"
-          className="sidebar-hustle-stub"
-          disabled
-          type="button"
-          variant="secondary"
-        >
-          + Hustle (1.6)
-        </Button>
+                    <button
+                      className="sidebar-project-title"
+                      type="button"
+                      onClick={() => onEditProject(project)}
+                    >
+                      {project.name}
+                    </button>
+
+                    <Checkbox
+                      aria-label={`Show ${project.name} in workspace`}
+                      checked={checked}
+                      onCheckedChange={() => {
+                        toggleSidebarProject(project.id, activeProjectIds)
+                      }}
+                    />
+                  </li>
+                )
+              })}
+            </ul>
+
+            <Button
+              aria-disabled
+              aria-label="+ Hustle (Phase 1.6)"
+              className="sidebar-hustle-stub"
+              disabled
+              type="button"
+              variant="secondary"
+            >
+              + Hustle (1.6)
+            </Button>
+          </>
+        )}
       </div>
 
-      <a
-        className="sidebar-archive-link"
-        href="#"
-        onClick={(event) => {
-          event.preventDefault()
-        }}
-      >
-        View archive
-      </a>
+      <ArchiveDialog onEditProject={onEditProject} />
     </aside>
   )
 }

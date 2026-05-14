@@ -52,14 +52,7 @@ export function getKanbanBoard(): HTMLElement {
 
 export function getKanbanColumn(label: RegExp): HTMLElement {
   const board = getKanbanBoard()
-  const heading = within(board).getByRole('heading', { name: label })
-  const column = heading.closest('section')
-
-  if (!(column instanceof HTMLElement)) {
-    throw new Error(`Expected kanban heading ${String(label)} to be inside a section.`)
-  }
-
-  return column
+  return within(board).getByRole('region', { name: label })
 }
 
 export function getTaskCard(column: HTMLElement, title: string): HTMLElement {
@@ -107,8 +100,8 @@ export async function waitForKanbanTaskVisible(
 }
 
 export function expectKanbanTaskOrder(column: HTMLElement, titles: string[]): void {
-  const heading = within(column).getByRole('heading')
-  const label = heading.textContent?.trim() ?? ''
+  const label =
+    column.querySelector('.task-card-header .status-pill')?.textContent?.trim() ?? ''
   const freshColumn = getKanbanColumn(new RegExp(label, 'i'))
   const items = freshColumn.querySelectorAll('ul.task-list > li')
   const actualOrder = Array.from(items).map((item) => {
@@ -155,4 +148,35 @@ export function queryKanbanCardMoveButtons(card: HTMLElement): HTMLElement[] {
       const name = button.getAttribute('aria-label') ?? button.textContent ?? ''
       return /drag task|move task .* (up|down|to)/i.test(name)
     })
+}
+
+export function getTopNavProjectsControl(): HTMLElement {
+  const nav = screen.getByRole('navigation', { name: /primary/i })
+  return within(nav).getByRole('button', { name: /^projects$/i })
+}
+
+export function getArchiveViewControl(): HTMLElement {
+  const sidebar = getSidebar()
+  return within(sidebar).getByRole('button', { name: /view archive/i })
+}
+
+export function getTaskSummaryFilterSubtitle(): HTMLElement {
+  const tableRegion = getTableRegion()
+  return within(tableRegion).getByText(/^showing /i)
+}
+
+export function getKanbanBoardOptionsControl(): HTMLElement {
+  const kanbanRegion = getKanbanRegion()
+  return within(kanbanRegion).getByRole('button', { name: /board options|display options/i })
+}
+
+export function getTableSortControl(): HTMLElement {
+  const tableRegion = getTableRegion()
+  return within(tableRegion).getByTestId('table-sort-gear')
+}
+
+export function openTableSortMenu(): HTMLElement {
+  const trigger = getTableSortControl()
+  fireEvent.click(trigger)
+  return screen.getByRole('menu', { name: /sort by/i })
 }

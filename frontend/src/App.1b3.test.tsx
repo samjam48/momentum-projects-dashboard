@@ -95,7 +95,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       expect(queryKanbanCardMoveButtons(draftCard)).toHaveLength(0)
     })
 
-    it('renders linear-density cards with colour dot, clickable title, project name, and due date by default', async () => {
+    it('renders linear-density cards with colour dot, clickable title, and due date by default', async () => {
       installWorkspaceBackendMock({
         projects: [alphaProject, betaProject],
         tasks: [
@@ -130,8 +130,8 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
 
       expect(within(card).getByTestId('kanban-task-colour-dot')).toBeInTheDocument()
       expect(within(card).getByRole('button', { name: /draft launch brief/i })).toBeInTheDocument()
-      expect(within(card).getByText('Alpha Client')).toBeInTheDocument()
-      expect(within(card).getByText('2026-05-20')).toBeInTheDocument()
+      expect(within(card).queryByText('Alpha Client')).not.toBeInTheDocument()
+      expect(within(card).getByText('May 20')).toBeInTheDocument()
       expect(queryHexStrings(card)).toHaveLength(0)
       expect(within(card).queryByText(/urgent/i)).not.toBeInTheDocument()
       expect(within(card).queryByText('2.5')).not.toBeInTheDocument()
@@ -195,7 +195,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       await waitForKanbanTaskVisible('Default metrics task', /in progress/i)
 
       const card = getTaskCard(getKanbanColumn(/in progress/i), 'Default metrics task')
-      expect(within(card).getByText('2026-05-22')).toBeInTheDocument()
+      expect(within(card).getByText('May 22')).toBeInTheDocument()
       expect(within(card).queryByText(/high/i)).not.toBeInTheDocument()
       expect(within(card).queryByText('1.25')).not.toBeInTheDocument()
       expect(within(card).queryByTestId('kanban-task-status-badge')).not.toBeInTheDocument()
@@ -232,7 +232,6 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       openBoardOptionsMenu()
       fireEvent.click(getBoardOptionsCheckbox(/show priority/i))
       fireEvent.click(getBoardOptionsCheckbox(/show actual hours/i))
-      fireEvent.click(getBoardOptionsCheckbox(/show status badge/i))
 
       await waitForKanbanTaskVisible('Toggle fields task', /review/i)
       const card = getTaskCard(getKanbanColumn(/review/i), 'Toggle fields task')
@@ -240,7 +239,6 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       await waitFor(() => {
         expect(within(card).getByText(/urgent/i)).toBeInTheDocument()
         expect(within(card).getByText('3')).toBeInTheDocument()
-        expect(within(card).getByTestId('kanban-task-status-badge')).toHaveTextContent(/review/i)
       })
     })
 
@@ -282,7 +280,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
   })
 
   describe('project name visibility', () => {
-    it('shows project name on cards in the all-projects view', async () => {
+    it('can show project name on cards when board options enable it in the all-projects view', async () => {
       installWorkspaceBackendMock({
         projects: [alphaProject, betaProject],
         tasks: [
@@ -299,7 +297,14 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       await waitForWorkspaceReady()
 
       const card = await waitForKanbanCard('All projects card')
-      expect(within(card).getByText('Beta Podcast')).toBeInTheDocument()
+      expect(within(card).queryByText('Beta Podcast')).not.toBeInTheDocument()
+
+      openBoardOptionsMenu()
+      fireEvent.click(getBoardOptionsCheckbox(/show project name/i))
+
+      await waitFor(() => {
+        expect(within(card).getByText('Beta Podcast')).toBeInTheDocument()
+      })
     })
 
     it('hides redundant project name when a single project is filtered unless board options enable it', async () => {
@@ -364,7 +369,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       expect(board).toHaveClass('kanban-grid-row')
 
       const backlogColumn = getKanbanColumn(/backlog/i)
-      expect(within(backlogColumn).getByRole('heading', { name: /backlog/i })).toBeInTheDocument()
+      expect(within(backlogColumn).getByText(/^backlog$/i)).toHaveClass('status-pill')
       expect(within(backlogColumn).getByText('2')).toBeInTheDocument()
     })
 

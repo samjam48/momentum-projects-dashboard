@@ -211,6 +211,15 @@ textarea {
   box-shadow: none;
 }
 
+.sidebar-project-row .sidebar-project-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-loading-state {
+  padding: 0.5rem 0;
+}
+
 .sidebar-project-chip {
   display: inline-flex;
   align-items: center;
@@ -386,6 +395,145 @@ textarea {
 .projects-table-region {
   display: grid;
   gap: 0.75rem;
+}
+
+.section-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.section-title-stack {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f1712;
+}
+
+.task-summary-subtitle {
+  margin: 0;
+  color: #5b4a3f;
+  font-size: 0.92rem;
+}
+
+.icon-gear-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 10px;
+  background: transparent;
+  color: #4d3729;
+  cursor: pointer;
+  padding: 0;
+}
+
+.icon-gear-button:hover {
+  background: rgba(255, 248, 240, 0.9);
+}
+
+.table-sort-menu,
+.board-options-menu {
+  position: relative;
+}
+
+.table-sort-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 12rem;
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 14px;
+  background: #fff8f0;
+  box-shadow: 0 12px 32px rgba(72, 45, 27, 0.12);
+  padding: 0.35rem;
+}
+
+.table-sort-label {
+  margin: 0;
+  padding: 0.35rem 0.7rem 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #5b4a3f;
+}
+
+.table-sort-item {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+}
+
+.table-sort-item:hover {
+  background: rgba(217, 112, 72, 0.1);
+}
+
+.archive-dialog-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.archive-dialog-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #4d3729;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+}
+
+.archive-dialog-tab-active {
+  background: #ead7c0;
+}
+
+.archive-project-list {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.archive-project-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+
+.archive-project-row:hover {
+  background: rgba(217, 112, 72, 0.08);
+}
+
+.sidebar-archive-link {
+  width: 100%;
+  justify-content: flex-start;
+  padding-left: 0;
 }
 
 .kanban-grid-row {
@@ -612,6 +760,7 @@ textarea {
 .kanban-task-card {
   cursor: grab;
   touch-action: none;
+  padding: 5px;
 }
 
 .kanban-task-card:active {
@@ -624,17 +773,32 @@ textarea {
 }
 
 .kanban-task-linear {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.kanban-task-title-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.55rem;
+  justify-content: space-between;
+  gap: 0.35rem;
 }
 
 .kanban-task-colour-dot {
   flex: 0 0 auto;
   width: 0.55rem;
   height: 0.55rem;
-  margin-top: 0.35rem;
+  margin-top: 0.2rem;
   border-radius: 999px;
+}
+
+.kanban-project-pill {
+  display: inline-flex;
+  align-self: flex-start;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
 }
 
 .kanban-task-body {
@@ -685,14 +849,28 @@ textarea {
 }
 
 .board-options-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: inherit;
   cursor: pointer;
   font: inherit;
+  font-size: 0.88rem;
+  font-weight: 400;
   padding: 0.55rem 0.7rem;
   text-align: left;
+}
+
+.board-options-checkbox {
+  pointer-events: none;
+}
+
+.kanban-column-count {
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .board-options-item:hover {
@@ -700,7 +878,7 @@ textarea {
 }
 
 .board-options-item[aria-checked='true'] {
-  font-weight: 700;
+  font-weight: 500;
 }
 
 

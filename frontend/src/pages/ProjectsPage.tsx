@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 
 import type { Project } from '../api/types'
 import { DEFAULT_PROJECT_FILTER } from '../stores/projectFilter'
-import { BoardOptionsMenu } from '../components/kanban/BoardOptionsMenu'
 import { Button } from '../components/ui/button'
 
 type ProjectsPageProps = {
@@ -69,8 +68,6 @@ export function ProjectsPage({
         <Button disabled={tasksAreBlocked} type="button" onClick={onOpenCreateTask}>
           + New task
         </Button>
-
-        <BoardOptionsMenu />
 
         {tasksAreBlocked ? (
           <p className="muted-copy toolbar-empty-hint">Create a project first to add tasks.</p>

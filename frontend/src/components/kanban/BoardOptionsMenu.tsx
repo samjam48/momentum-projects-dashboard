@@ -1,19 +1,22 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { Settings } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { Button } from '../ui/button'
 import {
-  type BoardDisplayOptions,
   useBoardDisplayOptionsStore,
 } from '../../stores/boardDisplayOptions'
+import { Checkbox } from '../ui/checkbox'
 
-type BoardOptionKey = keyof BoardDisplayOptions
+type VisibleBoardOptionKey =
+  | 'showActualHours'
+  | 'showDueDate'
+  | 'showPriority'
+  | 'showProjectName'
 
-const BOARD_OPTION_ITEMS: Array<{ key: BoardOptionKey; label: string }> = [
+const BOARD_OPTION_ITEMS: Array<{ key: VisibleBoardOptionKey; label: string }> = [
   { key: 'showDueDate', label: 'Show due date' },
   { key: 'showPriority', label: 'Show priority' },
   { key: 'showActualHours', label: 'Show actual hours' },
-  { key: 'showStatusBadge', label: 'Show status badge' },
   { key: 'showProjectName', label: 'Show project name' },
 ]
 
@@ -27,7 +30,6 @@ export function BoardOptionsMenu(): JSX.Element {
       showDueDate: state.showDueDate,
       showPriority: state.showPriority,
       showProjectName: state.showProjectName,
-      showStatusBadge: state.showStatusBadge,
     })),
   )
   const toggleOption = useBoardDisplayOptionsStore((state) => state.toggleOption)
@@ -55,16 +57,17 @@ export function BoardOptionsMenu(): JSX.Element {
 
   return (
     <div ref={containerRef} className="board-options-menu">
-      <Button
+      <button
         aria-controls={menuId}
         aria-expanded={isOpen}
         aria-haspopup="menu"
+        aria-label="Board options"
+        className="icon-gear-button"
         type="button"
-        variant="secondary"
         onClick={() => setIsOpen((current) => !current)}
       >
-        Board options
-      </Button>
+        <Settings aria-hidden size={16} strokeWidth={2} />
+      </button>
 
       {isOpen ? (
         <div
@@ -82,7 +85,13 @@ export function BoardOptionsMenu(): JSX.Element {
               type="button"
               onClick={() => toggleOption(item.key)}
             >
-              {item.label}
+              <Checkbox
+                aria-hidden
+                checked={options[item.key]}
+                className="board-options-checkbox"
+                tabIndex={-1}
+              />
+              <span>{item.label}</span>
             </button>
           ))}
         </div>

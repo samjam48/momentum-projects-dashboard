@@ -29,7 +29,7 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
     render(<App />)
 
     const nav = await screen.findByRole('navigation', { name: /primary/i })
-    expect(within(nav).getByRole('link', { name: /^projects$/i })).toHaveAttribute(
+    expect(within(nav).getByRole('button', { name: /^projects$/i })).toHaveAttribute(
       'aria-current',
       'page',
     )
@@ -74,6 +74,8 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
     expect(within(toolbar).getByRole('tab', { name: /projects/i })).toBeDisabled()
     expect(within(toolbar).getByRole('combobox', { name: /project filter/i })).toBeInTheDocument()
     expect(within(toolbar).getByRole('button', { name: /new task/i })).toBeInTheDocument()
-    expect(within(toolbar).getByRole('button', { name: /board options/i })).toBeInTheDocument()
+    expect(
+      within(toolbar).queryByRole('button', { name: /board options|display options/i }),
+    ).not.toBeInTheDocument()
   })
 })

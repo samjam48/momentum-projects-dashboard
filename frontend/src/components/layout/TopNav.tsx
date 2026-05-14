@@ -1,7 +1,7 @@
 import { Button } from '../ui/button'
 
 const NAV_ITEMS = [
-  { href: '/projects', id: 'projects', label: 'Projects' },
+  { active: true, id: 'projects', label: 'Projects' },
   { disabled: true, id: 'income', label: 'Income' },
   { disabled: true, id: 'goals', label: 'Goals' },
 ] as const
@@ -13,15 +13,15 @@ export function TopNav(): JSX.Element {
         <span className="app-brand">Momentum</span>
         <div className="app-top-nav-links">
           {NAV_ITEMS.map((item) =>
-            'href' in item ? (
-              <a
+            'active' in item && item.active ? (
+              <button
                 key={item.id}
                 aria-current="page"
                 className="app-nav-link app-nav-link-active"
-                href={item.href}
+                type="button"
               >
                 {item.label}
-              </a>
+              </button>
             ) : (
               <Button
                 key={item.id}
