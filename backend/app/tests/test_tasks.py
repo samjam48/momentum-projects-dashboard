@@ -450,6 +450,30 @@ def test_time_logs_are_manual_sorted_and_inherit_project_id(client: TestClient) 
     assert all(log["project_id"] == project["id"] for log in logs)
 
 
+def test_delete_time_log_removes_entry_and_updates_actual_hours(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+
+    first_log = _create_manual_time_log(client, str(task["id"]), hours=1.0, notes="First session")
+    second_log = _create_manual_time_log(client, str(task["id"]), hours=2.0, notes="Second session")
+
+    delete_response = client.delete(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{first_log['id']}",
+    )
+
+    assert delete_response.status_code in {200, 204}, delete_response.text
+
+    logs_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}/time-logs")
+    assert logs_response.status_code == 200, logs_response.text
+    remaining_ids = [log["id"] for log in logs_response.json()]
+    assert first_log["id"] not in remaining_ids
+    assert second_log["id"] in remaining_ids
+
+    task_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}")
+    assert task_response.status_code == 200, task_response.text
+    assert task_response.json()["actual_hours"] == 2.0
+
+
 def test_time_logs_reject_non_positive_hours_and_missing_task(client: TestClient) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=str(project["id"]))

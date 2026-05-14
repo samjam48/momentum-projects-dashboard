@@ -14,6 +14,7 @@ import {
   type TaskDialogMode,
 } from './components/WorkspaceDialogs'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { sortTasksForKanban, taskOrderByStatus } from './lib/kanbanSort'
 import {
   DEFAULT_PROJECT_FILTER,
   deriveToolbarProjectId,
@@ -132,28 +133,6 @@ function sortTasks(
       ),
     )
     .map((entry) => entry.task)
-}
-
-function compareTasksForKanban(leftTask: Task, rightTask: Task): number {
-  if (leftTask.kanban_order !== null && rightTask.kanban_order !== null) {
-    if (leftTask.kanban_order !== rightTask.kanban_order) {
-      return leftTask.kanban_order - rightTask.kanban_order
-    }
-  } else if (leftTask.kanban_order !== null) {
-    return -1
-  } else if (rightTask.kanban_order !== null) {
-    return 1
-  }
-
-  if (leftTask.created_at !== rightTask.created_at) {
-    return leftTask.created_at.localeCompare(rightTask.created_at)
-  }
-
-  return leftTask.id.localeCompare(rightTask.id)
-}
-
-function sortTasksForKanban(tasks: Task[]): Task[] {
-  return [...tasks].sort(compareTasksForKanban)
 }
 
 function reorderTasksForKanban(
@@ -285,10 +264,6 @@ function isKanbanDropDetail(value: unknown): value is KanbanDropDetail {
   )
 }
 
-function taskOrderByStatus(tasks: Task[], status: TaskStatus): Task[] {
-  return sortTasksForKanban(tasks.filter((task) => task.status === status))
-}
-
 function getKanbanDropDetailFromDragEvent(
   tasks: Task[],
   event: DragEndEvent,
@@ -413,6 +388,29 @@ function App() {
     .filter((task) => task.project_id in projectsById)
     .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
   const displayTasks = optimisticTasks ?? visibleTasks
+  const previousFilterKeyRef = useRef(storedProjectIdsKey)
+  const previousTasksDataRef = useRef(tasksQuery.data)
+
+  if (previousFilterKeyRef.current !== storedProjectIdsKey) {
+    previousFilterKeyRef.current = storedProjectIdsKey
+    if (optimisticTasks !== null) {
+      setOptimisticTasks(null)
+    }
+    if (kanbanMutationError !== null) {
+      setKanbanMutationError(null)
+    }
+  }
+
+  if (previousTasksDataRef.current !== tasksQuery.data) {
+    previousTasksDataRef.current = tasksQuery.data
+    if (optimisticTasks !== null) {
+      setOptimisticTasks(null)
+    }
+  }
+
+  const visibleDisambiguationTaskIds = tableTitleDisambiguationTaskIds.filter((taskId) =>
+    displayTasks.some((task) => task.id === taskId),
+  )
   const sortedTasks = sortTasks(displayTasks, projectsById, taskSort)
   const selectedTask = tasksQuery.data.find((task) => task.id === activeTaskId) ?? null
   const taskMutations = useTaskMutations(async () => {
@@ -457,31 +455,6 @@ function App() {
   useEffect(() => {
     hydrateBoardDisplayOptionsFromStorage()
   }, [])
-
-  useEffect(() => {
-    setTableTitleDisambiguationTaskIds((currentIds) => {
-      const nextIds = currentIds.filter((taskId) =>
-        displayTasks.some((task) => task.id === taskId),
-      )
-
-      if (
-        nextIds.length === currentIds.length &&
-        nextIds.every((taskId, index) => taskId === currentIds[index])
-      ) {
-        return currentIds
-      }
-
-      return nextIds
-    })
-  }, [displayTasks])
-
-  useEffect(() => {
-    setOptimisticTasks(null)
-  }, [storedProjectIdsKey, tasksQuery.data])
-
-  useEffect(() => {
-    setKanbanMutationError(null)
-  }, [storedProjectIdsKey])
 
   useEffect(() => {
     if (activeProjectIds.length === 0) {
@@ -677,7 +650,7 @@ function App() {
       selectedProjectId={selectedProjectId}
       sidebarSelectedProjectIds={sidebarSelectedProjectIds}
       sortedTasks={sortedTasks}
-      tableTitleDisambiguationTaskIds={tableTitleDisambiguationTaskIds}
+      tableTitleDisambiguationTaskIds={visibleDisambiguationTaskIds}
       taskSort={taskSort}
       tasksError={tasksQuery.error}
       tasksLoading={tasksQuery.isLoading}

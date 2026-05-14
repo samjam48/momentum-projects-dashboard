@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+import type { FormEvent, MouseEvent } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
@@ -100,6 +100,7 @@ type TaskDialogProps = {
     notes: string | null
     title: string | null
   }) => Promise<void>
+  onTimeLogDelete: (timeLogId: string) => Promise<void>
   selectedTask: Task | null
   taskForm: TaskFormState
   taskFormErrors: TaskFormErrors
@@ -120,6 +121,7 @@ export function TaskDialog({
   onFieldBlur,
   onFieldChange,
   onTimeLogCreate,
+  onTimeLogDelete,
   selectedTask,
   taskForm,
   taskFormErrors,
@@ -183,14 +185,105 @@ export function TaskDialog({
 
   const dialogAriaLabel = mode === 'create' ? 'New task' : 'Edit task'
 
+  const handleBackdropClick = (event: MouseEvent<HTMLDivElement>): void => {
+    if (event.target === event.currentTarget && mode === 'edit') {
+      void onClose()
+    }
+  }
+
+  const timeLogsPanel =
+    mode === 'edit' ? (
+      <section
+        aria-labelledby={`${dialogLabelId}-time-logs`}
+        className="task-detail-panel"
+        data-testid="time-logs-section"
+      >
+        <h3 id={`${dialogLabelId}-time-logs`}>Time logs</h3>
+
+        <div className="time-logs-summary" data-testid="time-logs-summary">
+          <div className="time-log-card">
+            <span>Actual hours</span>
+            <strong>{formatValue(selectedTask?.actual_hours ?? null)}</strong>
+          </div>
+          <div className="time-log-card">
+            <span>Completed date</span>
+            <strong>{formatValue(selectedTask?.completed_date ?? null)}</strong>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            resetTimeLogForm()
+            setTimeLogDialogOpen(true)
+          }}
+        >
+          + Add time log
+        </Button>
+
+        {timeLogsError ? <p className="form-error">{timeLogsError}</p> : null}
+        {timeLogsLoading ? <p className="muted-copy">Loading time logs…</p> : null}
+
+        <ul aria-label="Time logs" className="time-log-list">
+          {timeLogs.map((timeLog) => {
+            const body = getTimeLogBody(timeLog)
+            const location = getTimeLogLocation(timeLog)
+            const title = getTimeLogTitle(timeLog)
+
+            return (
+              <li key={timeLog.id}>
+                <div className="time-log-row-wrap">
+                  <button
+                    className="time-log-row"
+                    data-testid={`time-log-row-${timeLog.id}`}
+                    type="button"
+                    onClick={() =>
+                      setExpandedTimeLogId((currentId) =>
+                        currentId === timeLog.id ? null : timeLog.id,
+                      )
+                    }
+                  >
+                    <span data-testid="time-log-row-primary">
+                      <strong>{title}</strong>
+                    </span>
+                    <span
+                      className="time-log-row-secondary"
+                      data-testid="time-log-row-secondary"
+                    >
+                      {formatTimeLogDate(timeLog.logged_date)}
+                      {location ? ` · ${location}` : ''}
+                    </span>
+                  </button>
+                  <Button
+                    aria-label={`Delete time log ${title}`}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => void onTimeLogDelete(timeLog.id)}
+                  >
+                    <X aria-hidden size={14} />
+                  </Button>
+                </div>
+                {expandedTimeLogId === timeLog.id && body ? (
+                  <p className="time-log-detail">{body}</p>
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    ) : null
+
   return (
     <>
-      <div className="dialog-backdrop" role="presentation">
+      <div className="dialog-backdrop" role="presentation" onClick={handleBackdropClick}>
         <div
           aria-label={dialogAriaLabel}
           aria-modal="true"
           className="task-dialog"
           role="dialog"
+          onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => {
             if (event.key === 'Escape' && mode === 'edit') {
               void onClose()
@@ -205,6 +298,7 @@ export function TaskDialog({
                 ref={titleRef}
                 contentEditable
                 suppressContentEditableWarning
+                style={{ fontSize: '20px', padding: '12.8px 15.2px' }}
                 onBlur={(event) => {
                   onFieldChange('title', event.currentTarget.textContent ?? '')
                   void onFieldBlur()
@@ -222,12 +316,13 @@ export function TaskDialog({
                 variant="ghost"
                 onClick={() => void onClose()}
               >
+                <span aria-hidden>X</span>
                 <X aria-hidden size={18} />
               </Button>
             </div>
           )}
 
-          <div className="task-dialog-grid">
+          <div className="task-dialog-grid" style={{ gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)' }}>
             {mode === 'create' ? (
             <form
               noValidate
@@ -366,6 +461,7 @@ export function TaskDialog({
                 </div>
               </form>
             ) : (
+              <>
               <form
                 noValidate
                 aria-label="Edit task"
@@ -468,75 +564,6 @@ export function TaskDialog({
                   </label>
                 </div>
 
-                <section
-                  aria-labelledby={`${dialogLabelId}-time-logs`}
-                  className="task-detail-panel"
-                  data-testid="time-logs-section"
-                >
-                  <h3 id={`${dialogLabelId}-time-logs`}>Time logs</h3>
-
-                  <div className="time-logs-summary" data-testid="time-logs-summary">
-                    <div>
-                      <span>Actual hours</span>
-                      <strong>{formatValue(selectedTask?.actual_hours ?? null)}</strong>
-                    </div>
-                    <div>
-                      <span>Completed date</span>
-                      <strong>{formatValue(selectedTask?.completed_date ?? null)}</strong>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      resetTimeLogForm()
-                      setTimeLogDialogOpen(true)
-                    }}
-                  >
-                    + Add time log
-                  </Button>
-
-                  {timeLogsError ? <p className="form-error">{timeLogsError}</p> : null}
-                  {timeLogsLoading ? <p className="muted-copy">Loading time logs…</p> : null}
-
-                  <ul aria-label="Time logs" className="time-log-list">
-                    {timeLogs.map((timeLog) => {
-                      const body = getTimeLogBody(timeLog)
-                      const location = getTimeLogLocation(timeLog)
-                      const title = getTimeLogTitle(timeLog)
-
-                      return (
-                        <li key={timeLog.id}>
-                          <button
-                            className="time-log-row"
-                            data-testid={`time-log-row-${timeLog.id}`}
-                            type="button"
-                            onClick={() =>
-                              setExpandedTimeLogId((currentId) =>
-                                currentId === timeLog.id ? null : timeLog.id,
-                              )
-                            }
-                          >
-                            <span data-testid="time-log-row-primary">
-                              <strong>{title}</strong>
-                            </span>
-                            <span
-                              className="time-log-row-secondary"
-                              data-testid="time-log-row-secondary"
-                            >
-                              {formatTimeLogDate(timeLog.logged_date)}
-                              {location ? ` · ${location}` : ''}
-                            </span>
-                          </button>
-                          {expandedTimeLogId === timeLog.id && body ? (
-                            <p className="time-log-detail">{body}</p>
-                          ) : null}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
 
                 {taskFormErrors.form ? (
                   <p className="form-error" role="alert">
@@ -560,6 +587,8 @@ export function TaskDialog({
                   ) : null}
                 </footer>
               </form>
+              {timeLogsPanel}
+              </>
             )}
           </div>
         </div>

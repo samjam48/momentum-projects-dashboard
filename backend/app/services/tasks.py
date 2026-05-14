@@ -192,3 +192,18 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     session.refresh(time_log)
     session.refresh(task)
     return time_log
+
+
+def delete_time_log(session: Session, task_id: str, time_log_id: str) -> None:
+    task = _get_task_or_404(session, task_id)
+    time_log = session.get(TimeLog, time_log_id)
+    if time_log is None or time_log.task_id != task.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Time log not found.",
+        )
+
+    session.delete(time_log)
+    session.flush()
+    _recompute_actual_hours(session, task)
+    session.commit()

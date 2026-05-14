@@ -1,11 +1,11 @@
-import { render, within } from '@testing-library/react'
+import { within } from '@testing-library/react'
 
-import App from '../../App'
+import { renderApp } from '../../test/renderApp'
 import { resetProjectFilterStore } from '../../stores/projectFilter'
 import { buildProject } from '../../test/fixtures'
 import { resetTestStorage } from '../../test/storage'
 import { installWorkspaceBackendMock } from '../../test/workspaceBackendMock'
-import { getSidebar, waitForWorkspaceReady } from '../../test/workspaceQueries'
+import { getSidebar } from '../../test/workspaceQueries'
 
 const sampleProject = buildProject({
   id: 'project-sample',
@@ -29,8 +29,7 @@ describe('Ticket 1b-2 Sidebar integration', () => {
   it('omits inline archive buttons from sidebar project rows', async () => {
     installWorkspaceBackendMock({ projects: [sampleProject] })
 
-    render(<App />)
-    await waitForWorkspaceReady()
+    await renderApp()
 
     const sidebar = getSidebar()
     expect(
@@ -41,8 +40,7 @@ describe('Ticket 1b-2 Sidebar integration', () => {
   it('does not expose legacy Edit project row actions in the sidebar list', async () => {
     installWorkspaceBackendMock({ projects: [sampleProject] })
 
-    render(<App />)
-    await waitForWorkspaceReady()
+    await renderApp()
 
     const sidebar = getSidebar()
     expect(
@@ -53,8 +51,7 @@ describe('Ticket 1b-2 Sidebar integration', () => {
   it('keeps project list items spaced with a colour dot adjacent to the title', async () => {
     installWorkspaceBackendMock({ projects: [sampleProject] })
 
-    render(<App />)
-    await waitForWorkspaceReady()
+    await renderApp()
 
     const row = within(getSidebar()).getByTestId('sidebar-project-project-sample')
     const dot = within(row).getByTestId('project-colour-dot')

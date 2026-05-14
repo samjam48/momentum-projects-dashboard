@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 
-import App from './App'
+import { renderApp } from './test/renderApp'
 import { resetProjectFilterStore } from './stores/projectFilter'
 import {
   BOARD_DISPLAY_OPTIONS_STORAGE_KEY,
@@ -14,6 +14,7 @@ import {
   dispatchKanbanDrop,
   expectKanbanTaskOrder,
   getBoardOptionsButton,
+  clickBoardOptionsCheckbox,
   getBoardOptionsCheckbox,
   getKanbanBoard,
   getKanbanColumn,
@@ -25,7 +26,7 @@ import {
   queryKanbanCardMoveButtons,
   waitForKanbanCard,
   waitForKanbanTaskVisible,
-  waitForWorkspaceReady,
+  selectComboboxOption,
 } from './test/workspaceQueries'
 
 const alphaProject = buildProject({
@@ -81,8 +82,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Plan migration')
       await waitForKanbanTaskVisible('Draft release copy')
@@ -121,8 +121,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Draft launch brief')
 
@@ -150,8 +149,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const card = await waitForKanbanCard('Open from title')
       fireEvent.click(within(card).getByTestId('kanban-task-title'))
@@ -187,8 +185,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       expect(localStorage.getItem(BOARD_DISPLAY_OPTIONS_STORAGE_KEY)).toBeNull()
 
@@ -226,12 +223,11 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
-      openBoardOptionsMenu()
-      fireEvent.click(getBoardOptionsCheckbox(/show priority/i))
-      fireEvent.click(getBoardOptionsCheckbox(/show actual hours/i))
+      await openBoardOptionsMenu()
+      await clickBoardOptionsCheckbox(/show priority/i)
+      await clickBoardOptionsCheckbox(/show actual hours/i)
 
       await waitForKanbanTaskVisible('Toggle fields task', /review/i)
       const card = getTaskCard(getKanbanColumn(/review/i), 'Toggle fields task')
@@ -256,11 +252,10 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      const { unmount } = render(<App />)
-      await waitForWorkspaceReady()
+      const { unmount } = await renderApp()
 
-      openBoardOptionsMenu()
-      fireEvent.click(getBoardOptionsCheckbox(/show priority/i))
+      await openBoardOptionsMenu()
+      await clickBoardOptionsCheckbox(/show priority/i)
 
       await waitFor(() => {
         const stored = localStorage.getItem(BOARD_DISPLAY_OPTIONS_STORAGE_KEY)
@@ -271,10 +266,9 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
       })
 
       unmount()
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
-      openBoardOptionsMenu()
+      await openBoardOptionsMenu()
       expect(getBoardOptionsCheckbox(/show priority/i)).toBeChecked()
     })
   })
@@ -293,14 +287,13 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const card = await waitForKanbanCard('All projects card')
       expect(within(card).queryByText('Beta Podcast')).not.toBeInTheDocument()
 
-      openBoardOptionsMenu()
-      fireEvent.click(getBoardOptionsCheckbox(/show project name/i))
+      await openBoardOptionsMenu()
+      await clickBoardOptionsCheckbox(/show project name/i)
 
       await waitFor(() => {
         expect(within(card).getByText('Beta Podcast')).toBeInTheDocument()
@@ -320,19 +313,16 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
-      fireEvent.change(screen.getByRole('combobox', { name: /project filter/i }), {
-        target: { value: 'project-alpha' },
-      })
+      await selectComboboxOption(/project filter/i, 'project-alpha')
 
       await waitForKanbanTaskVisible('Single filter card')
       const card = getTaskCard(getKanbanColumn(/backlog/i), 'Single filter card')
       expect(within(card).queryByText('Alpha Client')).not.toBeInTheDocument()
 
-      openBoardOptionsMenu()
-      fireEvent.click(getBoardOptionsCheckbox(/show project name/i))
+      await openBoardOptionsMenu()
+      await clickBoardOptionsCheckbox(/show project name/i)
 
       await waitFor(() => {
         expect(within(card).getByText('Alpha Client')).toBeInTheDocument()
@@ -360,8 +350,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('First backlog task')
       await waitForKanbanTaskVisible('Second backlog task')
@@ -386,8 +375,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const emptyCopy = within(getKanbanColumn(/in progress/i)).getByText(/no tasks in this column/i)
       expect(emptyCopy).toHaveClass('muted-copy')
@@ -416,14 +404,13 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Plan migration')
       await waitForKanbanTaskVisible('Draft release copy')
 
       const backlogColumn = getKanbanColumn(/backlog/i)
-      dispatchKanbanDrop({
+      await dispatchKanbanDrop({
         taskId: 'task-draft-copy',
         status: 'backlog',
         kanban_order: 0,
@@ -455,12 +442,11 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Plan migration')
 
-      dispatchKanbanDrop({
+      await dispatchKanbanDrop({
         taskId: 'task-plan-migration',
         status: 'done',
         kanban_order: 0,
@@ -506,14 +492,13 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
           jsonResponse({ detail: 'Unable to update task status.' }, 500),
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Triage launch blockers')
       await waitForKanbanTaskVisible('Schedule stakeholder review')
 
       const backlogColumn = getKanbanColumn(/backlog/i)
-      dispatchKanbanDrop({
+      await dispatchKanbanDrop({
         taskId: 'task-second-backlog',
         status: 'done',
         kanban_order: 0,
@@ -558,13 +543,12 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
           }),
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('First card')
       await waitForKanbanTaskVisible('Second card')
 
-      dispatchKanbanDrop({
+      await dispatchKanbanDrop({
         taskId: 'task-first-backlog',
         status: 'in_progress',
         kanban_order: 0,
@@ -574,7 +558,7 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         expect(backend.taskStatusRequests).toHaveLength(1)
       })
 
-      dispatchKanbanDrop({
+      await dispatchKanbanDrop({
         taskId: 'task-second-backlog',
         status: 'done',
         kanban_order: 0,
@@ -597,11 +581,10 @@ describe('Ticket 1b-3 task Kanban interaction and card density', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       expect(getBoardOptionsButton()).toBeEnabled()
-      const menu = openBoardOptionsMenu()
+      const menu = await openBoardOptionsMenu()
       expect(within(menu).getByRole('menuitemcheckbox', { name: /show due date/i })).toBeChecked()
       expect(
         within(getKanbanRegion()).queryByRole('button', { name: /drag task/i }),

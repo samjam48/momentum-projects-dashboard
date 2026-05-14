@@ -15,12 +15,13 @@ import {
 } from '@dnd-kit/sortable'
 import type { RefObject } from 'react'
 
-import type { Project, Task, TaskStatus } from '../api/types'
+import type { Project, Task } from '../api/types'
+import { taskOrderByStatus } from '../lib/kanbanSort'
 import type { BoardDisplayOptions } from '../stores/boardDisplayOptions'
 import { BoardOptionsMenu } from './kanban/BoardOptionsMenu'
 import { KanbanTaskCard } from './kanban/KanbanTaskCard'
 
-const STATUS_OPTIONS: Array<{ label: string; value: TaskStatus }> = [
+const STATUS_OPTIONS: Array<{ label: string; value: Task['status'] }> = [
   { label: 'Backlog', value: 'backlog' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Review', value: 'review' },
@@ -30,7 +31,7 @@ const STATUS_OPTIONS: Array<{ label: string; value: TaskStatus }> = [
 const KANBAN_COLUMN_ID_PREFIX = 'kanban-column:'
 const KANBAN_TASK_ID_PREFIX = 'kanban-task:'
 
-function kanbanColumnId(status: TaskStatus): string {
+function kanbanColumnId(status: Task['status']): string {
   return `${KANBAN_COLUMN_ID_PREFIX}${status}`
 }
 
@@ -38,34 +39,8 @@ function kanbanTaskId(taskId: string): string {
   return `${KANBAN_TASK_ID_PREFIX}${taskId}`
 }
 
-function compareTasksForKanban(leftTask: Task, rightTask: Task): number {
-  if (leftTask.kanban_order !== null && rightTask.kanban_order !== null) {
-    if (leftTask.kanban_order !== rightTask.kanban_order) {
-      return leftTask.kanban_order - rightTask.kanban_order
-    }
-  } else if (leftTask.kanban_order !== null) {
-    return -1
-  } else if (rightTask.kanban_order !== null) {
-    return 1
-  }
-
-  if (leftTask.created_at !== rightTask.created_at) {
-    return leftTask.created_at.localeCompare(rightTask.created_at)
-  }
-
-  return leftTask.id.localeCompare(rightTask.id)
-}
-
-function sortTasksForKanban(tasks: Task[]): Task[] {
-  return [...tasks].sort(compareTasksForKanban)
-}
-
-function taskOrderByStatus(tasks: Task[], status: TaskStatus): Task[] {
-  return sortTasksForKanban(tasks.filter((task) => task.status === status))
-}
-
 type KanbanDragColumnData = {
-  status: TaskStatus
+  status: Task['status']
   type: 'column'
 }
 
@@ -84,7 +59,7 @@ function KanbanColumn({
   onOpenTask: (task: Task) => void
   projectsById: Record<string, Project>
   showProjectNameOnCard: boolean
-  status: TaskStatus
+  status: Task['status']
   tasks: Task[]
   title: string
 }): JSX.Element {
@@ -117,7 +92,7 @@ function KanbanColumn({
             <p className="muted-copy">No tasks in this column.</p>
           </div>
         ) : (
-          <ul className="task-list">
+          <ul className="task-list kanban-task-list" style={{ gap: '5px' }}>
             {tasks.map((task) => (
               <KanbanTaskCard
                 key={task.id}

@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 
-import App from './App'
+import { renderApp, renderAppBare } from './test/renderApp'
 import type {
   Project,
   Task,
@@ -19,7 +19,7 @@ import {
   getKanbanColumn,
   getKanbanRegion,
   getTableRegion,
-  waitForWorkspaceReady,
+  selectComboboxOption,
 } from './test/workspaceQueries'
 
 type MockResponseOptions = {
@@ -541,9 +541,7 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     expect(screen.getByTestId('sidebar-project-project-podcast')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
@@ -656,7 +654,7 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
+    renderAppBare()
 
     await screen.findByTestId('sidebar-project-project-podcast')
 
@@ -716,9 +714,7 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new project/i }))
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
@@ -773,7 +769,7 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
+    renderAppBare()
 
     const filter = await screen.findByRole('combobox', { name: /project filter/i })
     fireEvent.change(filter, { target: { value: 'project-newsletter' } })
@@ -791,7 +787,7 @@ describe('Ticket 3 project management and shared data layer', () => {
   it('blocks task creation when there are no active projects', async () => {
     installFetchMock([jsonResponse({ body: [] })])
 
-    render(<App />)
+    renderAppBare()
 
     expect(await screen.findByText(/create a project first/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new task/i })).toBeDisabled()
@@ -815,9 +811,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     const tableSection = getTableRegion()
     const table = within(tableSection).getByRole('table')
@@ -862,9 +856,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       ])
     })
 
-    fireEvent.change(screen.getByRole('combobox', { name: /project filter/i }), {
-      target: { value: 'project-beta' },
-    })
+    await selectComboboxOption(/project filter/i, 'project-beta')
 
     await waitFor(() => {
       expect(within(table).getByText('Record intro')).toBeInTheDocument()
@@ -900,9 +892,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       ],
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     expect(screen.getByRole('combobox', { name: /project filter/i })).toHaveValue('all')
 
@@ -921,9 +911,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1009,9 +997,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       },
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     fireEvent.click(
       screen.getByRole('button', { name: /edit task write release notes/i }),
@@ -1050,9 +1036,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1082,9 +1066,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1128,9 +1110,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
           : null,
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1250,9 +1230,7 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
       },
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
     await waitFor(() => {
       expect(within(getKanbanRegion()).getByText('Confirm scope')).toBeInTheDocument()
     })
@@ -1287,14 +1265,12 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
       ],
     })
 
-    render(<App />)
-
-    await waitForWorkspaceReady()
+    await renderApp()
     await waitFor(() => {
       expect(within(getKanbanRegion()).getByText('Smoke move task')).toBeInTheDocument()
     })
 
-    dispatchKanbanDrop({
+    await dispatchKanbanDrop({
       taskId: 'task-smoke-move',
       status: 'in_progress',
       kanban_order: 0,

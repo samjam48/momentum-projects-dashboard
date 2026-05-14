@@ -286,6 +286,36 @@ export function installWorkspaceBackendMock(
         return jsonResponse({ body: filteredTasks })
       }
 
+      const taskTimeLogEntryMatch = pathname.match(
+        /^\/api\/v1\/tasks\/([^/]+)\/time-logs\/([^/]+)$/,
+      )
+      if (taskTimeLogEntryMatch && method === 'DELETE') {
+        const [, taskId, timeLogId] = taskTimeLogEntryMatch
+        const task = tasks.find((candidate) => candidate.id === taskId)
+
+        if (!task) {
+          return jsonResponse({ body: { detail: 'Task not found' }, status: 404 })
+        }
+
+        const existingTimeLogs = timeLogsByTask.get(taskId) ?? []
+        const nextTimeLogs = existingTimeLogs.filter((timeLog) => timeLog.id !== timeLogId)
+
+        if (nextTimeLogs.length === existingTimeLogs.length) {
+          return jsonResponse({ body: { detail: 'Time log not found' }, status: 404 })
+        }
+
+        timeLogsByTask.set(taskId, nextTimeLogs)
+        const taskIndex = tasks.findIndex((candidate) => candidate.id === taskId)
+        if (taskIndex >= 0) {
+          tasks[taskIndex] = {
+            ...tasks[taskIndex],
+            actual_hours: actualHoursForTask(taskId),
+          }
+        }
+
+        return new Response(null, { status: 204 })
+      }
+
       const taskTimeLogsMatch = pathname.match(/^\/api\/v1\/tasks\/([^/]+)\/time-logs$/)
       if (taskTimeLogsMatch) {
         const [, taskId] = taskTimeLogsMatch

@@ -45,7 +45,13 @@ export function readBoardDisplayOptionsFromStorage(): BoardDisplayOptions {
 }
 
 function writeStoredOptions(options: BoardDisplayOptions): void {
-  localStorage.setItem(BOARD_DISPLAY_OPTIONS_STORAGE_KEY, JSON.stringify(options))
+  const persisted = {
+    showDueDate: options.showDueDate,
+    showPriority: options.showPriority,
+    showActualHours: options.showActualHours,
+    showProjectName: options.showProjectName,
+  }
+  localStorage.setItem(BOARD_DISPLAY_OPTIONS_STORAGE_KEY, JSON.stringify(persisted))
 }
 
 export const useBoardDisplayOptionsStore = create<BoardDisplayOptionsState>((set, get) => ({
@@ -56,8 +62,8 @@ export const useBoardDisplayOptionsStore = create<BoardDisplayOptionsState>((set
       showDueDate: next.showDueDate,
       showPriority: next.showPriority,
       showActualHours: next.showActualHours,
-      showStatusBadge: next.showStatusBadge,
       showProjectName: next.showProjectName,
+      showStatusBadge: DEFAULT_BOARD_DISPLAY_OPTIONS.showStatusBadge,
     })
     set({ [key]: value })
   },

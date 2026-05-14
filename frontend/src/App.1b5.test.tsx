@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 
-import App from './App'
+import { renderApp } from './test/renderApp'
 import type { Task } from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
 import { buildProject, buildTask, buildTimeLog } from './test/fixtures'
@@ -10,7 +10,6 @@ import {
   getArchiveViewControl,
   getKanbanRegion,
   waitForKanbanTaskVisible,
-  waitForWorkspaceReady,
 } from './test/workspaceQueries'
 
 const alphaProject = buildProject({
@@ -105,8 +104,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const createDialog = await openNewTaskDialog()
       assertNoDevMetaCopy(createDialog)
@@ -125,8 +123,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openNewTaskDialog()
 
@@ -147,8 +144,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [releaseNotesTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
 
@@ -181,8 +177,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [releaseNotesTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
 
@@ -237,8 +232,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [releaseNotesTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
 
@@ -282,8 +276,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
 
@@ -315,8 +308,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
       fireEvent.click(within(dialog).getByRole('button', { name: /\+ add time log/i }))
@@ -374,8 +366,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
       const row = within(dialog).getByTestId('time-log-row-log-structured')
@@ -406,8 +397,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         },
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
       fireEvent.click(within(dialog).getByTestId('time-log-row-log-detail'))
@@ -425,8 +415,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [releaseNotesTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
       expect(within(getTaskDialogFooter(dialog)).getByRole('button', { name: /^archive$/i })).toBeInTheDocument()
@@ -438,8 +427,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [releaseNotesTask, archivedTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       fireEvent.click(getArchiveViewControl())
       const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
@@ -467,8 +455,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [releaseNotesTask, archivedTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       fireEvent.click(getArchiveViewControl())
       const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
@@ -503,8 +490,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         tasks: [backlogTask],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
       await waitForKanbanTaskVisible('Archive me')
 
       const dialog = await openEditTaskDialog('Archive me')

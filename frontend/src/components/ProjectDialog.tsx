@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import { X } from 'lucide-react'
 
 import { ColourPicker } from './ColourPicker'
 import { Button } from './ui/button'
@@ -59,9 +60,15 @@ export function ProjectDialog({
         }
       }}
     >
-      <DialogContent data-slot="dialog-content">
+      <DialogContent data-slot="dialog-content" onBackdropClick={onClose}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <div className="task-dialog-header">
+            <DialogTitle>{title}</DialogTitle>
+            <Button aria-label="Close project" size="icon" type="button" variant="ghost" onClick={onClose}>
+              <span aria-hidden>X</span>
+              <X aria-hidden size={18} />
+            </Button>
+          </div>
           <DialogDescription>
             {mode === 'create'
               ? 'Add a project to the workspace.'

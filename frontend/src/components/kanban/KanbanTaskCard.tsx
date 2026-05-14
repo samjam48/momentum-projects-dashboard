@@ -50,8 +50,8 @@ export function KanbanTaskCard({
   return (
     <li
       ref={setNodeRef}
-      style={style}
       className={`task-card kanban-task-card${isDragging ? ' task-card-dragging' : ''}`}
+      style={{ ...style, padding: '16px' }}
       {...attributes}
       {...listeners}
     >

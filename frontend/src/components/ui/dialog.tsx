@@ -22,10 +22,18 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = forwardRef<
   HTMLDivElement,
-  ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    onBackdropClick?: () => void
+  }
+>(({ className, children, onBackdropClick, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onBackdropClick?.()
+        }
+      }}
+    />
     <DialogPrimitive.Content
       ref={ref}
       data-slot="dialog-content"

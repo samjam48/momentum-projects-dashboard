@@ -1,6 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import type { TaskStatus } from '../api/types'
+
+import { flushAct } from './actUtils'
+
+const user = userEvent.setup()
 
 export type KanbanDropDetail = {
   kanban_order: number | null
@@ -25,9 +30,35 @@ export async function waitForWorkspaceReady(): Promise<HTMLElement> {
 
   await waitFor(() => {
     expect(screen.queryByText(/loading workspace/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/loading projects/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/loading tasks/i)).not.toBeInTheDocument()
   })
 
+  await flushAct()
+
   return sidebar
+}
+
+export async function clickElement(element: HTMLElement): Promise<void> {
+  await waitFor(async () => {
+    await user.click(element)
+  })
+  await flushAct()
+}
+
+export async function selectComboboxOption(
+  name: RegExp,
+  value: string,
+): Promise<void> {
+  await waitFor(async () => {
+    const combobox = screen.getByRole('combobox', { name })
+    await user.selectOptions(combobox, value)
+  })
+  await flushAct()
+}
+
+export async function clickProjectFilterCheckbox(projectName: string): Promise<void> {
+  await clickElement(getProjectFilterCheckbox(projectName))
 }
 
 export function getProjectFilterCheckbox(projectName: string): HTMLElement {
@@ -119,27 +150,31 @@ export function expectKanbanTaskOrder(column: HTMLElement, titles: string[]): vo
   expect(actualOrder).toEqual(titles)
 }
 
-export function dispatchKanbanDrop(detail: KanbanDropDetail): void {
+export async function dispatchKanbanDrop(detail: KanbanDropDetail): Promise<void> {
   const board = getKanbanBoard()
-  fireEvent(
-    board,
-    new CustomEvent('kanban:drop', {
-      bubbles: true,
-      detail,
-    }),
-  )
+  await waitFor(() => {
+    fireEvent(
+      board,
+      new CustomEvent('kanban:drop', {
+        bubbles: true,
+        detail,
+      }),
+    )
+  })
+  await flushAct()
+}
+
+export async function clickBoardOptionsCheckbox(label: RegExp): Promise<void> {
+  await clickElement(getBoardOptionsCheckbox(label))
 }
 
 export function getBoardOptionsButton(): HTMLElement {
   return screen.getByRole('button', { name: /board options/i })
 }
 
-export function openBoardOptionsMenu(): HTMLElement {
-  const trigger = getBoardOptionsButton()
-  fireEvent.click(trigger)
-
-  const menu = screen.getByRole('menu', { name: /board options/i })
-  return menu
+export async function openBoardOptionsMenu(): Promise<HTMLElement> {
+  await clickElement(getBoardOptionsButton())
+  return screen.getByRole('menu', { name: /board options/i })
 }
 
 export function getBoardOptionsCheckbox(label: RegExp): HTMLElement {
@@ -181,8 +216,7 @@ export function getTableSortControl(): HTMLElement {
   return within(tableRegion).getByTestId('table-sort-gear')
 }
 
-export function openTableSortMenu(): HTMLElement {
-  const trigger = getTableSortControl()
-  fireEvent.click(trigger)
+export async function openTableSortMenu(): Promise<HTMLElement> {
+  await clickElement(getTableSortControl())
   return screen.getByRole('menu', { name: /sort by/i })
 }

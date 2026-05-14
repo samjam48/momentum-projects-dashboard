@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 
-import App from './App'
+import { renderApp, renderAppBare } from './test/renderApp'
 import { resetProjectFilterStore } from './stores/projectFilter'
 import { buildProject, buildTask } from './test/fixtures'
 import { resetTestStorage } from './test/storage'
@@ -14,7 +14,7 @@ import {
   getKanbanBoardOptionsControl,
   getKanbanColumn,
   getKanbanRegion,
-  getProjectFilterCheckbox,
+  clickProjectFilterCheckbox,
   getSidebar,
   getTableRegion,
   getTableSortControl,
@@ -23,7 +23,7 @@ import {
   getTopNavProjectsControl,
   openTableSortMenu,
   waitForKanbanTaskVisible,
-  waitForWorkspaceReady,
+  selectComboboxOption,
 } from './test/workspaceQueries'
 
 const srcRoot = resolve(process.cwd(), 'src')
@@ -109,8 +109,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       fireEvent.click(getArchiveViewControl())
 
@@ -137,8 +136,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       fireEvent.click(getArchiveViewControl())
       const dialog = await screen.findByRole('dialog', { name: /archive/i })
@@ -156,8 +154,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       fireEvent.click(getArchiveViewControl())
       const dialog = await screen.findByRole('dialog', { name: /archive/i })
@@ -170,7 +167,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
     it('shows a dedicated sidebar loading state without interactive filter chrome', async () => {
       installDelayedProjectsMock([alphaProject, betaProject], 200)
 
-      render(<App />)
+      renderAppBare()
 
       const sidebar = await screen.findByRole('complementary', { name: /projects sidebar/i })
       expect(within(sidebar).getByTestId('sidebar-loading-state')).toBeInTheDocument()
@@ -184,8 +181,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
     it('uses a non-navigating button for Projects instead of an anchor link', async () => {
       installWorkspaceBackendMock({ projects: [alphaProject], tasks: [] })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const projectsControl = getTopNavProjectsControl()
       expect(projectsControl.tagName).toBe('BUTTON')
@@ -219,21 +215,18 @@ describe('Ticket 1b-4 Projects page polish', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       expect(getTaskSummaryFilterSubtitle()).toHaveTextContent(/^Showing all projects$/i)
       expect(screen.queryByText(/shared filter target/i)).not.toBeInTheDocument()
 
-      fireEvent.click(getProjectFilterCheckbox('Gamma Studio'))
+      await clickProjectFilterCheckbox('Gamma Studio')
 
       await waitFor(() => {
         expect(getTaskSummaryFilterSubtitle()).toHaveTextContent(/^Showing 2 projects$/i)
       })
 
-      fireEvent.change(screen.getByRole('combobox', { name: /project filter/i }), {
-        target: { value: 'project-alpha' },
-      })
+      await selectComboboxOption(/project filter/i, 'project-alpha')
 
       await waitFor(() => {
         expect(getTaskSummaryFilterSubtitle()).toHaveTextContent(/^Showing Alpha Client$/i)
@@ -248,8 +241,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const row = within(getSidebar()).getByTestId('sidebar-project-project-alpha')
       const dot = within(row).getByTestId('project-colour-dot')
@@ -269,8 +261,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const toolbar = screen.getByRole('toolbar', { name: /projects page/i })
       expect(
@@ -288,8 +279,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       fireEvent.click(getKanbanBoardOptionsControl())
       const menu = screen.getByRole('menu', { name: /board options|display options/i })
@@ -313,8 +303,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Backlog task')
 
@@ -351,8 +340,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       await waitForKanbanTaskVisible('Due date card')
 
@@ -380,13 +368,12 @@ describe('Ticket 1b-4 Projects page polish', () => {
         ],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       const sortControl = getTableSortControl()
       expect(sortControl.querySelector('svg')).toBeInTheDocument()
 
-      const menu = openTableSortMenu()
+      const menu = await openTableSortMenu()
       expect(within(menu).getByText(/^sort by$/i)).toBeInTheDocument()
       expect(within(menu).getByRole('menuitem', { name: /project/i })).toBeInTheDocument()
       expect(within(menu).getByRole('menuitem', { name: /target date/i })).toBeInTheDocument()
@@ -412,8 +399,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         tasks: [],
       })
 
-      render(<App />)
-      await waitForWorkspaceReady()
+      await renderApp()
 
       expect(getKanbanRegion()).toBeInTheDocument()
       expect(getTableRegion()).toBeInTheDocument()

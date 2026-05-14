@@ -50,10 +50,8 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
     installEmptyProjectsMock()
     render(<App />)
 
-    await screen.findByRole('complementary', { name: /projects sidebar/i })
-
     const main = screen.getByRole('main')
-    const kanban = within(main).getByRole('region', { name: /kanban board/i })
+    const kanban = await within(main).findByRole('region', { name: /kanban board/i })
     const tableSection = within(main).getByRole('region', { name: /task summary/i })
 
     expect(kanban.compareDocumentPosition(tableSection)).toBe(

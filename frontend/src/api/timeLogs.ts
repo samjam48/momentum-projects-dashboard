@@ -42,6 +42,12 @@ export async function createTimeLog(
   })
 }
 
+export async function deleteTimeLog(taskId: string, timeLogId: string): Promise<void> {
+  await apiRequest<null>(`/api/v1/tasks/${taskId}/time-logs/${timeLogId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function useTaskTimeLogs(taskId: string | null): QueryState<TimeLog[]> {
   const [data, setData] = useState<TimeLog[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -82,6 +88,7 @@ type TimeLogMutations = {
   create: (payload: TimeLogPayload) => Promise<TimeLog>
   error: ApiError | null
   isSaving: boolean
+  remove: (timeLogId: string) => Promise<void>
   resetError: () => void
 }
 
@@ -123,10 +130,41 @@ export function useTimeLogMutations(
     [onSettled, taskId],
   )
 
+  const remove = useCallback(
+    async (timeLogId: string): Promise<void> => {
+      if (!taskId) {
+        const missingTaskError = new ApiError('A task is required.', 400)
+        setError(missingTaskError)
+        throw missingTaskError
+      }
+
+      setIsSaving(true)
+      setError(null)
+
+      try {
+        await deleteTimeLog(taskId, timeLogId)
+        await onSettled()
+      } catch (caughtError) {
+        if (caughtError instanceof ApiError) {
+          setError(caughtError)
+          throw caughtError
+        }
+
+        const fallbackError = new ApiError('Unable to delete time log.', 500)
+        setError(fallbackError)
+        throw fallbackError
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [onSettled, taskId],
+  )
+
   return {
     create,
     error,
     isSaving,
+    remove,
     resetError: () => setError(null),
   }
 }

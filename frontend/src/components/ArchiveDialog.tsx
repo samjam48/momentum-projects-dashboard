@@ -110,6 +110,7 @@ export function ArchiveDialog({
         setOpen(nextOpen)
         if (!nextOpen) {
           setActiveTab('projects')
+          setArchivedProjects([])
           setArchivedTasks([])
         }
       }}
