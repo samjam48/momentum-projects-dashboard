@@ -106,20 +106,17 @@ describe('Ticket 1b-7 owner-reported regressions', () => {
     expectComputedBackgroundFullyTransparent(checked)
   })
 
-  it('Kanban due date typography matches column status pills at 0.88rem', () => {
+  it('Kanban due date typography matches project pill at 0.78rem (superseded by 1b-8)', () => {
     const css = readBaseCss()
 
     expect(
-      /\.colour-tag\s*,\s*\.status-pill\s*,\s*\.filter-summary\s*\{[^}]*font-size:\s*0\.88rem/s.test(
-        css,
-      ),
-      'Expected grouped .status-pill rule to pin font-size at 0.88rem.',
+      /\.kanban-project-pill\s*\{[^}]*font-size:\s*0\.78rem/m.test(css),
+      'Expected `.kanban-project-pill` to pin font-size at 0.78rem.',
     ).toBe(true)
 
     expect(
-      /\.kanban-task-metrics\s+\.task-meta\s*\{[^}]*font-size:\s*0\.88rem/m.test(css),
-      'Expected card due-date / task-meta text to use font-size 0.88rem '
-        + '(inherit from parent is larger than column pills when globals differ).',
+      /\.kanban-task-metrics\s+\.task-meta\s*\{[^}]*font-size:\s*0\.78rem/m.test(css),
+      'Expected card due-date / task-meta text to use font-size 0.78rem to match project pill.',
     ).toBe(true)
   })
 

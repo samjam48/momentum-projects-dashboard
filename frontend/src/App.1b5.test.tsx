@@ -4,6 +4,7 @@ import { renderApp } from './test/renderApp'
 import type { Task } from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
 import { buildProject, buildTask, buildTimeLog } from './test/fixtures'
+import { urlFromFetchMockFirstArg } from './test/fetchMockUrl'
 import { resetTestStorage } from './test/storage'
 import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
 import {
@@ -187,7 +188,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
 
       await waitFor(() => {
         const patchOnBlur = fetchMock.mock.calls.some(([input, init]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+          const url = urlFromFetchMockFirstArg(input)
           return (
             url.pathname === '/api/v1/tasks/task-write-release-notes' &&
             init?.method === 'PATCH' &&
@@ -208,7 +209,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
 
       await waitFor(() => {
         const patchOnTitleBlur = fetchMock.mock.calls.some(([input, init]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+          const url = urlFromFetchMockFirstArg(input)
           return (
             url.pathname === '/api/v1/tasks/task-write-release-notes' &&
             init?.method === 'PATCH' &&
@@ -332,7 +333,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
 
       await waitFor(() => {
         const createRequest = fetchMock.mock.calls.some(([input, init]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+          const url = urlFromFetchMockFirstArg(input)
           return (
             url.pathname === '/api/v1/tasks/task-write-release-notes/time-logs' &&
             init?.method === 'POST'
@@ -436,7 +437,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
 
       await waitFor(() => {
         const archivedTasksRequest = fetchMock.mock.calls.some(([input]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+          const url = urlFromFetchMockFirstArg(input)
           return (
             url.pathname === '/api/v1/tasks' && url.searchParams.get('status') === 'archived'
           )

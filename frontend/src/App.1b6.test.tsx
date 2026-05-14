@@ -279,11 +279,15 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
       const cardPadding = readPx(getComputedStyle(firstCard).paddingTop)
       expect(cardPadding).toBeCloseTo(16, 0)
 
-      const headerPill = getColumnHeaderPill(backlogColumn)
-      const dueDate = within(firstCard).getByText('May 20')
-      expect(readPx(getComputedStyle(dueDate).fontSize)).toBe(
-        readPx(getComputedStyle(headerPill).fontSize),
-      )
+      const baseCss = readFileSync(resolve(process.cwd(), 'src/styles/base.css'), 'utf8')
+      expect(
+        /\.kanban-project-pill\s*\{[^}]*font-size:\s*0\.78rem/m.test(baseCss),
+        'Expected project pill font-size at 0.78rem.',
+      ).toBe(true)
+      expect(
+        /\.kanban-task-metrics\s+\.task-meta\s*\{[^}]*font-size:\s*0\.78rem/m.test(baseCss),
+        'Expected card due-date line to match project pill at 0.78rem (1b-8).',
+      ).toBe(true)
     })
   })
 
@@ -453,6 +457,9 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
       })
 
       fireEvent.click(deleteButton)
+
+      const confirmDialog = await screen.findByRole('alertdialog')
+      fireEvent.click(within(confirmDialog).getByRole('button', { name: /^delete$/i }))
 
       await waitFor(() => {
         const deleteRequest = fetchMock.mock.calls.some(([input, init]) => {

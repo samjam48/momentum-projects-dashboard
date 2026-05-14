@@ -60,6 +60,7 @@ button[role='checkbox'],
 [role='checkbox'] {
   -webkit-appearance: none;
   appearance: none;
+  border: 1px solid rgba(90, 58, 37, 0.22);
   border-radius: 4px;
   background: transparent !important;
   background-color: transparent !important;
@@ -79,6 +80,13 @@ button[role='checkbox'][data-state='checked']:hover:not(:disabled),
   background: transparent !important;
   background-color: transparent !important;
   transform: none;
+}
+
+button[role='checkbox'][data-state='checked'],
+.checkbox-root[data-state='checked'],
+[role='checkbox'][data-state='checked'] {
+  border-width: 2px;
+  border-color: var(--accent-action);
 }
 
 input,
@@ -790,6 +798,8 @@ textarea {
 }
 
 .kanban-task-list {
+  display: flex;
+  flex-direction: column;
   gap: 5px;
 }
 
@@ -863,7 +873,7 @@ textarea {
 }
 
 .kanban-task-metrics .task-meta {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
 }
 
 .board-options-menu {
@@ -1046,6 +1056,95 @@ textarea {
 
 .time-log-row-wrap .time-log-row {
   flex: 1 1 auto;
+}
+
+.time-log-row {
+  width: 100%;
+  border: 1px solid rgba(156, 93, 53, 0.35);
+  border-radius: 14px;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  transform: none;
+}
+
+.time-log-row:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  transform: none;
+}
+
+.time-log-row-primary-line {
+  display: block;
+  line-height: 1.4;
+}
+
+.time-log-delete {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #5b4a3f;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.75rem 0.35rem;
+  transform: none;
+}
+
+.time-log-delete:hover:not(:disabled) {
+  background: transparent;
+  color: #ad2831;
+  transform: none;
+}
+
+.time-log-detail {
+  margin: 0.35rem 0 0;
+  padding: 0 0.85rem 0.5rem;
+  color: #5b4a3f;
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+}
+
+.time-log-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(31, 23, 18, 0.42);
+}
+
+.time-log-confirm-dialog {
+  width: min(24rem, 100%);
+  border: 1px solid rgba(90, 58, 37, 0.14);
+  border-radius: 20px;
+  background: #fffaf4;
+  box-shadow: 0 24px 70px rgba(72, 45, 27, 0.18);
+  padding: 1.25rem;
+}
+
+.time-log-confirm-dialog h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.time-log-confirm-dialog p {
+  margin: 0 0 1rem;
+  color: #5b4a3f;
+}
+
+.time-log-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .time-log-card {

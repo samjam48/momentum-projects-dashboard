@@ -92,7 +92,10 @@ function KanbanColumn({
             <p className="muted-copy">No tasks in this column.</p>
           </div>
         ) : (
-          <ul className="task-list kanban-task-list" style={{ gap: '5px' }}>
+          <ul
+            className="task-list kanban-task-list"
+            style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}
+          >
             {tasks.map((task) => (
               <KanbanTaskCard
                 key={task.id}

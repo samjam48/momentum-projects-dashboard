@@ -142,6 +142,7 @@ export function TaskDialog({
   })
   const [timeLogFormErrors, setTimeLogFormErrors] = useState<TimeLogSubFormErrors>({})
   const [expandedTimeLogId, setExpandedTimeLogId] = useState<string | null>(null)
+  const [pendingTimeLogDeleteId, setPendingTimeLogDeleteId] = useState<string | null>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
@@ -230,6 +231,9 @@ export function TaskDialog({
             const body = getTimeLogBody(timeLog)
             const location = getTimeLogLocation(timeLog)
             const title = getTimeLogTitle(timeLog)
+            const formattedDate = formatTimeLogDate(timeLog.logged_date)
+            const detailText = body?.trim() ? body : 'No notes'
+            const hasNotesBody = Boolean(body?.trim())
 
             return (
               <li key={timeLog.id}>
@@ -237,6 +241,11 @@ export function TaskDialog({
                   <button
                     className="time-log-row"
                     data-testid={`time-log-row-${timeLog.id}`}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid rgba(156, 93, 53, 0.35)',
+                      borderRadius: '14px',
+                    }}
                     type="button"
                     onClick={() =>
                       setExpandedTimeLogId((currentId) =>
@@ -244,29 +253,39 @@ export function TaskDialog({
                       )
                     }
                   >
-                    <span data-testid="time-log-row-primary">
+                    <span
+                      className="time-log-row-primary-line"
+                      data-testid="time-log-row-primary"
+                    >
                       <strong>{title}</strong>
                     </span>
                     <span
-                      className="time-log-row-secondary"
+                      className="time-log-row-primary-line"
                       data-testid="time-log-row-secondary"
                     >
-                      {formatTimeLogDate(timeLog.logged_date)}
+                      {formattedDate ? ` · ${formattedDate}` : ''}
                       {location ? ` · ${location}` : ''}
                     </span>
                   </button>
-                  <Button
+                  <button
                     aria-label={`Delete time log ${title}`}
-                    size="icon"
+                    className="time-log-delete"
                     type="button"
-                    variant="ghost"
-                    onClick={() => void onTimeLogDelete(timeLog.id)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setPendingTimeLogDeleteId(timeLog.id)
+                    }}
                   >
-                    <X aria-hidden size={14} />
-                  </Button>
+                    X
+                  </button>
                 </div>
-                {expandedTimeLogId === timeLog.id && body ? (
-                  <p className="time-log-detail">{body}</p>
+                {expandedTimeLogId === timeLog.id ? (
+                  <p
+                    className={hasNotesBody ? 'time-log-detail' : 'time-log-detail muted-copy'}
+                    data-testid={`time-log-detail-${timeLog.id}`}
+                  >
+                    {detailText}
+                  </p>
                 ) : null}
               </li>
             )
@@ -691,6 +710,54 @@ export function TaskDialog({
           </form>
         </DialogContent>
       </Dialog>
+
+      {pendingTimeLogDeleteId ? (
+        <div
+          className="time-log-confirm-backdrop"
+          role="presentation"
+          onClick={() => setPendingTimeLogDeleteId(null)}
+        >
+          <div
+            aria-describedby={`${dialogLabelId}-time-log-delete-desc`}
+            aria-labelledby={`${dialogLabelId}-time-log-delete-title`}
+            aria-modal="true"
+            className="time-log-confirm-dialog"
+            role="alertdialog"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setPendingTimeLogDeleteId(null)
+              }
+            }}
+          >
+            <h4 id={`${dialogLabelId}-time-log-delete-title`}>Delete time log?</h4>
+            <p id={`${dialogLabelId}-time-log-delete-desc`}>
+              This permanently removes the entry and updates task hours.
+            </p>
+            <div className="time-log-confirm-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setPendingTimeLogDeleteId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="danger-button"
+                type="button"
+                onClick={() => {
+                  void (async () => {
+                    await onTimeLogDelete(pendingTimeLogDeleteId)
+                    setPendingTimeLogDeleteId(null)
+                  })()
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

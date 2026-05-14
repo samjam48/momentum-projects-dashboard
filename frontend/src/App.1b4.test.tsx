@@ -6,6 +6,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { renderApp, renderAppBare } from './test/renderApp'
 import { resetProjectFilterStore } from './stores/projectFilter'
 import { buildProject, buildTask } from './test/fixtures'
+import { urlFromFetchMockFirstArg } from './test/fetchMockUrl'
 import { resetTestStorage } from './test/storage'
 import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
 import {
@@ -62,7 +63,7 @@ function installDelayedProjectsMock(
   delayMs = 50,
 ): ReturnType<typeof vi.fn<typeof fetch>> {
   const fetchMock = vi.fn<typeof fetch>(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+    const url = urlFromFetchMockFirstArg(input)
     const pathname = url.pathname
     const method = init?.method ?? 'GET'
 
@@ -117,8 +118,8 @@ describe('Ticket 1b-4 Projects page polish', () => {
       expect(dialog).toHaveAttribute('data-slot', 'dialog-content')
 
       await waitFor(() => {
-        const archivedRequest = fetchMock.mock.calls.some(([input]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+        const archivedRequest = fetchMock.mock.calls.some(([first]) => {
+          const url = urlFromFetchMockFirstArg(first)
           return (
             url.pathname === '/api/v1/projects' && url.searchParams.get('status') === 'archived'
           )
