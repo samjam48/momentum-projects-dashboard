@@ -14,11 +14,13 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 
 ## When To Use
 - A new feature request needs to be shaped
+- A new phase or major feature is starting — **including when `docs/V1-PRD.md` and `docs/V1-TRD.md` already exist**
 - A significant behavior change is proposed
 - A non-trivial refactor affects data flow, state, API, or infrastructure
 
 ## Required Behavior
 - Inspect the affected parts of the app end-to-end before writing planning docs
+- **Confirmation before documentation:** When base PRD/TRD exist, first present a phase-specific plan to the owner covering API endpoints, database entities and relationships, frontend UX flows, and how features connect. Ask targeted questions about UX goals, interaction design, and data relationships. Do not skip this step because a high-level plan already exists.
 - Ask clarifying questions until the outcome, scope, constraints, and success conditions are clear
 - Compare the request against the current PRD, TRD, ADRs, and the implemented code
 - Write a comprehensive feature PRD in `/plans/PRD-<featureset-name>-<date>.md`
@@ -45,5 +47,7 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 - Affected backend, frontend, and data areas
 - API impact
 - Data model impact
+- UX flows and open questions put to the owner
 - ADR references or a note that no ADR was needed
 - Explicit note on whether TRD boundaries are preserved
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER` (use `NEEDS OWNER` until the owner approves the plan; `SIGNED OFF` only after explicit owner approval)

@@ -48,3 +48,4 @@ Review the current branch against `main` and report code quality, architecture, 
 - Findings list
 - Any notable clean areas worth preserving
 - Residual risks if the owner decides to proceed without changes
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER` (`SIGNED OFF` when review is complete and findings are reported; use `BLOCKED` for must-fix issues before commit)

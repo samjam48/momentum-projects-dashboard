@@ -36,10 +36,11 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 - Do not write tests
 - Do not write production code
 - Do not continue into implementation or review
-- Once output reviewed and agreed by developer create a branch and commit the results
+- Once output reviewed and agreed by developer, create a branch and commit the results before test agent starts
 
 ## Output Checklist
 - Ticket file path
 - Ticket ordering rationale
 - Any unresolved assumptions or dependencies
 - Confirmation that `AGENTS.md` was updated with only the sprint overview
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER` (`SIGNED OFF` only after owner approves tickets and planning is committed)

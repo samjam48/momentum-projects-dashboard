@@ -40,3 +40,4 @@ Turn approved ticket acceptance criteria into failing tests without writing prod
 - Acceptance criteria coverage summary
 - Commands run
 - Failure summary showing the tests fail for feature reasons, not harness reasons
+- Final status line: `SIGNED OFF`, `BLOCKED`, or `NEEDS OWNER`

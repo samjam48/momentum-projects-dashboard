@@ -3,7 +3,7 @@
 ## What This Project Is
 A self-hosted personal dashboard (FastAPI + SQLModel + SQLite → React + TypeScript + Tailwind).
 Full spec: `/docs/V1-PRD.md` (what/why) and `/docs/V1-TRD.md` (how/schema/stack). Read those when you need depth.
-Project-specific role prompts live in `/agents/`. Use the agent file that matches the current phase of work.
+Project-specific role prompts live in `/agents/`. For a major feature or phase build, start with `/agents/orchestrator.md` — one gated agent at a time, no parallel tickets or sub-agents.
 ---
 ## Hard Constraints
 1. **No commits to \****`main`**\*\*.** All work on feature branches: `feat/`, `fix/`, `chore/`.

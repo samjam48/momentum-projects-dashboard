@@ -41,3 +41,4 @@ Run the full project quality gate sequence and report pass or fail for each gate
 - Pass or fail for each gate
 - Exact failure reason for any failing gate
 - Final summary stating whether the branch is ready for owner review
+- Final status line: `SIGNED OFF` (all gates pass) or `BLOCKED` (one or more gates failed)
