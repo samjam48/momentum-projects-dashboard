@@ -55,6 +55,32 @@ button:disabled {
   opacity: 0.55;
 }
 
+button[role='checkbox'],
+.checkbox-root,
+[role='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 4px;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit;
+  padding: 0;
+}
+
+button[role='checkbox']:hover:not(:disabled),
+button[role='checkbox'][data-state='checked'],
+button[role='checkbox'][data-state='checked']:hover:not(:disabled),
+.checkbox-root:hover:not(:disabled),
+.checkbox-root[data-state='checked'],
+.checkbox-root[data-state='checked']:hover:not(:disabled),
+[role='checkbox']:hover:not(:disabled),
+[role='checkbox'][data-state='checked'],
+[role='checkbox'][data-state='checked']:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  transform: none;
+}
+
 input,
 textarea,
 select {
@@ -824,7 +850,9 @@ textarea {
 }
 
 .kanban-task-title:hover {
+  background: transparent;
   text-decoration: underline;
+  transform: none;
 }
 
 .kanban-task-metrics {
@@ -835,7 +863,7 @@ textarea {
 }
 
 .kanban-task-metrics .task-meta {
-  font-size: inherit;
+  font-size: 0.88rem;
 }
 
 .board-options-menu {
