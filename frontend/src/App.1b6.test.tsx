@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -14,6 +13,7 @@ import {
 import { resetProjectFilterStore } from './stores/projectFilter'
 import { buildProject, buildTask, buildTimeLog } from './test/fixtures'
 import { resetTestStorage } from './test/storage'
+import { urlFromFetchMockFirstArg } from './test/fetchMockUrl'
 import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
 import {
   getArchiveViewControl,
@@ -91,7 +91,7 @@ function installDelayedArchivedProjectsMock(
   let archivedPayload = projects.filter((project) => project.status === 'archived')
 
   const fetchMock = vi.fn<typeof fetch>(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+    const url = urlFromFetchMockFirstArg(input)
     const pathname = url.pathname
     const method = init?.method ?? 'GET'
 
@@ -397,7 +397,7 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
 
       await waitFor(() => {
         const listRequest = fetchMock.mock.calls.some(([input, init]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+          const url = urlFromFetchMockFirstArg(input)
           return (
             url.pathname === '/api/v1/tasks/task-write-release-notes/time-logs' &&
             (init?.method ?? 'GET') === 'GET'
@@ -463,7 +463,7 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
 
       await waitFor(() => {
         const deleteRequest = fetchMock.mock.calls.some(([input, init]) => {
-          const url = new URL(typeof input === 'string' ? input : input.url, 'http://localhost')
+          const url = urlFromFetchMockFirstArg(input)
           return (
             url.pathname === '/api/v1/tasks/task-write-release-notes/time-logs/log-delete-me' &&
             init?.method === 'DELETE'

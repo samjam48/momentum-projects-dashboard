@@ -457,30 +457,34 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (activeProjectIds.length === 0) {
+    const projectIds =
+      activeProjectIdsKey.length > 0 ? activeProjectIdsKey.split('|') : []
+    if (projectIds.length === 0) {
       return
     }
 
-    const sidebarIds = getSidebarSelectedProjectIds(selectedProjectIds, activeProjectIds)
-    const toolbarProjectId = deriveToolbarProjectId(sidebarIds, activeProjectIds)
+    const sidebarIds = getSidebarSelectedProjectIds(selectedProjectIds, projectIds)
+    const toolbarProjectId = deriveToolbarProjectId(sidebarIds, projectIds)
 
     if (selectedProjectId !== toolbarProjectId) {
       useProjectFilterStore.setState({ selectedProjectId: toolbarProjectId })
     }
-  }, [activeProjectIdsKey, selectedProjectId, storedProjectIdsKey])
+  }, [activeProjectIdsKey, selectedProjectId, storedProjectIdsKey, selectedProjectIds])
 
   useEffect(() => {
-    if (activeProjectIds.length === 0) {
+    const projectIds =
+      activeProjectIdsKey.length > 0 ? activeProjectIdsKey.split('|') : []
+    if (projectIds.length === 0) {
       return
     }
 
     if (
       selectedProjectId !== DEFAULT_PROJECT_FILTER &&
-      !activeProjects.some((project) => project.id === selectedProjectId)
+      !projectIds.includes(selectedProjectId)
     ) {
-      setToolbarProjectFilter(DEFAULT_PROJECT_FILTER, activeProjectIds)
+      setToolbarProjectFilter(DEFAULT_PROJECT_FILTER, projectIds)
     }
-  }, [activeProjectIdsKey, activeProjects, selectedProjectId, setToolbarProjectFilter])
+  }, [activeProjectIdsKey, selectedProjectId, setToolbarProjectFilter])
 
   useEffect(() => {
     if (!hasEvaluatedTaskWorkspaceBootstrap && !projectsQuery.isLoading) {

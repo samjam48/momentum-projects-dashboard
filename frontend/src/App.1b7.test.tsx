@@ -2,8 +2,6 @@
  * Ticket 1b-7 — regressions from global CSS vs Radix/shadcn primitives and Kanban typography.
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
-
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
