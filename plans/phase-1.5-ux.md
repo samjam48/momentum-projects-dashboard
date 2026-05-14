@@ -412,6 +412,10 @@ Owner review after 1b-1 / 1b-2 / 1b-3 — implement as **one or two cleanup tick
 
 Planner may merge into a single **1b-4** if acceptance criteria stay reviewable in one PR.
 
+### 11.7 Post–1b-5 owner sign-off (`1b-6`)
+
+Owner review after **1b-4** / **1b-5** (see `plans/to-do-list.md` §1b review notes). Ticket **`1b-6`** covers: clean `act(...)` test output; checkbox restyle (clear background, Lucide tick, darker selected outline); Kanban outer card gap + reverted inner padding + due-date type scale; modal backdrop close and visible X; h3 task title + inline-edit padding; time-log GET/POST fix, hard delete, coloured metric cards, responsive right column; board-options row weight; plus deferred items (DnD/sort cleanup, ArchiveDialog stale flash, drop `showStatusBadge` writes). Explicitly out: archived-project task labels, empty-notes row UX, AppShell test flake.
+
 ---
 
 ## 10. Workshop decision log

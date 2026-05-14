@@ -21,6 +21,7 @@
 3. **1b-3** refines Kanban card density and drag interaction — depends on Projects page layout from 1b-1 and modal patterns from 1b-2.
 4. **1b-4** polishes Projects page shell, Kanban, summary table, and archive dialog (projects tab) — depends on 1b-1–1b-3 layout and interaction baseline.
 5. **1b-5** refines task modal UX, time-log sub-modal, and archived-tasks archive tab — depends on 1b-2 modal patterns; archive task action may depend on API gap resolution in Unresolved Dependencies.
+6. **1b-6** — final owner sign-off polish after 1b-4/1b-5; fixes regressions (checkboxes, Kanban spacing, modals), time-log E2E and delete, test hygiene, and deferred cleanup items — depends on 1b-1 through 1b-5.
 
 ---
 
@@ -154,10 +155,55 @@
 
 ---
 
+## Ticket 1b-6 — Phase 1b Owner Sign-off Polish
+
+### Acceptance Criteria
+
+- **Test hygiene:** Frontend test suite runs without React `act(...)` warnings in output (`npm run test` clean aside from intentional assertions). Wrap async state updates, user events, and query resolution in `act` / `waitFor` / Testing Library patterns as needed.
+- **Checkbox pattern (site-wide):** Sidebar project filter, board-options menu, and shared `Checkbox` primitive use a consistent style: **fully transparent/clear background when checked** (not filled brown/accent); **dark tick** via Lucide `Check` (not Unicode `✓`); **outline thicker and darker when selected** than unchecked. Apply wherever Phase 1b checkboxes appear in scope.
+- **Kanban column-header pills:** Add or update a frontend test that asserts column-header elements use the expected pill/badge CSS classes (same styling contract as task status pills per 1b-4).
+- **Kanban card spacing:** **5px external margin/gap between cards** within a column so cards do not touch. **Revert internal card padding** to pre-1b-4 spacing (uniform with other UI elements — owner meant outer gap, not 5px inner padding).
+- **Kanban card due date:** Due-date text on cards uses the **same font size** as column-header pill text.
+- **Modal close behaviour:** Backdrop/overlay click closes **task** and **project** modals the same way as X and Escape.
+- **Modal close affordance:** Close control shows a visible **X** (Lucide `X` or literal text `X` acceptable) — not a dot or ambiguous icon.
+- **Task modal title:** Task name renders at visibly **h3** scale in read mode. Inline edit input uses the **same padding/spacing** as other form fields (not width-hugging the text).
+- **Time logs — E2E fix:** `GET /api/v1/tasks/{id}/time-logs` loads entries in the edit-task modal; `POST /api/v1/tasks/{id}/time-logs` creates entries and refreshes list plus parent **actual hours** / aggregates. Diagnose and fix whichever layer breaks (API client path, query keys, router, or service).
+- **Time logs — delete:** User can **hard-delete** a time-log entry (not archive). If `DELETE /api/v1/tasks/{id}/time-logs/{log_id}` is missing, add backend service method, router endpoint, and pytest coverage; wire frontend delete affordance on list row or detail. Deleting updates task-derived hours and list without full-page reload.
+- **Time logs — metric cards:** **Actual hours** and **completed date** restore **styled metric cards with colour** (pre-1b-5 treatment), not plain unstyled text.
+- **Time logs — responsive layout:** On viewports with space, time-logs section and actual-hours/completed-date metrics sit in a **right column** beside task fields; on small viewports they **stack below** task details.
+- **Board options menu:** Remove `font-weight: 500` (or equivalent) emphasis on selected/checked rows — checked state conveyed by checkbox only.
+- **Pragmatic cleanup (pick one):** Either extract Kanban DnD orchestration out of `App.tsx` **or** deduplicate Kanban sort helpers between `App.tsx` and `TaskKanbanBoard.tsx` — one coherent cleanup, not both unless required for the chosen approach.
+- **ArchiveDialog stale flash:** On close, clear or reset archived-list state so reopen does not briefly show stale rows before refetch.
+- **`showStatusBadge` storage:** Stop writing `showStatusBadge` to `localStorage`; continue to ignore stale values safely on read.
+- Add or update frontend and backend tests for the above without regressing Phase 1 workflows; all quality gates pass.
+
+### Edge Cases
+
+- Time-log delete on last entry zeroes or updates `actual_hours` per backend rules; parent modal reflects change immediately.
+- Time-log GET/POST/DELETE failures show user-visible error; task modal remains usable.
+- Backdrop click on **nested** time-log sub-modal closes sub-modal only (parent task modal stays open) — same stacking as Escape.
+- Checkbox restyle applies when `localStorage` contains legacy board-options keys including ignored `showStatusBadge`.
+- Kanban inter-card margin does not break drag activation, column scroll, or empty-column layout.
+- Empty time-log list still shows metric cards when task has derived hours/completed date.
+- Delete time-log blocked or errored when task is on archived project — consistent with existing mutate rules.
+- ArchiveDialog reopen immediately after archiving a project/task does not flash pre-archive list.
+- `act` cleanup does not mask real failures by silencing assertions.
+- Modal backdrop close with dirty inline title triggers blur/close-save per 1b-5 before dismiss.
+
+### Out of Scope (owner deferred)
+
+- Archived-task rows lacking project label when parent project is archived.
+- Empty-notes time-log row expand UX.
+- `AppShell.test.tsx` occasional flake under full parallel suite.
+- Sprint doc vs backend schema tension (already approved minimal migrations).
+
+---
+
 ## Unresolved Dependencies
 
 - Owner approval on draft hex tokens is recorded in Phase 1.5; implementation uses those values unless revised.
 - Phase 1.6 tickets (ventures, assets, project Kanban) are out of scope for this file.
 - **Task soft-archive API gap:** Tasks currently expose Kanban statuses only (`backlog` | `in_progress` | `review` | `done`); `DELETE /api/v1/tasks/{id}` hard-deletes. There is no `GET /api/v1/tasks?status=archived`. **1b-5** archived-tasks tab and **Archive** action need owner decision: (a) minimal backend follow-up (e.g. `archived` status or `archived_at` + list filter) without broader schema churn, or (b) defer archived-tasks tab until API exists while shipping modal/time-log UX. Do not masquerade hard delete as archive.
 - **Time log title and location fields:** `time_logs` table has `hours`, `logged_date`, `notes` only. Sub-modal **title** and **location** require either owner-approved Alembic addition to `time_logs` or an interim mapping into `notes` with a documented parse/display convention; prefer (a) if owner wants faithful §11.4 list rows without hacks.
+- **Time log delete API:** `GET` and `POST` exist on `/api/v1/tasks/{id}/time-logs`; per-entry **hard delete** does not. **1b-6** adds `DELETE /api/v1/tasks/{id}/time-logs/{log_id}` (service + router + tests) without schema migration if still missing.
 - **Board options and table sort keyboard polish** remain deferred per §11.2 until feature set stabilises.
