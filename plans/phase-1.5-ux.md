@@ -337,6 +337,24 @@ Phase 5+    →   Unchanged from BACKLOG
 
 ---
 
+## 11. Phase 1b cleanup backlog (caught during implementation)
+
+Owner decisions logged during 1b-1 / 1b-2 — address in a **final 1b cleanup ticket** after 1b-3, not ad hoc.
+
+| Item | Owner decision | Notes |
+| --- | --- | --- |
+| **View archive** | Modal listing archived projects (and later ventures/tasks) | API exists: `GET /api/v1/projects?status=archived`. Current footer link is a no-op stub (`#` + `preventDefault`). Replace with Dialog modal for 1b; full archive page later. |
+| **Archive filter rollback** | Fixed in 1b-2 | Filter reset moved to archive success path; snapshot restore on API failure. |
+| **Dual filter UX copy** | Cleanup | Toolbar dropdown + sidebar checkboxes are coordinated in code; polish labels / empty-state copy when filters disagree. |
+| **Task API `project_id` filter** | Defer | 1b-2 loads all tasks and filters client-side for multi-select; revisit server-side filter when task volume warrants it. |
+| **Colour picker keyboard** | Defer | Enter/Space on focused swatch optional polish; trigger focus ring sufficient for now. |
+| **Loading sidebar dead form** | Defer to 1b-2+ cleanup | Remove no-op form during `!workspaceReady` when modals own all project flows. |
+| **TopNav `/projects` href** | Defer | No client router yet; use non-navigating control until routing ticket. |
+| **App.tsx size** | Defer | ~1.8k lines; extract Kanban/table/dialog wiring in cleanup or post-1b chore. |
+| **Kanban card hex tags** | 1b-3 | Legacy `colour-tag` hex on cards; Linear density in 1b-3. |
+
+---
+
 ## 10. Workshop decision log
 
 | # | Decision |
