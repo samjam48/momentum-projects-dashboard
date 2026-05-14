@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
 import type {
@@ -137,6 +137,11 @@ type TaskMutations = {
 export function useTaskMutations(onSettled: () => Promise<void>): TaskMutations {
   const [error, setError] = useState<ApiError | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const onSettledRef = useRef(onSettled)
+
+  useEffect(() => {
+    onSettledRef.current = onSettled
+  }, [onSettled])
 
   const runMutation = useCallback(
     async <T>(callback: () => Promise<T>, fallbackMessage: string): Promise<T> => {
@@ -145,7 +150,7 @@ export function useTaskMutations(onSettled: () => Promise<void>): TaskMutations 
 
       try {
         const result = await callback()
-        await onSettled()
+        await onSettledRef.current()
         return result
       } catch (caughtError) {
         if (caughtError instanceof ApiError) {
@@ -160,7 +165,7 @@ export function useTaskMutations(onSettled: () => Promise<void>): TaskMutations 
         setIsSaving(false)
       }
     },
-    [onSettled],
+    [],
   )
 
   return {

@@ -1,7 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import App from './App'
-import type { Project, Task, TaskPayload, TimeLog, TimeLogPayload } from './api/types'
+import type {
+  Project,
+  Task,
+  TaskPayload,
+  TaskStatus,
+  TaskStatusPayload,
+  TimeLog,
+  TimeLogPayload,
+} from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
 
 type MockResponseOptions = {
@@ -33,6 +41,11 @@ type BackendHandlers = {
     payload: TaskPayload,
     count: number,
   ) => Response | Promise<Response> | null
+  onTaskStatusUpdate?: (
+    taskId: string,
+    payload: TaskStatusPayload,
+    count: number,
+  ) => Response | Promise<Response> | null
   onTaskUpdate?: (
     taskId: string,
     payload: Partial<TaskPayload>,
@@ -48,6 +61,15 @@ type BackendOptions = BackendHandlers & {
   projects?: Project[]
   tasks?: Task[]
   timeLogs?: Record<string, TimeLog[]>
+}
+
+type TaskStatusRequest = {
+  payload: TaskStatusPayload
+  taskId: string
+}
+
+type TaskWorkspaceBackendMock = {
+  taskStatusRequests: TaskStatusRequest[]
 }
 
 function buildProject(overrides: Partial<Project>): Project {
@@ -117,7 +139,85 @@ function parseJsonBody(init: RequestInit | undefined): Record<string, unknown> {
     : {}
 }
 
-function installTaskWorkspaceBackendMock(options: BackendOptions): void {
+function compareTasksForKanban(left: Task, right: Task): number {
+  if (left.kanban_order !== null && right.kanban_order !== null) {
+    if (left.kanban_order !== right.kanban_order) {
+      return left.kanban_order - right.kanban_order
+    }
+  } else if (left.kanban_order !== null) {
+    return -1
+  } else if (right.kanban_order !== null) {
+    return 1
+  }
+
+  if (left.created_at !== right.created_at) {
+    return left.created_at.localeCompare(right.created_at)
+  }
+
+  return left.id.localeCompare(right.id)
+}
+
+function reorderTasksInColumn(
+  tasks: Task[],
+  taskId: string,
+  nextStatus: TaskStatus,
+  nextKanbanOrder: number | null,
+): Task[] {
+  const movedTask = tasks.find((task) => task.id === taskId)
+  if (!movedTask) {
+    return tasks
+  }
+
+  const sourceStatus = movedTask.status
+  const sourceColumn = tasks
+    .filter((task) => task.status === sourceStatus && task.id !== taskId)
+    .sort(compareTasksForKanban)
+  const targetColumn = tasks
+    .filter((task) => task.status === nextStatus && task.id !== taskId)
+    .sort(compareTasksForKanban)
+
+  const insertionIndex =
+    nextKanbanOrder === null
+      ? targetColumn.length
+      : Math.max(0, Math.min(nextKanbanOrder, targetColumn.length))
+
+  targetColumn.splice(insertionIndex, 0, {
+    ...movedTask,
+    status: nextStatus,
+    kanban_order: nextKanbanOrder,
+    completed_date:
+      nextStatus === 'done' ? movedTask.completed_date ?? '2026-05-26' : null,
+    updated_at: '2026-05-13T09:30:00Z',
+  })
+
+  const rebalanceColumn = (columnTasks: Task[]): Map<string, number> =>
+    new Map(columnTasks.map((task, index) => [task.id, index]))
+
+  const sourceOrders = rebalanceColumn(sourceColumn)
+  const targetOrders = rebalanceColumn(targetColumn)
+
+  return tasks.map((task) => {
+    if (targetOrders.has(task.id)) {
+      return {
+        ...(targetColumn.find((candidate) => candidate.id === task.id) ?? task),
+        kanban_order: targetOrders.get(task.id) ?? null,
+      }
+    }
+
+    if (sourceOrders.has(task.id)) {
+      return {
+        ...task,
+        kanban_order: sourceOrders.get(task.id) ?? null,
+      }
+    }
+
+    return task
+  })
+}
+
+function installTaskWorkspaceBackendMock(
+  options: BackendOptions,
+): TaskWorkspaceBackendMock {
   const projects = [...(options.projects ?? [])]
   const tasks = [...(options.tasks ?? [])]
   const timeLogsByTask = new Map<string, TimeLog[]>(
@@ -127,7 +227,9 @@ function installTaskWorkspaceBackendMock(options: BackendOptions): void {
     ]),
   )
   let taskCreateCount = 0
+  let taskStatusUpdateCount = 0
   let timeLogCreateCount = 0
+  const taskStatusRequests: TaskStatusRequest[] = []
 
   const actualHoursForTask = (taskId: string): number => {
     const timeLogs = timeLogsByTask.get(taskId) ?? []
@@ -258,6 +360,40 @@ function installTaskWorkspaceBackendMock(options: BackendOptions): void {
         }
       }
 
+      const taskStatusMatch = pathname.match(/^\/api\/v1\/tasks\/([^/]+)\/status$/)
+      if (taskStatusMatch && method === 'PATCH') {
+        const [, taskId] = taskStatusMatch
+        const taskIndex = tasks.findIndex((candidate) => candidate.id === taskId)
+
+        if (taskIndex < 0) {
+          return jsonResponse({ body: { detail: 'Task not found' }, status: 404 })
+        }
+
+        taskStatusUpdateCount += 1
+        const payload = body as TaskStatusPayload
+        taskStatusRequests.push({ taskId, payload })
+
+        const handlerResponse = options.onTaskStatusUpdate
+          ? await options.onTaskStatusUpdate(taskId, payload, taskStatusUpdateCount)
+          : null
+
+        if (handlerResponse) {
+          return handlerResponse
+        }
+
+        const nextTasks = reorderTasksInColumn(
+          tasks,
+          taskId,
+          payload.status,
+          payload.kanban_order,
+        )
+        tasks.splice(0, tasks.length, ...nextTasks)
+
+        return jsonResponse({
+          body: withDerivedHours(tasks[taskIndex]),
+        })
+      }
+
       if (method === 'POST' && pathname === '/api/v1/tasks') {
         taskCreateCount += 1
         const payload = body as TaskPayload
@@ -301,6 +437,7 @@ function installTaskWorkspaceBackendMock(options: BackendOptions): void {
   )
 
   vi.stubGlobal('fetch', fetchMock)
+  return { taskStatusRequests }
 }
 
 function getSectionByHeading(name: RegExp): HTMLElement {
@@ -325,6 +462,39 @@ function expectTableTaskOrder(table: HTMLElement, titles: string[]): void {
   })
 
   expect(actualOrder).toEqual(titles)
+}
+
+function getKanbanColumn(label: RegExp): HTMLElement {
+  const board = getSectionByHeading(/kanban board/i)
+  const heading = within(board).getByRole('heading', { name: label })
+  const column = heading.closest('section')
+
+  if (!(column instanceof HTMLElement)) {
+    throw new Error(`Expected kanban heading ${String(label)} to be inside a section.`)
+  }
+
+  return column
+}
+
+function expectKanbanTaskOrder(column: HTMLElement, titles: string[]): void {
+  const items = within(column).queryAllByRole('listitem')
+  const actualOrder = items.map((item) => {
+    const title = item.querySelector('strong')?.textContent
+    return title ?? ''
+  })
+
+  expect(actualOrder).toEqual(titles)
+}
+
+function getTaskCard(column: HTMLElement, title: string): HTMLElement {
+  const taskTitle = within(column).getByText(title)
+  const taskCard = taskTitle.closest('li')
+
+  if (!(taskCard instanceof HTMLElement)) {
+    throw new Error(`Expected task ${title} to be inside a kanban card.`)
+  }
+
+  return taskCard
 }
 
 const taskWorkspaceProjects = [
@@ -1042,5 +1212,309 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     expect(
       within(detailDialog).queryByText(/hours must be greater than zero/i),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    resetProjectFilterStore()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    resetProjectFilterStore()
+  })
+
+  it('renders all four columns and orders cards by kanban_order with deterministic null ordering', async () => {
+    installTaskWorkspaceBackendMock({
+      projects: taskWorkspaceProjects,
+      tasks: [
+        buildTask({
+          id: 'task-null-later',
+          project_id: 'project-beta',
+          title: 'Refine outline',
+          priority: 'low',
+          status: 'backlog',
+          kanban_order: null,
+          created_at: '2026-05-13T09:00:00Z',
+        }),
+        buildTask({
+          id: 'task-ordered-second',
+          project_id: 'project-alpha',
+          title: 'Draft launch brief',
+          priority: 'urgent',
+          target_date: '2026-05-20',
+          status: 'backlog',
+          kanban_order: 1,
+        }),
+        buildTask({
+          id: 'task-ordered-first',
+          project_id: 'project-alpha',
+          title: 'Confirm scope',
+          priority: 'high',
+          status: 'backlog',
+          kanban_order: 0,
+        }),
+        buildTask({
+          id: 'task-null-earlier',
+          project_id: 'project-beta',
+          title: 'Archive old assets',
+          priority: 'medium',
+          status: 'backlog',
+          kanban_order: null,
+          created_at: '2026-05-13T07:00:00Z',
+        }),
+      ],
+      timeLogs: {
+        'task-ordered-second': [
+          buildTimeLog({
+            id: 'log-launch-1',
+            task_id: 'task-ordered-second',
+            project_id: 'project-alpha',
+            hours: 2.5,
+          }),
+        ],
+      },
+    })
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+
+    const backlogColumn = getKanbanColumn(/backlog/i)
+    const inProgressColumn = getKanbanColumn(/in progress/i)
+    const reviewColumn = getKanbanColumn(/review/i)
+    const doneColumn = getKanbanColumn(/done/i)
+
+    expectKanbanTaskOrder(backlogColumn, [
+      'Confirm scope',
+      'Draft launch brief',
+      'Archive old assets',
+      'Refine outline',
+    ])
+    expect(within(inProgressColumn).getByText(/no tasks in this column/i)).toBeInTheDocument()
+    expect(within(reviewColumn).getByText(/no tasks in this column/i)).toBeInTheDocument()
+    expect(within(doneColumn).getByText(/no tasks in this column/i)).toBeInTheDocument()
+  })
+
+  it('shows enough card context to distinguish work in the all-projects view', async () => {
+    installTaskWorkspaceBackendMock({
+      projects: taskWorkspaceProjects,
+      tasks: [
+        buildTask({
+          id: 'task-ordered-second',
+          project_id: 'project-alpha',
+          title: 'Draft launch brief',
+          priority: 'urgent',
+          target_date: '2026-05-20',
+          status: 'backlog',
+          kanban_order: 1,
+        }),
+      ],
+      timeLogs: {
+        'task-ordered-second': [
+          buildTimeLog({
+            id: 'log-launch-1',
+            task_id: 'task-ordered-second',
+            project_id: 'project-alpha',
+            hours: 2.5,
+          }),
+        ],
+      },
+    })
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+
+    const backlogColumn = getKanbanColumn(/backlog/i)
+    const launchBriefCard = getTaskCard(backlogColumn, 'Draft launch brief')
+    expect(within(launchBriefCard).getByText(/urgent/i)).toBeInTheDocument()
+    expect(within(launchBriefCard).getByText('Alpha Client')).toBeInTheDocument()
+    expect(within(launchBriefCard).getByText('#123ABC')).toBeInTheDocument()
+    expect(within(launchBriefCard).getByText('2026-05-20')).toBeInTheDocument()
+    expect(within(launchBriefCard).getByText('2.5')).toBeInTheDocument()
+  })
+
+  it('persists same-column reorders through an explicit card movement control', async () => {
+    const backend = installTaskWorkspaceBackendMock({
+      projects: taskWorkspaceProjects,
+      tasks: [
+        buildTask({
+          id: 'task-plan-migration',
+          project_id: 'project-alpha',
+          title: 'Plan migration',
+          status: 'backlog',
+          kanban_order: 0,
+        }),
+        buildTask({
+          id: 'task-draft-copy',
+          project_id: 'project-beta',
+          title: 'Draft release copy',
+          status: 'backlog',
+          kanban_order: 1,
+        }),
+        buildTask({
+          id: 'task-review-pass',
+          project_id: 'project-alpha',
+          title: 'QA final pass',
+          status: 'review',
+          kanban_order: 0,
+        }),
+      ],
+    })
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+
+    const backlogColumn = getKanbanColumn(/backlog/i)
+    const draftCopyCard = getTaskCard(backlogColumn, 'Draft release copy')
+    fireEvent.click(
+      within(draftCopyCard).getByRole('button', {
+        name: /move task draft release copy up/i,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(backend.taskStatusRequests).toEqual([
+        {
+          taskId: 'task-draft-copy',
+          payload: { status: 'backlog', kanban_order: 0 },
+        },
+      ])
+    })
+
+    expectKanbanTaskOrder(backlogColumn, [
+      'Draft release copy',
+      'Plan migration',
+    ])
+  })
+
+  it('moves a card to done and back out through explicit card controls, then shows completed-date changes when reopened', async () => {
+    const backend = installTaskWorkspaceBackendMock({
+      projects: taskWorkspaceProjects,
+      tasks: [
+        buildTask({
+          id: 'task-plan-migration',
+          project_id: 'project-alpha',
+          title: 'Plan migration',
+          status: 'backlog',
+          kanban_order: 0,
+        }),
+        buildTask({
+          id: 'task-draft-copy',
+          project_id: 'project-beta',
+          title: 'Draft release copy',
+          status: 'backlog',
+          kanban_order: 1,
+        }),
+      ],
+    })
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+
+    const backlogColumn = getKanbanColumn(/backlog/i)
+    const planMigrationCard = getTaskCard(backlogColumn, 'Plan migration')
+    fireEvent.click(
+      within(planMigrationCard).getByRole('button', {
+        name: /move task plan migration to done/i,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(backend.taskStatusRequests).toEqual([
+        {
+          taskId: 'task-plan-migration',
+          payload: { status: 'done', kanban_order: 0 },
+        },
+      ])
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /edit task plan migration/i }))
+
+    const doneDialog = await screen.findByRole('dialog', { name: /edit task/i })
+    expect(within(doneDialog).getByText('2026-05-26')).toBeInTheDocument()
+    fireEvent.click(within(doneDialog).getByRole('button', { name: /close/i }))
+
+    const doneColumn = getKanbanColumn(/done/i)
+    const movedCard = getTaskCard(doneColumn, 'Plan migration')
+    fireEvent.click(
+      within(movedCard).getByRole('button', {
+        name: /move task plan migration to in progress/i,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(backend.taskStatusRequests).toEqual([
+        {
+          taskId: 'task-plan-migration',
+          payload: { status: 'done', kanban_order: 0 },
+        },
+        {
+          taskId: 'task-plan-migration',
+          payload: { status: 'in_progress', kanban_order: 0 },
+        },
+      ])
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /edit task plan migration/i }))
+
+    const reopenedDialog = await screen.findByRole('dialog', { name: /edit task/i })
+    expect(within(reopenedDialog).queryByText('2026-05-26')).not.toBeInTheDocument()
+  })
+
+  it('rolls back to the last confirmed board state and surfaces an error when status persistence fails', async () => {
+    installTaskWorkspaceBackendMock({
+      projects: taskWorkspaceProjects,
+      tasks: [
+        buildTask({
+          id: 'task-first-backlog',
+          project_id: 'project-alpha',
+          title: 'Triage launch blockers',
+          status: 'backlog',
+          kanban_order: 0,
+        }),
+        buildTask({
+          id: 'task-second-backlog',
+          project_id: 'project-beta',
+          title: 'Schedule stakeholder review',
+          status: 'backlog',
+          kanban_order: 1,
+        }),
+      ],
+      onTaskStatusUpdate: () =>
+        jsonResponse({
+          body: { detail: 'Unable to update task status.' },
+          status: 500,
+        }),
+    })
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+
+    const backlogColumn = getKanbanColumn(/backlog/i)
+    const stakeholderReviewCard = getTaskCard(backlogColumn, 'Schedule stakeholder review')
+    fireEvent.click(
+      within(stakeholderReviewCard).getByRole('button', {
+        name: /move task schedule stakeholder review to done/i,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/unable to update task status/i),
+      ).toBeInTheDocument()
+    })
+
+    expectKanbanTaskOrder(backlogColumn, [
+      'Triage launch blockers',
+      'Schedule stakeholder review',
+    ])
+    expect(within(getKanbanColumn(/done/i)).getByText(/no tasks in this column/i)).toBeInTheDocument()
   })
 })
