@@ -24,3 +24,6 @@ node_modules/
 dist/
 coverage/
 .vite/
+
+# Owner-local notes (not versioned)
+plans/to-do-list.md
