@@ -2,16 +2,6 @@
 
 Momentum is a self-hosted personal dashboard for running multiple projects in one place. It combines project tracking, task management, income tracking, goals, and reporting behind a FastAPI backend and a React frontend.
 
-## Phase 0 Status
-
-Phase 0 is the scaffold release. The repository currently includes:
-
-- A FastAPI backend with typed settings and a health endpoint at `/api/v1/health`
-- A React 18 + TypeScript + Vite frontend scaffold
-- Docker Compose for local backend and frontend development
-- Backend test coverage for the health endpoint
-- Project documentation, agent guidance, and backlog planning files
-
 ## Tech Stack
 
 - Backend: FastAPI, SQLModel, Alembic, SQLite configuration via environment settings
@@ -25,24 +15,48 @@ Phase 0 is the scaffold release. The repository currently includes:
 - `AGENTS.md` for working rules, sprint scope, and quality gates
 - `plans/BACKLOG.md` for post-sprint phases and future work
 
-## Local Run Flow
+## Install and Run
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Make (for lint and test targets)
+
+### First-time setup
+
+From the repository root:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
+The frontend uses a named Docker volume for `node_modules` so dependencies stay inside the container. Source code is bind-mounted for hot reload on both services.
+
 Local endpoints:
 
 - Frontend: `http://localhost:3000`
 - Backend health check: `http://localhost:8000/api/v1/health`
 
-## Verification Commands
+### Rebuild after dependency changes
+
+If `package.json` or backend requirements change, or the frontend container behaves oddly, tear down and rebuild with a fresh `node_modules` volume:
 
 ```bash
-cd backend && pytest
-cd frontend && npm run test
-cd frontend && npm run lint
+docker compose down
+docker volume rm momentum-projects-dashboard_frontend_node_modules
+docker compose up --build
 ```
 
-The project rules and quality gates are defined in `AGENTS.md`.
+If the volume name differs on your machine, list volumes with `docker volume ls` and remove the one ending in `_frontend_node_modules`.
+
+## Verification
+
+Run the full quality gates from the repository root:
+
+```bash
+make lint
+make test
+```
+
+`make lint` runs Ruff, mypy, radon, TypeScript checking, and ESLint. `make test` runs backend pytest with coverage and frontend Vitest with coverage. Thresholds and rules are defined in `AGENTS.md`.
