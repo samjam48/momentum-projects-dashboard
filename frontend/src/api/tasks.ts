@@ -87,13 +87,20 @@ export async function updateTaskStatus(
   })
 }
 
-export function useTasks(filters: TaskFilters = {}): QueryState<Task[]> {
+export function useTasks(filters: TaskFilters = {}, enabled = true): QueryState<Task[]> {
   const [data, setData] = useState<Task[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(enabled)
   const { priority, projectId, status } = filters
 
   const reload = useCallback(async () => {
+    if (!enabled) {
+      setData([])
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -108,7 +115,7 @@ export function useTasks(filters: TaskFilters = {}): QueryState<Task[]> {
     } finally {
       setIsLoading(false)
     }
-  }, [priority, projectId, status])
+  }, [enabled, priority, projectId, status])
 
   useEffect(() => {
     void reload()
