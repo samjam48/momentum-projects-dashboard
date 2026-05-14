@@ -461,6 +461,35 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
       expect(within(archiveDialog).getByTestId('archive-task-dot-project-alpha')).toBeInTheDocument()
     })
 
+    it('opens the edit dialog when an archived task row is clicked', async () => {
+      installWorkspaceBackendMock({
+        projects: [alphaProject],
+        tasks: [releaseNotesTask, archivedTask],
+      })
+
+      render(<App />)
+      await waitForWorkspaceReady()
+
+      fireEvent.click(getArchiveViewControl())
+      const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
+
+      fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived tasks/i }))
+
+      const archivedTaskRow = await within(archiveDialog).findByRole('button', {
+        name: /retired draft/i,
+      })
+      fireEvent.click(archivedTaskRow)
+
+      const editDialog = await screen.findByRole('dialog')
+      expect(
+        within(editDialog).getByRole('heading', { level: 3, name: /retired draft/i }),
+      ).toBeInTheDocument()
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+      })
+    })
+
     it('removes an archived task from the active Kanban after Archive is confirmed', async () => {
       const backlogTask = buildTask({
         id: 'task-to-archive',

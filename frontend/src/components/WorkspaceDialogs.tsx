@@ -215,7 +215,9 @@ export function useWorkspaceDialogs({
   const [projectFormErrors, setProjectFormErrors] = useState<ProjectFormErrors>({})
   const [taskForm, setTaskForm] = useState<TaskFormState>(defaultTaskForm(''))
   const [taskFormErrors, setTaskFormErrors] = useState<TaskFormErrors>({})
+  const [editingTaskSnapshot, setEditingTaskSnapshot] = useState<Task | null>(null)
   const savedTaskFormRef = useRef<TaskFormState>(defaultTaskForm(''))
+  const effectiveSelectedTask = selectedTask ?? editingTaskSnapshot
 
   const projectsById = activeProjects.reduce<Record<string, Project>>((projectMap, project) => {
     projectMap[project.id] = project
@@ -241,16 +243,24 @@ export function useWorkspaceDialogs({
   }, [projectsQueryData, setLocallyArchivedProjectIds])
 
   useEffect(() => {
-    if (taskDialogMode === 'edit' && activeTaskId && !selectedTask) {
+    if (taskDialogMode === 'edit' && activeTaskId && !effectiveSelectedTask) {
       setTaskDialogMode(null)
       setActiveTaskId(null)
+      setEditingTaskSnapshot(null)
       setTaskFormErrors({})
     }
-  }, [activeTaskId, selectedTask, setActiveTaskId, setTaskDialogMode, taskDialogMode])
+  }, [
+    activeTaskId,
+    effectiveSelectedTask,
+    setActiveTaskId,
+    setTaskDialogMode,
+    taskDialogMode,
+  ])
 
   const resetTaskDialogState = (): void => {
     setTaskDialogMode(null)
     setActiveTaskId(null)
+    setEditingTaskSnapshot(null)
     setTaskFormErrors({})
     taskMutations.resetError()
     timeLogMutations.resetError()
@@ -266,6 +276,7 @@ export function useWorkspaceDialogs({
     const nextForm = defaultTaskForm(defaultProjectId)
     setTaskDialogMode('create')
     setActiveTaskId(null)
+    setEditingTaskSnapshot(null)
     setTaskForm(nextForm)
     savedTaskFormRef.current = nextForm
     setTaskFormErrors({})
@@ -277,6 +288,7 @@ export function useWorkspaceDialogs({
     const nextForm = taskFormFromTask(task)
     setTaskDialogMode('edit')
     setActiveTaskId(task.id)
+    setEditingTaskSnapshot(task)
     setTaskForm(nextForm)
     savedTaskFormRef.current = nextForm
     setTaskFormErrors({})
@@ -352,7 +364,10 @@ export function useWorkspaceDialogs({
 
   const handleTaskClose = async (): Promise<void> => {
     if (taskDialogMode === 'edit') {
-      await saveTaskIfDirty()
+      const saved = await saveTaskIfDirty()
+      if (!saved) {
+        return
+      }
     }
 
     resetTaskDialogState()
@@ -551,7 +566,7 @@ export function useWorkspaceDialogs({
         <TaskDialog
           activeProjects={activeProjects}
           mode={taskDialogMode}
-          selectedTask={selectedTask}
+          selectedTask={effectiveSelectedTask}
           taskForm={taskForm}
           taskFormErrors={taskFormErrors}
           taskMutationsSaving={taskMutations.isSaving}

@@ -17,11 +17,13 @@ type ArchiveTab = 'projects' | 'tasks'
 type ArchiveDialogProps = {
   activeProjects: Project[]
   onEditProject: (project: Project) => void
+  onEditTask: (task: Task) => void
 }
 
 export function ArchiveDialog({
   activeProjects,
   onEditProject,
+  onEditTask,
 }: ArchiveDialogProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
@@ -190,7 +192,14 @@ export function ArchiveDialog({
 
                   return (
                     <li key={task.id}>
-                      <div className="archive-task-row">
+                      <button
+                        className="archive-task-row"
+                        type="button"
+                        onClick={() => {
+                          setOpen(false)
+                          onEditTask(task)
+                        }}
+                      >
                         <span
                           aria-hidden
                           className="project-colour-dot"
@@ -199,7 +208,7 @@ export function ArchiveDialog({
                         />
                         <span>{task.title}</span>
                         {project ? <span className="archive-task-project">{project.name}</span> : null}
-                      </div>
+                      </button>
                     </li>
                   )
                 })}

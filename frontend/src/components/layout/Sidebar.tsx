@@ -1,4 +1,4 @@
-import type { Project } from '../../api/types'
+import type { Project, Task } from '../../api/types'
 import {
   useProjectFilterStore,
   type ProjectFilterState,
@@ -11,6 +11,7 @@ export type SidebarProps = {
   activeProjects: Project[]
   onCreateProject: () => void
   onEditProject: (project: Project) => void
+  onEditTask: (task: Task) => void
   projectsError: string | null
   projectsLoading: boolean
 }
@@ -19,6 +20,7 @@ export function Sidebar({
   activeProjects,
   onCreateProject,
   onEditProject,
+  onEditTask,
   projectsError,
   projectsLoading,
 }: SidebarProps): JSX.Element {
@@ -105,7 +107,11 @@ export function Sidebar({
         )}
       </div>
 
-      <ArchiveDialog activeProjects={activeProjects} onEditProject={onEditProject} />
+      <ArchiveDialog
+        activeProjects={activeProjects}
+        onEditProject={onEditProject}
+        onEditTask={onEditTask}
+      />
     </aside>
   )
 }

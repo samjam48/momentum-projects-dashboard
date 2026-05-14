@@ -414,7 +414,7 @@ function App() {
     .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
   const displayTasks = optimisticTasks ?? visibleTasks
   const sortedTasks = sortTasks(displayTasks, projectsById, taskSort)
-  const selectedTask = sortedTasks.find((task) => task.id === activeTaskId) ?? null
+  const selectedTask = tasksQuery.data.find((task) => task.id === activeTaskId) ?? null
   const taskMutations = useTaskMutations(async () => {
     await tasksQuery.reload()
   })
@@ -639,6 +639,7 @@ function App() {
         activeProjects={[]}
         onCreateProject={() => undefined}
         onEditProject={() => undefined}
+        onEditTask={() => undefined}
         projectsError={null}
         projectsLoading
       >
@@ -688,6 +689,7 @@ function App() {
       activeProjects={activeProjects}
       onCreateProject={openCreateProjectDialog}
       onEditProject={handleProjectEdit}
+      onEditTask={openEditTaskDialog}
       projectsError={projectsQuery.error}
       projectsLoading={projectsQuery.isLoading}
     >
