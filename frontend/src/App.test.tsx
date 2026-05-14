@@ -17,7 +17,7 @@ type MockResponseOptions = {
   status?: number
 }
 
-type FetchMock = ReturnType<typeof vi.fn<Promise<Response>, Parameters<typeof fetch>>>
+type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>
 
 function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
   return new Response(JSON.stringify(body ?? null), {
@@ -27,7 +27,7 @@ function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
 }
 
 function installFetchMock(responses: Response[]): FetchMock {
-  const fetchMock = vi.fn<Promise<Response>, Parameters<typeof fetch>>()
+  const fetchMock = vi.fn<typeof fetch>()
   fetchMock.mockResolvedValue(jsonResponse({ body: [] }))
   responses.forEach((response) => {
     fetchMock.mockResolvedValueOnce(response)
@@ -241,7 +241,7 @@ function installTaskWorkspaceBackendMock(
     actual_hours: actualHoursForTask(task.id),
   })
 
-  const fetchMock = vi.fn<Promise<Response>, Parameters<typeof fetch>>(
+  const fetchMock = vi.fn<typeof fetch>(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(readPath(input), 'http://localhost')
       const method = init?.method ?? 'GET'

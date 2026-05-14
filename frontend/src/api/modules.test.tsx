@@ -21,7 +21,7 @@ type MockResponseOptions = {
   status?: number
 }
 
-type FetchMock = ReturnType<typeof vi.fn<Promise<Response>, Parameters<typeof fetch>>>
+type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>
 
 function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
   return new Response(JSON.stringify(body ?? null), {
@@ -31,7 +31,7 @@ function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
 }
 
 function installFetchMock(responses: Response[]): FetchMock {
-  const fetchMock = vi.fn<Promise<Response>, Parameters<typeof fetch>>()
+  const fetchMock = vi.fn<typeof fetch>()
   responses.forEach((response) => {
     fetchMock.mockResolvedValueOnce(response)
   })
@@ -172,7 +172,7 @@ describe('task API helpers', () => {
   })
 
   it('runs task mutations and surfaces mutation errors', async () => {
-    const onSettled = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+    const onSettled = vi.fn((): Promise<void> => Promise.resolve())
     installFetchMock([
       jsonResponse({ body: buildTask({ id: 'task-create', title: 'Create mutation' }), status: 201 }),
       jsonResponse({ body: buildTask({ id: 'task-update', title: 'Update mutation' }) }),
@@ -260,7 +260,7 @@ describe('time log API helpers', () => {
   })
 
   it('loads time logs, handles missing task ids, and surfaces mutation failures', async () => {
-    const onSettled = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+    const onSettled = vi.fn((): Promise<void> => Promise.resolve())
     installFetchMock([
       jsonResponse({ body: [buildTimeLog({ id: 'log-success' })] }),
       jsonResponse({ body: buildTimeLog({ id: 'log-created', hours: 3 }) }),

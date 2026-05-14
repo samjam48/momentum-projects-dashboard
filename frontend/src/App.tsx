@@ -1138,7 +1138,7 @@ function TaskDialog({
 }
 
 function App() {
-  const kanbanBoardRef = useRef<HTMLElement | null>(null)
+  const kanbanBoardRef = useRef<HTMLDivElement | null>(null)
   const projectsQuery = useProjects()
   const selectedProjectId = useProjectFilterStore(
     (state: ProjectFilterState): string => state.selectedProjectId,
