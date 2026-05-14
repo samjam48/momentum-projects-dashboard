@@ -351,7 +351,11 @@ Owner decisions logged during 1b-1 / 1b-2 — address in a **final 1b cleanup ti
 | **Loading sidebar dead form** | Defer to 1b-2+ cleanup | Remove no-op form during `!workspaceReady` when modals own all project flows. |
 | **TopNav `/projects` href** | Defer | No client router yet; use non-navigating control until routing ticket. |
 | **App.tsx size** | Defer | ~1.8k lines; extract Kanban/table/dialog wiring in cleanup or post-1b chore. |
-| **Kanban card hex tags** | 1b-3 | Legacy `colour-tag` hex on cards; Linear density in 1b-3. |
+| **Kanban card hex tags** | Done in 1b-3 | Linear cards use colour dot; no hex on cards. |
+| **Board options keyboard** | Defer — late-stage usability | Owner: not needed while features still changing; full keyboard nav after feature set stabilises. |
+| **Kanban drag / card-surface DnD** | Defer — 1b cleanup or later | Owner: card-surface drag needs stabilisation; revisit after more features land (nested button + touch). |
+| **Venture colour underline on task titles** | Defer — 1.6 | All-projects view underline uses venture colour; ventures not in schema until 1.6. |
+| **Duplicate Kanban test helpers** | Fixed post-1b-3 review | `App.test.tsx` imports shared `workspaceQueries`; Ticket 5 slimmed to smoke. |
 
 ---
 
