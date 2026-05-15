@@ -1,23 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
+import { toQueryState, type QueryState } from './queryUtils'
 import type { VentureCategoryLabel, VentureCategoryLabelPayload } from './types'
+import { ventureQueryKeys } from './ventures'
 
-// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
 export const ventureCategoryLabelQueryKeys = {
   all: ['venture-category-labels'] as const,
   list: () => [...ventureCategoryLabelQueryKeys.all, 'list'] as const,
-}
-
-type QueryState<T> = {
-  data: T
-  error: string | null
-  isLoading: boolean
-  reload: () => Promise<void>
-}
-
-type QueryInvalidator = {
-  invalidateQueries: (options: { queryKey: readonly unknown[] }) => Promise<void>
 }
 
 function extractLabels(payload: unknown): VentureCategoryLabel[] {
@@ -67,76 +58,90 @@ export async function deleteVentureCategoryLabel(labelId: string): Promise<void>
   })
 }
 
-export function useVentureCategoryLabels(): QueryState<VentureCategoryLabel[]> {
-  const [data, setData] = useState<VentureCategoryLabel[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+function useLabelMutationErrorState(): {
+  error: ApiError | null
+  isSaving: boolean
+  resetError: () => void
+  runMutation: <T>(callback: () => Promise<T>) => Promise<T>
+} {
+  const [error, setError] = useState<ApiError | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const reload = useCallback(async () => {
-    setIsLoading(true)
+  const runMutation = async <T>(callback: () => Promise<T>): Promise<T> => {
+    setIsSaving(true)
     setError(null)
     try {
-      setData(await listVentureCategoryLabels())
+      return await callback()
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load labels.')
+      if (caughtError instanceof ApiError) {
+        setError(caughtError)
+        throw caughtError
+      }
+      const fallbackError = new ApiError('Unable to save label.', 500)
+      setError(fallbackError)
+      throw fallbackError
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
-  }, [])
+  }
 
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  return { data, error, isLoading, reload }
+  return {
+    error,
+    isSaving,
+    resetError: () => setError(null),
+    runMutation,
+  }
 }
 
-export function useVentureCategoryLabelMutations(
-  onSettled: () => Promise<void>,
-): {
+export function useVentureCategoryLabels(): QueryState<VentureCategoryLabel[]> {
+  const query = useQuery({
+    queryKey: ventureCategoryLabelQueryKeys.list(),
+    queryFn: listVentureCategoryLabels,
+  })
+
+  return toQueryState(query, [])
+}
+
+export function useVentureCategoryLabelMutations(): {
   create: (payload: VentureCategoryLabelPayload) => Promise<VentureCategoryLabel>
   update: (labelId: string, payload: VentureCategoryLabelPayload) => Promise<VentureCategoryLabel>
   remove: (labelId: string) => Promise<void>
   error: ApiError | null
   isSaving: boolean
   resetError: () => void
-  invalidateQueries: (queryClient: QueryInvalidator) => Promise<void>
 } {
-  const [error, setError] = useState<ApiError | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
+  const { error, isSaving, resetError, runMutation } = useLabelMutationErrorState()
 
-  const runMutation = useCallback(
-    async <T>(callback: () => Promise<T>): Promise<T> => {
-      setIsSaving(true)
-      setError(null)
-      try {
-        const result = await callback()
-        await onSettled()
-        return result
-      } catch (caughtError) {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError)
-          throw caughtError
-        }
-        const fallbackError = new ApiError('Unable to save label.', 500)
-        setError(fallbackError)
-        throw fallbackError
-      } finally {
-        setIsSaving(false)
-      }
-    },
-    [onSettled],
-  )
+  const onSettled = async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ventureCategoryLabelQueryKeys.list() }),
+      queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('active') }),
+      queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('archived') }),
+    ])
+  }
+
+  const createMutation = useMutation({
+    mutationFn: createVentureCategoryLabel,
+    onSettled,
+  })
+  const updateMutation = useMutation({
+    mutationFn: ({ labelId, payload }: { labelId: string; payload: VentureCategoryLabelPayload }) =>
+      updateVentureCategoryLabel(labelId, payload),
+    onSettled,
+  })
+  const removeMutation = useMutation({
+    mutationFn: deleteVentureCategoryLabel,
+    onSettled,
+  })
 
   return {
-    create: (payload) => runMutation(() => createVentureCategoryLabel(payload)),
-    update: (labelId, payload) => runMutation(() => updateVentureCategoryLabel(labelId, payload)),
-    remove: (labelId) => runMutation(() => deleteVentureCategoryLabel(labelId)),
+    create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
+    update: (labelId, payload) =>
+      runMutation(() => updateMutation.mutateAsync({ labelId, payload })),
+    remove: (labelId) => runMutation(() => removeMutation.mutateAsync(labelId)),
     error,
     isSaving,
-    resetError: () => setError(null),
-    invalidateQueries: async (queryClient) => {
-      await queryClient.invalidateQueries({ queryKey: ventureCategoryLabelQueryKeys.list() })
-    },
+    resetError,
   }
 }

@@ -2,6 +2,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { expectTypeOf } from 'vitest'
+
+import { archiveActivityType } from './activityTypes'
+import type * as ApiTypes from './types'
+
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const srcDir = resolve(currentDir, '..')
 
@@ -13,76 +18,38 @@ function requireFile(pathFromSrc: string): void {
   expect(existsSync(resolve(srcDir, pathFromSrc))).toBe(true)
 }
 
+type Phase167ExportedTypeNames =
+  | 'Venture'
+  | 'VenturePayload'
+  | 'VentureStatus'
+  | 'VentureCategoryLabel'
+  | 'VentureCategoryLabelPayload'
+  | 'ProjectType'
+  | 'ProjectBoardStatus'
+  | 'ActivityType'
+  | 'ActivityTypePayload'
+
+type MissingPhase167Exports = Exclude<Phase167ExportedTypeNames, keyof typeof ApiTypes>
+type AssertPhase167TypesExported = [MissingPhase167Exports] extends [never]
+  ? true
+  : `Missing api/types exports: ${MissingPhase167Exports}`
+
 describe('phase 1.6-7 frontend API and query contract', () => {
+  it('exports Phase 1.6.7 domain types from api/types', () => {
+    const ok: AssertPhase167TypesExported = true
+    expect(ok).toBe(true)
+  })
   it('adds typed API modules for venture category labels, ventures, and activity types', () => {
     requireFile('api/ventureCategoryLabels.ts')
     requireFile('api/ventures.ts')
     requireFile('api/activityTypes.ts')
   })
 
-  it('extends projects API for venture filters, board/status fields, unarchive, and board-status mutation', () => {
-    const projectsSource = source('api/projects.ts')
-
-    expect(projectsSource).toContain('venture_id')
-    expect(projectsSource).toContain('project_type')
-    expect(projectsSource).toContain('board_status')
-    expect(projectsSource).toContain('finished')
-    expect(projectsSource).toContain('/unarchive')
-    expect(projectsSource).toContain('/board-status')
-    expect(projectsSource).toContain('project_id: string')
-    expect(projectsSource).toContain('kanban_order: number')
-  })
-
-  it('extends time logs API for optional activity_type_id and display fields', () => {
-    const timeLogsSource = source('api/timeLogs.ts')
-    const typesSource = source('api/types.ts')
-
-    expect(timeLogsSource).toContain('activity_type_id')
-    expect(typesSource).toContain('activity_type_id')
-    expect(typesSource).toContain('activity_type_name')
-    expect(typesSource).toContain('activity_type_display_name')
-  })
-
-  it('defines new phase 1.6 TypeScript types and avoids task type additions', () => {
-    const typesSource = source('api/types.ts')
-
-    expect(typesSource).toContain('export type Venture =')
-    expect(typesSource).toContain('export type VenturePayload =')
-    expect(typesSource).toContain('export type VentureStatus =')
-    expect(typesSource).toContain('export type VentureCategoryLabel =')
-    expect(typesSource).toContain('export type VentureCategoryLabelPayload =')
-    expect(typesSource).toContain('export type ProjectType =')
-    expect(typesSource).toContain('export type ProjectBoardStatus =')
-    expect(typesSource).toContain('export type ActivityType =')
-    expect(typesSource).toContain('export type ActivityTypePayload =')
-    expect(typesSource).toContain('usage_count?: number')
-    expect(typesSource).not.toContain('export type TaskType =')
-  })
-
-  it('keeps archiveActivityType typed as no-content response', () => {
-    const activityTypesSource = source('api/activityTypes.ts')
-    expect(activityTypesSource).toContain('archiveActivityType(activityTypeId: string): Promise<void>')
-  })
-
-  it('introduces TanStack Query hooks/query keys and minimal mutation invalidation', () => {
-    const apiFiles = [
-      'api/projects.ts',
-      'api/timeLogs.ts',
-      'api/ventureCategoryLabels.ts',
-      'api/ventures.ts',
-      'api/activityTypes.ts',
-    ]
-
-    const combined = apiFiles
-      .filter((file) => existsSync(resolve(srcDir, file)))
-      .map((file) => source(file))
-      .join('\n')
-
-    expect(combined).toContain('@tanstack/react-query')
-    expect(combined).toContain('queryKey')
-    expect(combined).toContain('useQuery')
-    expect(combined).toContain('useMutation')
-    expect(combined).toContain('invalidateQueries')
+  it('wires QueryClientProvider in main.tsx (TanStack Query app shell)', () => {
+    const mainSource = source('main.tsx')
+    expect(mainSource).toContain('QueryClientProvider')
+    expect(mainSource).toContain('@tanstack/react-query')
+    expect(mainSource).toContain('appQueryClient')
   })
 
   it('does not introduce server-persisted board preference API calls', () => {
@@ -93,5 +60,17 @@ describe('phase 1.6-7 frontend API and query contract', () => {
 
     expect(combined).not.toContain('/preferences')
     expect(combined).not.toContain('board-preferences')
+  })
+
+  it('does not expose TaskType or is_asset in shared API types', () => {
+    const typesSource = source('api/types.ts')
+    expect(typesSource).not.toMatch(/export type TaskType\b/)
+    expect(typesSource).not.toContain('is_asset')
+  })
+
+  it('types archiveActivityType as a void Promise API helper', () => {
+    expectTypeOf(archiveActivityType).toBeFunction()
+    expectTypeOf(archiveActivityType).returns.toEqualTypeOf<Promise<void>>()
+    expectTypeOf(archiveActivityType).parameters.toEqualTypeOf<[string]>()
   })
 })

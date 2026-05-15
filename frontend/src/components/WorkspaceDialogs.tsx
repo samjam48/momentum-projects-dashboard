@@ -226,14 +226,8 @@ export function useWorkspaceDialogs({
   }, {})
 
   const timeLogsQuery = useTaskTimeLogs(taskDialogMode === 'edit' ? activeTaskId : null)
-  const projectMutations = useProjectMutations(onProjectsReload)
-  const timeLogMutations = useTimeLogMutations(
-    taskDialogMode === 'edit' ? activeTaskId : null,
-    async () => {
-      await onTasksReload()
-      await timeLogsQuery.reload()
-    },
-  )
+  const projectMutations = useProjectMutations()
+  const timeLogMutations = useTimeLogMutations(taskDialogMode === 'edit' ? activeTaskId : null)
 
   useEffect(() => {
     setLocallyArchivedProjectIds((currentIds) =>

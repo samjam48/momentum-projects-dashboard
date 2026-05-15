@@ -28,23 +28,11 @@ type MockResponseOptions = {
   status?: number
 }
 
-type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>
-
 function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
   return new Response(JSON.stringify(body ?? null), {
     headers: { 'Content-Type': 'application/json' },
     status,
   })
-}
-
-function installFetchMock(responses: Response[]): FetchMock {
-  const fetchMock = vi.fn<typeof fetch>()
-  fetchMock.mockResolvedValue(jsonResponse({ body: [] }))
-  responses.forEach((response) => {
-    fetchMock.mockResolvedValueOnce(response)
-  })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
 }
 
 type BackendHandlers = {

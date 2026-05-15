@@ -1,19 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
+import { toQueryState, type QueryState } from './queryUtils'
 import type { TimeLog, TimeLogPayload } from './types'
 
-// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
 export const timeLogQueryKeys = {
   all: ['time-logs'] as const,
   list: (taskId: string) => [...timeLogQueryKeys.all, { taskId }] as const,
-}
-
-type QueryState<T> = {
-  data: T
-  error: string | null
-  isLoading: boolean
-  reload: () => Promise<void>
 }
 
 function extractTimeLogs(payload: unknown): TimeLog[] {
@@ -60,122 +54,96 @@ export async function deleteTimeLog(taskId: string, timeLogId: string): Promise<
 }
 
 export function useTaskTimeLogs(taskId: string | null): QueryState<TimeLog[]> {
-  const [data, setData] = useState<TimeLog[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(taskId !== null)
-
-  const reload = useCallback(async () => {
-    if (!taskId) {
-      setData([])
-      setError(null)
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      setData(await listTimeLogs(taskId))
-    } catch (caughtError) {
-      if (caughtError instanceof Error) {
-        setError(caughtError.message)
-      } else {
-        setError('Unable to load time logs.')
+  const query = useQuery({
+    queryKey: taskId ? timeLogQueryKeys.list(taskId) : ['time-logs', 'disabled'],
+    queryFn: () => {
+      if (!taskId) {
+        return Promise.resolve([])
       }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [taskId])
+      return listTimeLogs(taskId)
+    },
+    enabled: taskId !== null,
+  })
 
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  return { data, error, isLoading, reload }
+  return toQueryState(query, [])
 }
 
-type TimeLogMutations = {
+function useTimeLogMutationErrorState(): {
+  error: ApiError | null
+  isSaving: boolean
+  resetError: () => void
+  runMutation: <T>(callback: () => Promise<T>) => Promise<T>
+} {
+  const [error, setError] = useState<ApiError | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const runMutation = async <T>(callback: () => Promise<T>): Promise<T> => {
+    setIsSaving(true)
+    setError(null)
+    try {
+      return await callback()
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setError(caughtError)
+        throw caughtError
+      }
+      const fallbackError = new ApiError('Unable to save time log.', 500)
+      setError(fallbackError)
+      throw fallbackError
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return {
+    error,
+    isSaving,
+    resetError: () => setError(null),
+    runMutation,
+  }
+}
+
+export function useTimeLogMutations(taskId: string | null): {
   create: (payload: TimeLogPayload) => Promise<TimeLog>
   error: ApiError | null
   isSaving: boolean
   remove: (timeLogId: string) => Promise<void>
   resetError: () => void
-}
+} {
+  const queryClient = useQueryClient()
+  const { error, isSaving, resetError, runMutation } = useTimeLogMutationErrorState()
 
-export function useTimeLogMutations(
-  taskId: string | null,
-  onSettled: () => Promise<void>,
-): TimeLogMutations {
-  const [error, setError] = useState<ApiError | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
+  const onSettled = async (): Promise<void> => {
+    if (taskId) {
+      await queryClient.invalidateQueries({ queryKey: timeLogQueryKeys.list(taskId) })
+    }
+  }
 
-  const create = useCallback(
-    async (payload: TimeLogPayload): Promise<TimeLog> => {
+  const createMutation = useMutation({
+    mutationFn: (payload: TimeLogPayload) => {
       if (!taskId) {
-        const missingTaskError = new ApiError('A task is required.', 400)
-        setError(missingTaskError)
-        throw missingTaskError
+        throw new ApiError('A task is required.', 400)
       }
-
-      setIsSaving(true)
-      setError(null)
-
-      try {
-        const result = await createTimeLog(taskId, payload)
-        await onSettled()
-        return result
-      } catch (caughtError) {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError)
-          throw caughtError
-        }
-
-        const fallbackError = new ApiError('Unable to create time log.', 500)
-        setError(fallbackError)
-        throw fallbackError
-      } finally {
-        setIsSaving(false)
-      }
+      return createTimeLog(taskId, payload)
     },
-    [onSettled, taskId],
-  )
+    onSettled,
+  })
 
-  const remove = useCallback(
-    async (timeLogId: string): Promise<void> => {
+  const removeMutation = useMutation({
+    mutationFn: (timeLogId: string) => {
       if (!taskId) {
-        const missingTaskError = new ApiError('A task is required.', 400)
-        setError(missingTaskError)
-        throw missingTaskError
+        throw new ApiError('A task is required.', 400)
       }
-
-      setIsSaving(true)
-      setError(null)
-
-      try {
-        await deleteTimeLog(taskId, timeLogId)
-        await onSettled()
-      } catch (caughtError) {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError)
-          throw caughtError
-        }
-
-        const fallbackError = new ApiError('Unable to delete time log.', 500)
-        setError(fallbackError)
-        throw fallbackError
-      } finally {
-        setIsSaving(false)
-      }
+      return deleteTimeLog(taskId, timeLogId)
     },
-    [onSettled, taskId],
-  )
+    onSettled,
+  })
 
   return {
-    create,
+    create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
+    remove: (timeLogId) => runMutation(() => removeMutation.mutateAsync(timeLogId)),
     error,
     isSaving,
-    remove,
-    resetError: () => setError(null),
+    resetError,
   }
 }

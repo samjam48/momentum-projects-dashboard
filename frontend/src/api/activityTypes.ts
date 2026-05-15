@@ -1,23 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
+import { toQueryState, type QueryState } from './queryUtils'
+import { timeLogQueryKeys } from './timeLogs'
 import type { ActivityType, ActivityTypePayload, ActivityTypeStatus } from './types'
 
-// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
 export const activityTypeQueryKeys = {
   all: ['activity-types'] as const,
   list: (status: ActivityTypeStatus) => [...activityTypeQueryKeys.all, { status }] as const,
-}
-
-type QueryState<T> = {
-  data: T
-  error: string | null
-  isLoading: boolean
-  reload: () => Promise<void>
-}
-
-type QueryInvalidator = {
-  invalidateQueries: (options: { queryKey: readonly unknown[] }) => Promise<void>
 }
 
 function extractActivityTypes(payload: unknown): ActivityType[] {
@@ -74,35 +65,51 @@ export async function deleteActivityType(activityTypeId: string): Promise<void> 
   })
 }
 
-export function useActivityTypes(status: ActivityTypeStatus = 'active'): QueryState<ActivityType[]> {
-  const [data, setData] = useState<ActivityType[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+function useActivityTypeMutationErrorState(): {
+  error: ApiError | null
+  isSaving: boolean
+  resetError: () => void
+  runMutation: <T>(callback: () => Promise<T>) => Promise<T>
+} {
+  const [error, setError] = useState<ApiError | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const reload = useCallback(async () => {
-    setIsLoading(true)
+  const runMutation = async <T>(callback: () => Promise<T>): Promise<T> => {
+    setIsSaving(true)
     setError(null)
     try {
-      setData(await listActivityTypes(status))
+      return await callback()
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : 'Unable to load activity types.',
-      )
+      if (caughtError instanceof ApiError) {
+        setError(caughtError)
+        throw caughtError
+      }
+      const fallbackError = new ApiError('Unable to save activity type.', 500)
+      setError(fallbackError)
+      throw fallbackError
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
-  }, [status])
+  }
 
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  return { data, error, isLoading, reload }
+  return {
+    error,
+    isSaving,
+    resetError: () => setError(null),
+    runMutation,
+  }
 }
 
-export function useActivityTypeMutations(
-  onSettled: () => Promise<void>,
-): {
+export function useActivityTypes(status: ActivityTypeStatus = 'active'): QueryState<ActivityType[]> {
+  const query = useQuery({
+    queryKey: activityTypeQueryKeys.list(status),
+    queryFn: () => listActivityTypes(status),
+  })
+
+  return toQueryState(query, [])
+}
+
+export function useActivityTypeMutations(): {
   create: (payload: ActivityTypePayload) => Promise<ActivityType>
   update: (activityTypeId: string, payload: ActivityTypePayload) => Promise<ActivityType>
   archive: (activityTypeId: string) => Promise<void>
@@ -110,46 +117,49 @@ export function useActivityTypeMutations(
   error: ApiError | null
   isSaving: boolean
   resetError: () => void
-  invalidateQueries: (queryClient: QueryInvalidator) => Promise<void>
 } {
-  const [error, setError] = useState<ApiError | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
+  const { error, isSaving, resetError, runMutation } = useActivityTypeMutationErrorState()
 
-  const runMutation = useCallback(
-    async <T>(callback: () => Promise<T>): Promise<T> => {
-      setIsSaving(true)
-      setError(null)
-      try {
-        const result = await callback()
-        await onSettled()
-        return result
-      } catch (caughtError) {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError)
-          throw caughtError
-        }
-        const fallbackError = new ApiError('Unable to save activity type.', 500)
-        setError(fallbackError)
-        throw fallbackError
-      } finally {
-        setIsSaving(false)
-      }
-    },
-    [onSettled],
-  )
+  const onSettled = async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: activityTypeQueryKeys.list('active') }),
+      queryClient.invalidateQueries({ queryKey: activityTypeQueryKeys.list('archived') }),
+      queryClient.invalidateQueries({ queryKey: timeLogQueryKeys.all }),
+    ])
+  }
+
+  const createMutation = useMutation({
+    mutationFn: createActivityType,
+    onSettled,
+  })
+  const updateMutation = useMutation({
+    mutationFn: ({
+      activityTypeId,
+      payload,
+    }: {
+      activityTypeId: string
+      payload: ActivityTypePayload
+    }) => updateActivityType(activityTypeId, payload),
+    onSettled,
+  })
+  const archiveMutation = useMutation({
+    mutationFn: archiveActivityType,
+    onSettled,
+  })
+  const removeMutation = useMutation({
+    mutationFn: deleteActivityType,
+    onSettled,
+  })
 
   return {
-    create: (payload) => runMutation(() => createActivityType(payload)),
+    create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
     update: (activityTypeId, payload) =>
-      runMutation(() => updateActivityType(activityTypeId, payload)),
-    archive: (activityTypeId) => runMutation(() => archiveActivityType(activityTypeId)),
-    remove: (activityTypeId) => runMutation(() => deleteActivityType(activityTypeId)),
+      runMutation(() => updateMutation.mutateAsync({ activityTypeId, payload })),
+    archive: (activityTypeId) => runMutation(() => archiveMutation.mutateAsync(activityTypeId)),
+    remove: (activityTypeId) => runMutation(() => removeMutation.mutateAsync(activityTypeId)),
     error,
     isSaving,
-    resetError: () => setError(null),
-    invalidateQueries: async (queryClient) => {
-      await queryClient.invalidateQueries({ queryKey: activityTypeQueryKeys.list('active') })
-      await queryClient.invalidateQueries({ queryKey: activityTypeQueryKeys.list('archived') })
-    },
+    resetError,
   }
 }

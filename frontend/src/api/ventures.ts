@@ -1,23 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
+import { projectQueryKeys } from './projects'
+import { toQueryState, type QueryState } from './queryUtils'
 import type { Venture, VenturePayload, VentureStatus } from './types'
 
-// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
 export const ventureQueryKeys = {
   all: ['ventures'] as const,
   list: (status: VentureStatus) => [...ventureQueryKeys.all, { status }] as const,
-}
-
-type QueryState<T> = {
-  data: T
-  error: string | null
-  isLoading: boolean
-  reload: () => Promise<void>
-}
-
-type QueryInvalidator = {
-  invalidateQueries: (options: { queryKey: readonly unknown[] }) => Promise<void>
 }
 
 function extractVentures(payload: unknown): Venture[] {
@@ -69,33 +60,61 @@ export async function unarchiveVenture(ventureId: string): Promise<Venture> {
   return apiRequest<Venture>(`/api/v1/ventures/${ventureId}/unarchive`, { method: 'PATCH' })
 }
 
-export function useVentures(status: VentureStatus = 'active'): QueryState<Venture[]> {
-  const [data, setData] = useState<Venture[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  const reload = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      setData(await listVentures(status))
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load ventures.')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [status])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  return { data, error, isLoading, reload }
+async function invalidateVentureAndProjectQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('active') }),
+    queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('archived') }),
+    queryClient.invalidateQueries({ queryKey: projectQueryKeys.lists() }),
+  ])
 }
 
-export function useVentureMutations(
-  onSettled: () => Promise<void>,
-): {
+function useVentureMutationErrorState(): {
+  error: ApiError | null
+  isSaving: boolean
+  resetError: () => void
+  runMutation: <T>(callback: () => Promise<T>) => Promise<T>
+} {
+  const [error, setError] = useState<ApiError | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const runMutation = async <T>(callback: () => Promise<T>): Promise<T> => {
+    setIsSaving(true)
+    setError(null)
+    try {
+      return await callback()
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setError(caughtError)
+        throw caughtError
+      }
+      const fallbackError = new ApiError('Unable to save venture.', 500)
+      setError(fallbackError)
+      throw fallbackError
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return {
+    error,
+    isSaving,
+    resetError: () => setError(null),
+    runMutation,
+  }
+}
+
+export function useVentures(status: VentureStatus = 'active'): QueryState<Venture[]> {
+  const query = useQuery({
+    queryKey: ventureQueryKeys.list(status),
+    queryFn: () => listVentures(status),
+  })
+
+  return toQueryState(query, [])
+}
+
+export function useVentureMutations(): {
   create: (payload: VenturePayload) => Promise<Venture>
   update: (ventureId: string, payload: VenturePayload) => Promise<Venture>
   archive: (ventureId: string) => Promise<void>
@@ -103,45 +122,40 @@ export function useVentureMutations(
   error: ApiError | null
   isSaving: boolean
   resetError: () => void
-  invalidateQueries: (queryClient: QueryInvalidator) => Promise<void>
 } {
-  const [error, setError] = useState<ApiError | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
+  const { error, isSaving, resetError, runMutation } = useVentureMutationErrorState()
 
-  const runMutation = useCallback(
-    async <T>(callback: () => Promise<T>): Promise<T> => {
-      setIsSaving(true)
-      setError(null)
-      try {
-        const result = await callback()
-        await onSettled()
-        return result
-      } catch (caughtError) {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError)
-          throw caughtError
-        }
-        const fallbackError = new ApiError('Unable to save venture.', 500)
-        setError(fallbackError)
-        throw fallbackError
-      } finally {
-        setIsSaving(false)
-      }
-    },
-    [onSettled],
-  )
+  const onSettled = async (): Promise<void> => {
+    await invalidateVentureAndProjectQueries(queryClient)
+  }
+
+  const createMutation = useMutation({
+    mutationFn: createVenture,
+    onSettled,
+  })
+  const updateMutation = useMutation({
+    mutationFn: ({ ventureId, payload }: { ventureId: string; payload: VenturePayload }) =>
+      updateVenture(ventureId, payload),
+    onSettled,
+  })
+  const archiveMutation = useMutation({
+    mutationFn: archiveVenture,
+    onSettled,
+  })
+  const unarchiveMutation = useMutation({
+    mutationFn: unarchiveVenture,
+    onSettled,
+  })
 
   return {
-    create: (payload) => runMutation(() => createVenture(payload)),
-    update: (ventureId, payload) => runMutation(() => updateVenture(ventureId, payload)),
-    archive: (ventureId) => runMutation(() => archiveVenture(ventureId)),
-    unarchive: (ventureId) => runMutation(() => unarchiveVenture(ventureId)),
+    create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
+    update: (ventureId, payload) =>
+      runMutation(() => updateMutation.mutateAsync({ ventureId, payload })),
+    archive: (ventureId) => runMutation(() => archiveMutation.mutateAsync(ventureId)),
+    unarchive: (ventureId) => runMutation(() => unarchiveMutation.mutateAsync(ventureId)),
     error,
     isSaving,
-    resetError: () => setError(null),
-    invalidateQueries: async (queryClient) => {
-      await queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('active') })
-      await queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('archived') })
-    },
+    resetError,
   }
 }

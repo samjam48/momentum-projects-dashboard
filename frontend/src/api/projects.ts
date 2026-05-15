@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
+import { toQueryState, type QueryState } from './queryUtils'
 import type {
   Project,
   ProjectBoardStatus,
@@ -9,19 +11,11 @@ import type {
   ProjectType,
 } from './types'
 
-// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
 export const projectQueryKeys = {
   all: ['projects'] as const,
   lists: () => [...projectQueryKeys.all, 'list'] as const,
   list: (filters: ProjectFilters) => [...projectQueryKeys.lists(), filters] as const,
   board: () => [...projectQueryKeys.all, 'board'] as const,
-}
-
-type QueryState<T> = {
-  data: T
-  error: string | null
-  isLoading: boolean
-  reload: () => Promise<void>
 }
 
 function extractProjects(payload: unknown): Project[] {
@@ -106,6 +100,7 @@ export async function unarchiveProject(projectId: string): Promise<Project> {
 
 export type UpdateProjectBoardStatusPayload = {
   board_status: ProjectBoardStatus
+  kanban_order?: number
   order?: { project_id: string; kanban_order: number }[]
   finished?: boolean
 }
@@ -123,80 +118,118 @@ export async function updateProjectBoardStatus(
 const DEFAULT_PROJECT_FILTERS: ProjectFilters = { status: 'active' }
 
 export function useProjects(filters: ProjectFilters = DEFAULT_PROJECT_FILTERS): QueryState<Project[]> {
-  const [data, setData] = useState<Project[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { status, venture_id, board_status, project_type, finished } = filters
+  const stableFilters = useMemo<ProjectFilters>(
+    () => ({ status, venture_id, board_status, project_type, finished }),
+    [status, venture_id, board_status, project_type, finished],
+  )
 
-  const reload = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
+  const query = useQuery({
+    queryKey: projectQueryKeys.list(stableFilters),
+    queryFn: () => listProjects(stableFilters),
+  })
 
-    try {
-      setData(await listProjects(filters))
-    } catch (caughtError) {
-      if (caughtError instanceof Error) {
-        setError(caughtError.message)
-      } else {
-        setError('Unable to load projects.')
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [filters])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
-
-  return { data, error, isLoading, reload }
+  return toQueryState(query, [])
 }
 
-type ProjectMutations = {
-  create: (payload: ProjectPayload) => Promise<Project>
-  update: (projectId: string, payload: ProjectPayload) => Promise<Project>
-  archive: (projectId: string) => Promise<void>
+function useProjectMutationErrorState(): {
   error: ApiError | null
   isSaving: boolean
   resetError: () => void
-}
-
-export function useProjectMutations(
-  onSettled: () => Promise<void>,
-): ProjectMutations {
+  runMutation: <T>(callback: () => Promise<T>) => Promise<T>
+} {
   const [error, setError] = useState<ApiError | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const runMutation = useCallback(
-    async <T>(callback: () => Promise<T>): Promise<T> => {
-      setIsSaving(true)
-      setError(null)
-
-      try {
-        const result = await callback()
-        await onSettled()
-        return result
-      } catch (caughtError) {
-        if (caughtError instanceof ApiError) {
-          setError(caughtError)
-          throw caughtError
-        }
-
-        const fallbackError = new ApiError('Unable to save project.', 500)
-        setError(fallbackError)
-        throw fallbackError
-      } finally {
-        setIsSaving(false)
+  const runMutation = async <T>(callback: () => Promise<T>): Promise<T> => {
+    setIsSaving(true)
+    setError(null)
+    try {
+      return await callback()
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setError(caughtError)
+        throw caughtError
       }
-    },
-    [onSettled],
-  )
+      const fallbackError = new ApiError('Unable to save project.', 500)
+      setError(fallbackError)
+      throw fallbackError
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return {
-    create: (payload) => runMutation(() => createProject(payload)),
-    update: (projectId, payload) => runMutation(() => updateProject(projectId, payload)),
-    archive: (projectId) => runMutation(() => archiveProject(projectId)),
     error,
     isSaving,
     resetError: () => setError(null),
+    runMutation,
+  }
+}
+
+export function useProjectMutations(): {
+  create: (payload: ProjectPayload) => Promise<Project>
+  update: (projectId: string, payload: ProjectPayload) => Promise<Project>
+  archive: (projectId: string) => Promise<void>
+  unarchive: (projectId: string) => Promise<Project>
+  updateBoardStatus: (
+    projectId: string,
+    payload: UpdateProjectBoardStatusPayload,
+  ) => Promise<Project>
+  error: ApiError | null
+  isSaving: boolean
+  resetError: () => void
+} {
+  const queryClient = useQueryClient()
+  const { error, isSaving, resetError, runMutation } = useProjectMutationErrorState()
+
+  const onSettled = async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: projectQueryKeys.lists() }),
+      queryClient.invalidateQueries({ queryKey: projectQueryKeys.board() }),
+    ])
+  }
+
+  const createMutation = useMutation({
+    mutationFn: createProject,
+    onSettled,
+  })
+  const updateMutation = useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: string; payload: ProjectPayload }) =>
+      updateProject(projectId, payload),
+    onSettled,
+  })
+  const archiveMutation = useMutation({
+    mutationFn: archiveProject,
+    onSettled,
+  })
+  const unarchiveMutation = useMutation({
+    mutationFn: unarchiveProject,
+    onSettled,
+  })
+  const updateBoardStatusMutation = useMutation({
+    mutationFn: ({
+      projectId,
+      payload,
+    }: {
+      projectId: string
+      payload: UpdateProjectBoardStatusPayload
+    }) => updateProjectBoardStatus(projectId, payload),
+    onSettled,
+  })
+
+  return {
+    create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
+    update: (projectId, payload) =>
+      runMutation(() => updateMutation.mutateAsync({ projectId, payload })),
+    archive: (projectId) => runMutation(() => archiveMutation.mutateAsync(projectId)),
+    unarchive: (projectId) => runMutation(() => unarchiveMutation.mutateAsync(projectId)),
+    updateBoardStatus: (projectId, payload) =>
+      runMutation(() =>
+        updateBoardStatusMutation.mutateAsync({ projectId, payload }),
+      ),
+    error,
+    isSaving,
+    resetError,
   }
 }
