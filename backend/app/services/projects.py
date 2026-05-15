@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from app.models.project import Project
+from app.models.venture import Venture
 from app.schemas.project import ProjectCreate, ProjectStatus, ProjectUpdate
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
@@ -23,6 +24,21 @@ def _get_project_or_404(session: Session, project_id: str) -> Project:
     return project
 
 
+def _get_active_venture_or_404(session: Session, venture_id: str) -> Venture:
+    venture = session.get(Venture, venture_id)
+    if venture is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Venture not found.",
+        )
+    if venture.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Archived ventures cannot own active projects.",
+        )
+    return venture
+
+
 def list_projects(session: Session, project_status: ProjectStatus | None) -> list[Project]:
     status_filter = project_status or "active"
     statement = (
@@ -34,10 +50,18 @@ def list_projects(session: Session, project_status: ProjectStatus | None) -> lis
 
 
 def create_project(session: Session, payload: ProjectCreate) -> Project:
+    _get_active_venture_or_404(session, payload.venture_id)
     project = Project(
+        venture_id=payload.venture_id,
         name=payload.name,
         description=payload.description,
         colour=payload.colour,
+        icon=payload.icon,
+        project_type=payload.project_type,
+        board_status=payload.board_status,
+        kanban_order=payload.kanban_order,
+        finished=payload.finished,
+        archived_by_venture=payload.archived_by_venture,
     )
     session.add(project)
     session.commit()
@@ -58,6 +82,9 @@ def update_project(session: Session, project_id: str, payload: ProjectUpdate) ->
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+    venture_id = update_data.get("venture_id")
+    if isinstance(venture_id, str):
+        _get_active_venture_or_404(session, venture_id)
     for field_name, value in update_data.items():
         setattr(project, field_name, value)
     project.updated_at = _utc_now()

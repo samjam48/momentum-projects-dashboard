@@ -114,6 +114,9 @@ class TimeLogRead(SQLModel):
     id: str
     task_id: str
     project_id: str
+    activity_type_id: str | None
+    activity_type_name: str | None = None
+    activity_type_display_name: str | None = None
     hours: float
     logged_date: date
     source: str

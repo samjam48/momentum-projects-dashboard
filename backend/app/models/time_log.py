@@ -16,6 +16,7 @@ class TimeLog(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
     task_id: str = Field(foreign_key="tasks.id", nullable=False)
     project_id: str = Field(foreign_key="projects.id", nullable=False)
+    activity_type_id: str | None = Field(default=None, foreign_key="activity_types.id")
     hours: float
     logged_date: date
     source: str = Field(default="manual", nullable=False)
