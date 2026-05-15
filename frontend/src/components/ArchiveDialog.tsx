@@ -1,8 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 
-import { useProjects, type ProjectFilters } from '../api/projects'
+import { projectQueryKeys, useProjects, type ProjectFilters } from '../api/projects'
 import type { Project, Venture } from '../api/types'
-import { useVentures } from '../api/ventures'
+import { useVentures, ventureQueryKeys } from '../api/ventures'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -29,6 +30,7 @@ function titleCaseLabel(name: string): string {
 }
 
 export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Element {
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
   const [archivedVentures, setArchivedVentures] = useState<Venture[]>([])
@@ -75,6 +77,8 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
           setActiveTab('projects')
           setArchivedVentures([])
           setArchivedProjects([])
+          queryClient.removeQueries({ queryKey: projectQueryKeys.list(ARCHIVED_PROJECT_FILTERS) })
+          queryClient.removeQueries({ queryKey: ventureQueryKeys.list('archived') })
         }
       }}
     >

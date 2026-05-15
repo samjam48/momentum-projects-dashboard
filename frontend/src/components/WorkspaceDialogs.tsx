@@ -426,10 +426,12 @@ export function useWorkspaceDialogs({
     }
 
     await timeLogMutations.create(timeLogPayload)
+    await onTasksReload()
   }
 
   const handleTimeLogDelete = async (timeLogId: string): Promise<void> => {
     await timeLogMutations.remove(timeLogId)
+    await onTasksReload()
   }
 
   const handleProjectInputChange = (

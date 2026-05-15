@@ -272,7 +272,7 @@ describe('Ticket 1b-8 owner UI polish', () => {
     await renderApp()
 
     const dialog = await openEditTaskDialog('Write release notes')
-    const rowButton = within(dialog).getByTestId('time-log-row-log-card-style')
+    const rowButton = await within(dialog).findByTestId('time-log-row-log-card-style')
     expect(rowButton.tagName.toLowerCase()).toBe('button')
 
     const styles = window.getComputedStyle(rowButton)
@@ -310,7 +310,7 @@ describe('Ticket 1b-8 owner UI polish', () => {
     await renderApp()
 
     const dialog = await openEditTaskDialog('Write release notes')
-    const rowButton = within(dialog).getByTestId('time-log-row-log-dots')
+    const rowButton = await within(dialog).findByTestId('time-log-row-log-dots')
 
     const primaryText = rowButton.textContent?.replace(/\s+/g, ' ').trim() ?? ''
     expect(primaryText).toMatch(/Deep work · .+ · Remote/)
@@ -339,7 +339,7 @@ describe('Ticket 1b-8 owner UI polish', () => {
     await renderApp()
 
     const dialog = await openEditTaskDialog('Write release notes')
-    fireEvent.click(within(dialog).getByTestId('time-log-row-log-empty-notes'))
+    fireEvent.click(await within(dialog).findByTestId('time-log-row-log-empty-notes'))
 
     const detail = await within(dialog).findByTestId('time-log-detail-log-empty-notes')
     expect(detail).toHaveTextContent('No notes')
@@ -369,7 +369,9 @@ describe('Ticket 1b-8 owner UI polish', () => {
     await renderApp()
 
     const dialog = await openEditTaskDialog('Write release notes')
-    const wrap = within(dialog).getByTestId('time-log-row-log-delete').closest('.time-log-row-wrap')
+    const wrap = (await within(dialog).findByTestId('time-log-row-log-delete')).closest(
+      '.time-log-row-wrap',
+    )
     expect(wrap).toBeInstanceOf(HTMLElement)
 
     const deleteControl = within(wrap as HTMLElement).getByRole('button', {

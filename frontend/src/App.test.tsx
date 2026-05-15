@@ -11,7 +11,11 @@ import type {
   TimeLogPayload,
 } from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
-import { buildProject as buildFixtureProject } from './test/fixtures'
+import {
+  buildProject as buildFixtureProject,
+  buildTask as buildFixtureTask,
+  buildTimeLog as buildFixtureTimeLog,
+} from './test/fixtures'
 import { resetTestStorage } from './test/storage'
 import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
 import {
@@ -850,12 +854,15 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
   })
 
   it('shows backend-derived actual hours and completed date, lists manual time logs, and refreshes hours after a new manual log', async () => {
-    installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: taskWorkspaceTasks,
+    installWorkspaceBackendMock({
+      projects: [
+        buildFixtureProject({ id: 'project-alpha', name: 'Alpha Client', colour: '#123ABC' }),
+        buildFixtureProject({ id: 'project-beta', name: 'Beta Podcast', colour: '#D97048' }),
+      ],
+      tasks: taskWorkspaceTasks.map((task) => buildFixtureTask(task)),
       timeLogs: {
         'task-write-release-notes': [
-          buildTimeLog({
+          buildFixtureTimeLog({
             id: 'log-release-1',
             task_id: 'task-write-release-notes',
             project_id: 'project-alpha',
@@ -865,7 +872,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
             created_at: '2026-05-13T09:00:00Z',
             updated_at: '2026-05-13T09:00:00Z',
           }),
-          buildTimeLog({
+          buildFixtureTimeLog({
             id: 'log-release-2',
             task_id: 'task-write-release-notes',
             project_id: 'project-alpha',
@@ -890,8 +897,8 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     expect(within(dialog).getByText('2')).toBeInTheDocument()
     expect(within(dialog).getByText(/completed date/i)).toBeInTheDocument()
     expect(within(dialog).getByText('2026-05-18')).toBeInTheDocument()
-    expect(within(dialog).getByText('Drafted launch copy')).toBeInTheDocument()
-    expect(within(dialog).getByText('Adjusted final wording')).toBeInTheDocument()
+    expect(await within(dialog).findByText('Drafted launch copy')).toBeInTheDocument()
+    expect(await within(dialog).findByText('Adjusted final wording')).toBeInTheDocument()
 
     fireEvent.click(within(dialog).getByRole('button', { name: /\+ add time log/i }))
     const timeLogDialog = await screen.findByRole('dialog', { name: /add time log/i })

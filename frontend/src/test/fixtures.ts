@@ -70,7 +70,8 @@ export function buildTask(overrides: Partial<Task>): Task {
     priority: overrides.priority ?? 'medium',
     target_date: overrides.target_date ?? null,
     estimated_hours: overrides.estimated_hours ?? null,
-    actual_hours: overrides.actual_hours ?? 0,
+    actual_hours:
+      overrides.actual_hours !== undefined ? overrides.actual_hours : 0,
     kanban_order: overrides.kanban_order ?? null,
     completed_date: overrides.completed_date ?? null,
     created_at: overrides.created_at ?? '2026-05-13T08:00:00Z',
