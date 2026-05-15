@@ -21,4 +21,6 @@ class TimeLog(SQLModel, table=True):
     source: str = Field(default="manual", nullable=False)
     external_id: str | None = None
     notes: str | None = None
+    title: str | None = None
+    location: str | None = None
     created_at: datetime = Field(default_factory=utc_now, nullable=False)

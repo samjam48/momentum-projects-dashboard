@@ -6,7 +6,8 @@ from typing import Literal
 from pydantic import field_validator
 from sqlmodel import SQLModel
 
-TaskStatus = Literal["backlog", "in_progress", "review", "done"]
+TaskStatus = Literal["backlog", "in_progress", "review", "done", "archived"]
+KanbanTaskStatus = Literal["backlog", "in_progress", "review", "done"]
 TaskPriority = Literal["low", "medium", "high", "urgent"]
 
 
@@ -35,7 +36,7 @@ class TaskCreate(SQLModel):
     project_id: str
     title: str
     description: str | None = None
-    status: TaskStatus = "backlog"
+    status: KanbanTaskStatus = "backlog"
     priority: TaskPriority = "medium"
     estimated_hours: float | None = None
     target_date: date | None = None
@@ -76,7 +77,7 @@ class TaskUpdate(SQLModel):
 
 
 class TaskStatusUpdate(SQLModel):
-    status: TaskStatus
+    status: KanbanTaskStatus
     kanban_order: int | None = None
 
 
@@ -100,6 +101,8 @@ class TimeLogCreate(SQLModel):
     hours: float
     logged_date: date
     notes: str | None = None
+    title: str | None = None
+    location: str | None = None
 
     @field_validator("hours")
     @classmethod
@@ -116,4 +119,6 @@ class TimeLogRead(SQLModel):
     source: str
     external_id: str | None
     notes: str | None
+    title: str | None
+    location: str | None
     created_at: datetime

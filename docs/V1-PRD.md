@@ -1,13 +1,13 @@
 # Momentum — Product Requirements Document (PRD)
-**Version:** 1.1 — May 2026 | **Owner:** Sam | **Status:** Approved
+**Version:** 1.2 — May 2026 | **Owner:** Sam | **Status:** Approved (amended post Phase 1 UX workshop)
 
 ---
 
 ## 1. Vision
 
-Momentum is a self-hosted personal operations dashboard for a multi-project independent creator and developer. It provides a single interface to track income across flexible revenue streams, manage cross-project tasks via Kanban, monitor progress against goals at every time horizon, and visualise accountability through animated, interactive charts.
+Momentum is a self-hosted personal operations dashboard for a multi-project independent creator and developer. It provides a single interface to track income across flexible revenue streams, manage work across ventures and projects via Kanban, monitor progress against goals at every time horizon, and visualise accountability through animated, interactive charts.
 
-**The core problem it solves:** too many active projects with no unified view of what's making money, what's progressing, and where time is being spent — leading to low accountability and unclear prioritisation.
+**The core problem it solves:** too many active ventures and projects with no unified view of what's making money, what's progressing, and where time is being spent — leading to low accountability and unclear prioritisation.
 
 ---
 
@@ -20,28 +20,86 @@ Momentum is a self-hosted personal operations dashboard for a multi-project inde
 
 ---
 
-## 3. Feature Areas
+## 3. Domain model
 
-### 3.1 Projects
-Projects are the top-level organisational unit. Everything — tasks, income streams, goals, time logs — belongs to a project.
+### 3.0 Hierarchy
 
-**User can:**
-- Create a project with a name, description, and colour tag
-- Archive a project (soft delete; data retained)
-- View a per-project summary: income MTD, tasks this week, active goal progress
+```text
+Venture  →  Project  →  Task
+```
 
-**Examples:** Podcast, Trading Bot, Dev Skills, Flat, Newsletter, Book
+Projects share one table; **project type** distinguishes general work from income-related units (asset, gig, contract).
+
+| Entity | Description |
+| --- | --- |
+| **Venture** | Top-level business line or life area (podcast business, trading bots, property, education). Code/table name: `venture`. UI label is user-selectable: hustle (default), business, investment, property, or education. |
+| **Project** | Work container inside a venture. Default `project_type = project`. Shorter-term initiatives (build website, research algo). |
+| **Asset** | `project_type = asset` — ongoing income-bearing unit (apartment, individual bot, Etsy SKU). Same table as projects. |
+| **Gig** | `project_type = gig` — paid work, often under a hustle (design a website, edit a podcast). May pay once or on a recurring cadence (Phase 2 income). |
+| **Contract** | `project_type = contract` — formal paid engagement, often under a business (retainer, client agreement). May pay once or on a recurring cadence (Phase 2 income). |
+| **Task** | Unit of work inside a project. |
+
+Everything — tasks, income streams, goals, time logs — ultimately rolls up through this hierarchy.
+
+**Phase note:** Phase 1 shipped Project → Task only. Ventures and `project_type` are introduced in Phase 1.6 per `plans/phase-1.5-ux.md`. **Until Phase 2**, selecting a non-default project type does not change project behaviour — it is classification for future income UX. Payment cadence (weekly, monthly, one-time) and stream-to-type rules are **Phase 2** scope; requires architect review before implementation.
 
 ---
 
-### 3.2 Income & Revenue Tracking
+## 3. Feature Areas
 
-Income streams are user-defined and flexible. There is no hardcoded list of stream types — Sam can add a podcast stream today and a Patreon or book royalties stream next month.
+### 3.1 Ventures
+
+Ventures are the top-level organisational unit.
+
+**User can:**
+- Create a venture with name, description, colour (picker: one selected swatch, click for 12 options), optional icon, and category label
+- Archive a venture (soft delete; data retained; viewable via Archive in sidebar)
+- Expand venture in sidebar to see and filter child projects
+- View venture-level income rollup and goals (Phase 2–3)
+
+**Examples:** Podcast business, Trading bots, Etsy store, Property portfolio, Dev skills
+
+---
+
+### 3.2 Projects (by type)
+
+Projects belong to exactly one venture. Type is stored as `project_type` on the same row (`project` \| `asset` \| `gig` \| `contract`; default `project`).
+
+**User can:**
+- Create a project inside a venture (name, description, colour, optional icon)
+- Set **project type** (defaults to project; asset / gig / contract for classification)
+- Move project across Kanban columns: Idea → Active → Paused → Shipped
+- Archive a project; view archived projects via sidebar Archive link
+- Open project hub (Phase 3): stats, goals, tasks; edit via explicit control
+- Interim (Phase 1b): click project title → edit modal with archive at bottom
+
+**Type semantics (target):**
+| Type | Typical venture context | Income note (Phase 2+) |
+| --- | --- | --- |
+| `project` | Any | General work; optional income link |
+| `asset` | Business, investment, property | Recurring income unit (rental, SKU, bot) |
+| `gig` | Hustle | Paid deliverable or recurring side income |
+| `contract` | Business | Formal agreement; retainer or milestone pay |
+
+**Phase 1.6:** type selector in create/edit UI only — **no difference in fields, status workflow, or task behaviour** by type.
+
+**Archive / delete policy:**
+- **Archive** — reversible; user-visible via Archive view
+- **Delete** — soft-hide from UI (hidden archive); no purge UI until Settings phase
+- No true hard-delete in v1 user interface
+
+---
+
+### 3.3 Income & Revenue Tracking
+
+Income streams are user-defined and flexible. **Phase 2 architect review** must finalise how streams attach to ventures and to projects by **type** (project, asset, gig, contract), and how **payment cadence** (weekly, monthly, one-time) is modelled for recurring vs one-off revenue.
 
 **Income stream properties:**
 - Name (e.g. "Podcast Sponsorships", "Flat Rental", "Affiliate")
-- Type tag (recurring / one-off / consulting / rental / affiliate / other)
-- Linked project (optional)
+- **Venture** (required primary link)
+- **Project** (optional drill-down; any `project_type`)
+- **Cadence** *(Phase 2 — TBD)*: weekly \| monthly \| one_time — distinguishes recurring streams from single payouts (applies to gigs, contracts, and assets alike)
+- Type tag (recurring / one-off / consulting / rental / affiliate / other) — may align with or supplement cadence; architect to reconcile
 - Status: active / inactive / projected
 - Currency (default GBP; other currencies stored at entry level with GBP conversion)
 
@@ -52,22 +110,24 @@ Income streams are user-defined and flexible. There is no hardcoded list of stre
 - Optional notes
 
 **What the user sees:**
+- **Venture-first** rollups: total revenue + per-venture breakdown
 - Income per stream per month — actual vs. projected
 - MTD, QTD, YTD rollups in a KPI strip
-- Stacked area/bar chart: income by stream over time (interactive, animated)
-- Per-project income summary
+- Stacked area/bar chart: income by venture/stream over time
+- Per-project income when drilling into a venture
 
-**Auto-calculation rule:** Numeric goals of type `income` auto-pull their `actual_value` from summed income entries for the linked project/stream in the goal's period. No manual update needed.
+**Auto-calculation rule:** Numeric goals of type `income` auto-pull `actual_value` from summed income entries for the linked venture/project/stream in the goal's period.
 
 ---
 
-### 3.3 Task Management & Kanban
+### 3.4 Task Management & Kanban
 
-Tasks are the unit of work. They live inside projects but can be viewed across all projects simultaneously.
+Tasks are the unit of work inside projects.
 
 **Task fields:**
 - Title, description
 - Project (required)
+- **Type** (Phase 1.6): writing | research | code | meeting | admin — semantic colour on cards
 - Status: Backlog → In Progress → Review → Done
 - Priority: Low / Medium / High / Urgent
 - Target completion date
@@ -75,103 +135,127 @@ Tasks are the unit of work. They live inside projects but can be viewed across a
 - Estimated hours
 - Actual hours (summed from time logs)
 
-**Views:**
-- **Kanban board:** drag-and-drop columns; filterable by project or show all
-- **Summary table:** all tasks across all projects, sortable by date/priority/project
-- **Task detail modal:** full edit, time log list, notes
+**Views (Projects page):**
+- **Toggle:** Task Kanban | Project Kanban (separate boards, never mixed)
+- **Task Kanban:** drag-and-drop; filterable by multi-select project sidebar; all projects selected by default
+- **Summary table:** below task board; sortable by date/priority/project
+- **Task detail modal:** full edit, time log list, notes (click task title)
+- **Board options:** toggle optional card fields; saved in browser (server later)
+
+**Task card defaults (Linear density):**
+- Neutral card; project colour dot; project name; venture colour title underline in all-projects view
+- Default metric: target due date
+- Drag anywhere on card; no status buttons or hex codes in UI
 
 **Time tracking (v1):** manual time log entry per task (date + hours + notes).
 **Time tracking (v2):** Toggl Track sync — see Section 7.
 
 ---
 
-### 3.4 Goals & Streaks
+### 3.5 Goals & Streaks
 
-Goals are flexible and user-defined. The user sets the cadence and the pass/fail criteria themselves.
+Goals attach to a **venture**, a **project**, or both.
 
 **Goal types:**
-- **Numeric** — e.g. "Earn £500/month from podcast" → actual_value auto-calculated from income entries
-- **Completion** — e.g. "Ship 4 podcast episodes this month" → user manually updates count, or links to task completions
-- **Habit** — e.g. "Meditate 10 mins/day", "Read 1 book/month", "Complete 1 certificate/week" → user sets cadence (daily/weekly/monthly) and a pass test (binary yes/no or a count threshold)
+- **Numeric** — e.g. "Earn £500/month from podcast" → auto-calculated from income entries
+- **Completion** — e.g. "Ship 4 podcast episodes this month" → manual count or task completions
+- **Habit** — cadence + pass threshold
 
 **Goal cadences:** daily, weekly, monthly, quarterly, annual
 
-**Goal period:** auto-generated each period; user can edit target or skip a period.
-
 **What the user sees:**
-- Progress ring per active goal (current period)
-- Weekly, monthly, quarterly, annual tabs showing targets vs. actuals
-- Running totals in dashboard KPI strip
-- Streak view: consecutive periods a habit goal was passed — e.g., "7-week streak on meditation"
-- Streak is defined per goal: a "pass" means meeting the goal's own pass criteria for that period
+- Dashboard: next goal per project beneath KPIs (Phase 3)
+- Full goal detail on project hub and Goals page
+- Progress rings, streak grid, cadence tabs
 
 **Auto-calculation rules:**
-- `income` type numeric goals → actual_value = SUM of linked income entries in period
-- `task_completion` type → actual_value = COUNT of Done tasks in linked project in period
-- `habit` type → pass/fail per period = user-logged boolean or count vs. threshold
+- `income` type → SUM of linked income entries in period
+- `task_completion` type → COUNT of Done tasks in linked project in period
+- `habit` type → user-logged boolean or count vs. threshold
 
 ---
 
-### 3.5 Dashboard
+### 3.6 Dashboard
 
-The home screen. One page, no sub-navigation required. Fast single round-trip API call.
+The home screen once Phase 3 ships. Until then, **Projects** is the default landing page.
 
-**KPI strip (top):** Total income MTD | Tasks completed this week | Active projects | Goals on track this month
+**Period toggle:** monthly (default) and weekly — applies to **all** KPIs and charts on the page.
 
-**Charts (animated on load, interactive on hover/click):**
-- Income over time: stacked area by stream; click stream to isolate
-- Task velocity: bar chart, tasks completed per week, coloured by project
-- Goal progress: horizontal progress bars or rings, grouped by cadence tab
+**KPI strip:** Total revenue | Revenue goal progress | Tasks completed | Goals on track
 
-**Streak tracker:** Visual streak dots per habit goal (like a GitHub contribution graph)
+**Charts:**
+- Revenue by venture (sidebar/summary chart)
+- Income over time: stacked area by venture/stream
+- Task velocity: tasks completed per week, coloured by project
+- Goal progress: rings or bars grouped by cadence
 
-**Recent activity feed:** last 10 actions (task moved to Done, income entry added, goal period closed)
+**Project status list:** ordered by urgency then alphabetical; user can drag to reorder (session first, persisted later); filter/sort by revenue, task count, venture category
+
+**Streak tracker** and **recent activity feed** as before.
 
 ---
 
-### 3.6 Monthly Report View
+### 3.7 Monthly Report View
 
 A generated summary for any selected month:
-- Total income (actual vs. projected), broken down by stream
+- Total income (actual vs. projected) by venture and stream
 - Tasks completed vs. created
 - Goals hit vs. missed
 - Hours logged
-- Top project by income; top project by tasks completed
-
-Auto-generated from DB data — no manual entry required.
+- Top venture/project by income and by tasks completed
 
 ---
 
-### 3.7 Read-Only Shareable View (v1.1 — not Phase 1)
+### 3.8 Read-Only Shareable View (v1.1 — not Phase 1)
 
 - Token-gated URL (e.g. `/share/{token}`)
 - Dashboard view only — no edit capability
-- Toggle per section: show/hide income, show/hide specific projects
+- Toggle per section: show/hide income, show/hide specific ventures/projects
 
 ---
 
 ## 4. Design & UX
 
-### 4.1 Aesthetic
-Warm parchment background, terracotta orange accent, `Instrument Serif` for big data numbers, `General Sans` for all UI. Clean, paper-feel cards. Bold animated charts. Inspired by the population bar chart reference (confident data visualisation) and the Vibe Skills reference (clean layout rhythm, warm off-white surfaces).
+### 4.1 Information architecture
 
-### 4.2 Motion
-- Chart bars/lines animate in on mount (staggered ease-out)
+- **App shell:** persistent left sidebar (ventures → projects) + top nav
+- **Top nav:** Projects (default) | Income | Goals | Dashboard (Phase 3+)
+- **Projects page:** toolbar (toggle, filters, actions) → full-width Kanban → summary table
+- **Sidebar:** multi-select project checkboxes (default all on); + Hustle; Archive link bottom-left
+- Full spec: `plans/phase-1.5-ux.md`
+
+### 4.2 Aesthetic
+
+Warm parchment background, terracotta orange accent, `Instrument Serif` for big data numbers, `General Sans` for all UI. Clean, paper-feel cards. Bold animated charts.
+
+**Layout density:** match Linear dashboard and board view conventions.
+
+**Component stack:** Tailwind + shadcn/ui (copy-paste) + Recharts. Agents use shadcn primitives before bespoke CSS.
+
+### 4.3 Colour system
+
+- **UI chrome:** 3 primary + 3 accent tokens (terracotta-derived; see `plans/phase-1.5-ux.md`)
+- **Ventures and projects:** shared 12-colour palette via compact picker (`Colour` label, selected swatch + click-to-expand); no free-form hex in UI
+- **Tasks:** semantic colour by task type (Phase 1.6)
+- Colour assigned to a venture/project is consistent app-wide (Kanban, charts, KPIs)
+
+### 4.4 Motion
+
+- Chart bars/lines animate on mount (staggered ease-out)
 - KPI number count-up on dashboard load
 - Progress ring stroke animation
-- Streak dot pop-in on load
 - Kanban card drag: spring physics (scale + shadow)
-- All charts respond to user interaction (hover tooltips, click-to-filter)
 - `prefers-reduced-motion` respected throughout
 
-### 4.3 Responsive
-- Designed desktop-first (1280px+), fully responsive to 375px
-- Sidebar collapses to bottom tab bar on mobile
-- Charts reflow to full width on mobile
+### 4.5 Responsive
+
+- Desktop-first (1280px+), responsive to 375px
+- Sidebar collapses to bottom tab bar on mobile (Phase 4)
 - Touch-friendly: 44px minimum tap targets
 
-### 4.4 Light/Dark Mode
-Full dark mode from day one, with manual toggle + system preference detection.
+### 4.6 Light/Dark Mode
+
+Full dark mode — Phase 4 (deferred from "day one" given Phase 1b/4 sequencing).
 
 ---
 
@@ -179,49 +263,32 @@ Full dark mode from day one, with manual toggle + system preference detection.
 
 - Multi-user / team features
 - AI or agent features (planned for v3+)
-- Toggl sync (v2)
+- Toggl sync (Phase 6)
 - Shareable link (v1.1)
-- Push notifications
-- Email reports
-- Mobile native app
+- Settings page and hidden-delete purge UI
+- Push notifications, email reports, mobile native app
 
 ---
 
 ## 6. Success Criteria
 
-- User can open the dashboard and see all active project statuses, MTD income, and current goal progress in under 3 seconds
+- User can open the dashboard and see venture/project status, MTD income, and goal progress in under 3 seconds (Phase 3+)
 - User can add a new income entry in under 30 seconds
-- User can move a Kanban task between columns with drag-and-drop
-- User can add a new income stream or project without touching the code
-- Monthly report is auto-generated with no manual input
+- User can move a Kanban task between columns with drag-and-drop on the card surface
+- User can add a venture, project, or task without touching code
+- Monthly report auto-generated with no manual input
 
 ---
 
-## 7. Toggl Integration (v2 — future)
+## 7. Toggl Integration (Phase 6 — future)
 
-Toggl Track has a public API (v9) available on all plans including free. [Free tier limit: 30 requests/hour as of June 2025.] For a single-user personal tool with periodic syncs (not real-time), this is sufficient.
-
-**Planned v2 sync behaviour:**
-- Background job (APScheduler or Celery Beat) polls Toggl API every 30–60 minutes
-- Time entries pulled by project tag and mapped to Momentum tasks/projects
-- Stored as `time_logs` with `source = 'toggl'`
-- No write-back to Toggl from Momentum in v2
-
-**Toggl API endpoint:** `https://api.track.toggl.com/api/v9/`
-Authentication: Basic auth with API token (no OAuth required for personal use).
+Toggl Track v9 API. Background sync maps entries to tasks/projects. Read-only from Momentum.
 
 ---
 
-## 8. Future: MCP & Agent Integration (v3+)
+## 8. Future: MCP & Agent Integration (Phase 7+)
 
-Momentum's RESTful API is designed from day one to be MCP-compatible. Future agentic workflows (Claude, Hermes, OpenClaw) will be able to:
-- Read task lists by project or status
-- Update task status
-- Create new tasks from natural language
-- Query income and goal progress
-- Surface "what should I work on today?" from goal pressure + task backlog
-
-This requires an MCP server wrapper on top of the existing FastAPI routes — no schema changes needed.
+MCP server wrapper over FastAPI routes for task, income, and goal queries.
 
 ---
 

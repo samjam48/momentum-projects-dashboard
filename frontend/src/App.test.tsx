@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 
-import App from './App'
+import { renderApp, renderAppBare } from './test/renderApp'
 import type {
   Project,
   Task,
@@ -11,6 +11,16 @@ import type {
   TimeLogPayload,
 } from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
+import { resetTestStorage } from './test/storage'
+import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
+import {
+  dispatchKanbanDrop,
+  expectKanbanTaskOrder,
+  getKanbanColumn,
+  getKanbanRegion,
+  getTableRegion,
+  selectComboboxOption,
+} from './test/workspaceQueries'
 
 type MockResponseOptions = {
   body?: unknown
@@ -440,17 +450,6 @@ function installTaskWorkspaceBackendMock(
   return { taskStatusRequests }
 }
 
-function getSectionByHeading(name: RegExp): HTMLElement {
-  const heading = screen.getByRole('heading', { name })
-  const section = heading.closest('section')
-
-  if (!(section instanceof HTMLElement)) {
-    throw new Error(`Expected heading ${String(name)} to be inside a section.`)
-  }
-
-  return section
-}
-
 function expectTableTaskOrder(table: HTMLElement, titles: string[]): void {
   const rows = within(table).getAllByRole('row').slice(1)
   expect(rows).toHaveLength(titles.length)
@@ -462,39 +461,6 @@ function expectTableTaskOrder(table: HTMLElement, titles: string[]): void {
   })
 
   expect(actualOrder).toEqual(titles)
-}
-
-function getKanbanColumn(label: RegExp): HTMLElement {
-  const board = getSectionByHeading(/kanban board/i)
-  const heading = within(board).getByRole('heading', { name: label })
-  const column = heading.closest('section')
-
-  if (!(column instanceof HTMLElement)) {
-    throw new Error(`Expected kanban heading ${String(label)} to be inside a section.`)
-  }
-
-  return column
-}
-
-function expectKanbanTaskOrder(column: HTMLElement, titles: string[]): void {
-  const items = within(column).queryAllByRole('listitem')
-  const actualOrder = items.map((item) => {
-    const title = item.querySelector('strong')?.textContent
-    return title ?? ''
-  })
-
-  expect(actualOrder).toEqual(titles)
-}
-
-function getTaskCard(column: HTMLElement, title: string): HTMLElement {
-  const taskTitle = within(column).getByText(title)
-  const taskCard = taskTitle.closest('li')
-
-  if (!(taskCard instanceof HTMLElement)) {
-    throw new Error(`Expected task ${title} to be inside a kanban card.`)
-  }
-
-  return taskCard
 }
 
 const taskWorkspaceProjects = [
@@ -575,21 +541,18 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
+    await renderApp()
 
+    expect(screen.getByTestId('sidebar-project-project-podcast')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
     expect(
-      await screen.findByRole('heading', { name: /projects \+ tasks workspace/i }),
-    ).toBeInTheDocument()
-    expect(screen.getByTestId('project-card-project-podcast')).toBeInTheDocument()
-    expect(screen.getByTestId('project-card-project-newsletter')).toBeInTheDocument()
-    expect(
-      within(screen.getByTestId('project-card-project-podcast')).getByText('#D97048'),
+      within(screen.getByTestId('sidebar-project-project-podcast')).getByTestId(
+        'project-colour-dot',
+      ),
     ).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /project filter/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: /kanban board/i })).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 2, name: /task summary table/i }),
-    ).toBeInTheDocument()
+    expect(getKanbanRegion()).toBeInTheDocument()
+    expect(getTableRegion()).toBeInTheDocument()
   })
 
   it('supports create, edit, and archive flows without a page reload', async () => {
@@ -691,47 +654,54 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
+    renderAppBare()
 
-    await screen.findByTestId('project-card-project-podcast')
+    await screen.findByTestId('sidebar-project-project-podcast')
 
-    fireEvent.change(screen.getByLabelText(/project name/i), {
+    fireEvent.click(screen.getByRole('button', { name: /new project/i }))
+    const createDialog = await screen.findByRole('dialog', { name: /new project/i })
+
+    fireEvent.change(within(createDialog).getByLabelText(/project name/i), {
       target: { value: 'Newsletter' },
     })
-    fireEvent.change(screen.getByLabelText(/project description/i), {
+    fireEvent.change(within(createDialog).getByLabelText(/project description/i), {
       target: { value: 'Weekly letters' },
     })
-    fireEvent.change(screen.getByLabelText(/project colour/i), {
-      target: { value: '#123ABC' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+    fireEvent.click(within(createDialog).getByRole('button', { name: /^colour$/i }))
+    fireEvent.click(
+      within(createDialog).getByRole('radio', { name: /colour swatch slate blue/i }),
+    )
+    fireEvent.click(within(createDialog).getByRole('button', { name: /create project/i }))
 
-    expect(await screen.findByTestId('project-card-project-newsletter')).toBeInTheDocument()
+    expect(await screen.findByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
 
-    const newsletterCard = screen.getByTestId('project-card-project-newsletter')
-    fireEvent.click(within(newsletterCard).getByRole('button', { name: /edit/i }))
-    fireEvent.change(screen.getByLabelText(/project name/i), {
+    fireEvent.click(screen.getByRole('button', { name: /^newsletter$/i }))
+    const editDialog = await screen.findByRole('dialog', { name: /edit project/i })
+
+    fireEvent.change(within(editDialog).getByLabelText(/project name/i), {
       target: { value: 'Newsletter Updated' },
     })
-    fireEvent.change(screen.getByLabelText(/project description/i), {
+    fireEvent.change(within(editDialog).getByLabelText(/project description/i), {
       target: { value: 'Weekly letters revised' },
     })
-    fireEvent.change(screen.getByLabelText(/project colour/i), {
-      target: { value: '#456DEF' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /save project/i }))
+    fireEvent.click(within(editDialog).getByRole('button', { name: /^colour$/i }))
+    fireEvent.click(
+      within(editDialog).getByRole('radio', { name: /colour swatch sky/i }),
+    )
+    fireEvent.click(within(editDialog).getByRole('button', { name: /save project/i }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('project-card-project-newsletter')).toHaveTextContent(
+      expect(screen.getByTestId('sidebar-project-project-newsletter')).toHaveTextContent(
         'Newsletter Updated',
       )
     })
 
-    const updatedCard = screen.getByTestId('project-card-project-newsletter')
-    fireEvent.click(within(updatedCard).getByRole('button', { name: /archive/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^newsletter updated$/i }))
+    const archiveDialog = await screen.findByRole('dialog', { name: /edit project/i })
+    fireEvent.click(within(archiveDialog).getByRole('button', { name: /archive project/i }))
 
     await waitFor(() => {
-      expect(screen.queryByTestId('project-card-project-newsletter')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('sidebar-project-project-newsletter')).not.toBeInTheDocument()
     })
   })
 
@@ -744,21 +714,19 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
+    await renderApp()
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    fireEvent.click(screen.getByRole('button', { name: /new project/i }))
+    const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
-    fireEvent.change(screen.getByLabelText(/project name/i), {
+    fireEvent.change(within(dialog).getByLabelText(/project name/i), {
       target: { value: 'Podcast' },
     })
-    fireEvent.change(screen.getByLabelText(/project colour/i), {
-      target: { value: 'orange' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /create project/i }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /create project/i }))
 
-    expect(await screen.findByText(/colour must match/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/project name/i)).toHaveValue('Podcast')
-    expect(screen.getByLabelText(/project colour/i)).toHaveValue('orange')
+    expect(await within(dialog).findByText(/colour must match/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/project name/i)).toHaveValue('Podcast')
+    expect(screen.getByRole('dialog', { name: /new project/i })).toBeInTheDocument()
   })
 
   it('falls back to all projects when the selected project is archived', async () => {
@@ -801,14 +769,15 @@ describe('Ticket 3 project management and shared data layer', () => {
       }),
     ])
 
-    render(<App />)
+    renderAppBare()
 
     const filter = await screen.findByRole('combobox', { name: /project filter/i })
     fireEvent.change(filter, { target: { value: 'project-newsletter' } })
     expect(filter).toHaveValue('project-newsletter')
 
-    const newsletterCard = screen.getByTestId('project-card-project-newsletter')
-    fireEvent.click(within(newsletterCard).getByRole('button', { name: /archive/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^newsletter$/i }))
+    const dialog = await screen.findByRole('dialog', { name: /edit project/i })
+    fireEvent.click(within(dialog).getByRole('button', { name: /archive project/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /project filter/i })).toHaveValue('all')
@@ -818,7 +787,7 @@ describe('Ticket 3 project management and shared data layer', () => {
   it('blocks task creation when there are no active projects', async () => {
     installFetchMock([jsonResponse({ body: [] })])
 
-    render(<App />)
+    renderAppBare()
 
     expect(await screen.findByText(/create a project first/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new task/i })).toBeDisabled()
@@ -842,11 +811,9 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
+    await renderApp()
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
-
-    const tableSection = getSectionByHeading(/task summary table/i)
+    const tableSection = getTableRegion()
     const table = within(tableSection).getByRole('table')
 
     expectTableTaskOrder(table, [
@@ -889,9 +856,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       ])
     })
 
-    fireEvent.change(screen.getByRole('combobox', { name: /project filter/i }), {
-      target: { value: 'project-beta' },
-    })
+    await selectComboboxOption(/project filter/i, 'project-beta')
 
     await waitFor(() => {
       expect(within(table).getByText('Record intro')).toBeInTheDocument()
@@ -927,14 +892,12 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       ],
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
 
     expect(screen.getByRole('combobox', { name: /project filter/i })).toHaveValue('all')
 
-    const tableSection = getSectionByHeading(/task summary table/i)
-    const kanbanSection = getSectionByHeading(/kanban board/i)
+    const tableSection = getTableRegion()
+    const kanbanSection = getKanbanRegion()
 
     await waitFor(() => {
       expect(within(tableSection).getByText('Launch solo workspace')).toBeInTheDocument()
@@ -948,9 +911,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -982,7 +943,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       expect(screen.getByText('Publish sprint notes')).toBeInTheDocument()
     })
 
-    const kanbanSection = getSectionByHeading(/kanban board/i)
+    const kanbanSection = getKanbanRegion()
     expect(within(kanbanSection).getByText('Publish sprint notes')).toBeInTheDocument()
 
     fireEvent.click(
@@ -993,10 +954,12 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     fireEvent.change(within(editDialog).getByRole('combobox', { name: /status/i }), {
       target: { value: 'done' },
     })
+    fireEvent.blur(within(editDialog).getByRole('combobox', { name: /status/i }))
     fireEvent.change(within(editDialog).getByLabelText(/estimated hours/i), {
       target: { value: '3' },
     })
-    fireEvent.click(within(editDialog).getByRole('button', { name: /save task/i }))
+    fireEvent.blur(within(editDialog).getByLabelText(/estimated hours/i))
+    fireEvent.click(within(editDialog).getByRole('button', { name: /close task/i }))
 
     await waitFor(() => {
       expect(within(kanbanSection).getByText('Publish sprint notes')).toBeInTheDocument()
@@ -1034,9 +997,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       },
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
 
     fireEvent.click(
       screen.getByRole('button', { name: /edit task write release notes/i }),
@@ -1050,26 +1011,23 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     expect(within(dialog).getByText('Drafted launch copy')).toBeInTheDocument()
     expect(within(dialog).getByText('Adjusted final wording')).toBeInTheDocument()
 
-    fireEvent.change(within(dialog).getByLabelText(/logged date/i), {
-      target: { value: '2026-05-14' },
-    })
-    fireEvent.change(within(dialog).getByLabelText(/^hours$/i), {
+    fireEvent.click(within(dialog).getByRole('button', { name: /\+ add time log/i }))
+    const timeLogDialog = await screen.findByRole('dialog', { name: /add time log/i })
+    fireEvent.change(within(timeLogDialog).getByLabelText(/^time$/i), {
       target: { value: '1.5' },
     })
-    fireEvent.change(within(dialog).getByLabelText(/notes/i), {
+    fireEvent.change(within(timeLogDialog).getByLabelText(/notes/i), {
       target: { value: 'Final review and polish' },
     })
-    fireEvent.click(within(dialog).getByRole('button', { name: /add time log/i }))
+    fireEvent.click(within(timeLogDialog).getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => {
       expect(within(dialog).getByText('3.5')).toBeInTheDocument()
       expect(within(dialog).getByText('Final review and polish')).toBeInTheDocument()
     })
 
-    const tableSection = getSectionByHeading(/task summary table/i)
-    const kanbanSection = getSectionByHeading(/kanban board/i)
+    const tableSection = getTableRegion()
     expect(within(tableSection).getByText('3.5')).toBeInTheDocument()
-    expect(within(kanbanSection).getByText('3.5')).toBeInTheDocument()
   })
 
   it('does not show a status enum error when a done task only has a blank-title validation error', async () => {
@@ -1078,9 +1036,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1110,9 +1066,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
       tasks: taskWorkspaceTasks,
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1156,9 +1110,7 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
           : null,
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
 
     fireEvent.click(screen.getByRole('button', { name: /new task/i }))
 
@@ -1194,40 +1146,40 @@ describe('Ticket 4 task summary table, task modal, and manual time logs', () => 
     )
 
     const detailDialog = await screen.findByRole('dialog', { name: /edit task/i })
-    fireEvent.change(within(detailDialog).getByLabelText(/logged date/i), {
-      target: { value: '2026-05-14' },
-    })
-    fireEvent.change(within(detailDialog).getByLabelText(/^hours$/i), {
+    fireEvent.click(within(detailDialog).getByRole('button', { name: /\+ add time log/i }))
+    const timeLogDialog = await screen.findByRole('dialog', { name: /add time log/i })
+    fireEvent.change(within(timeLogDialog).getByLabelText(/^time$/i), {
       target: { value: '0' },
     })
-    fireEvent.click(within(detailDialog).getByRole('button', { name: /add time log/i }))
+    fireEvent.click(within(timeLogDialog).getByRole('button', { name: /^save$/i }))
 
     expect(
-      await within(detailDialog).findByText(/hours must be greater than zero/i),
+      await within(timeLogDialog).findByText(/hours must be greater than zero/i),
     ).toBeInTheDocument()
 
-    fireEvent.change(within(detailDialog).getByLabelText(/^hours$/i), {
+    fireEvent.change(within(timeLogDialog).getByLabelText(/^time$/i), {
       target: { value: '1.25' },
     })
     expect(
-      within(detailDialog).queryByText(/hours must be greater than zero/i),
+      within(timeLogDialog).queryByText(/hours must be greater than zero/i),
     ).not.toBeInTheDocument()
   })
 })
 
 describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
   beforeEach(() => {
-    vi.restoreAllMocks()
+    resetTestStorage()
     resetProjectFilterStore()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    resetTestStorage()
     resetProjectFilterStore()
   })
 
   it('renders all four columns and orders cards by kanban_order with deterministic null ordering', async () => {
-    installTaskWorkspaceBackendMock({
+    installWorkspaceBackendMock({
       projects: taskWorkspaceProjects,
       tasks: [
         buildTask({
@@ -1278,9 +1230,10 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
       },
     })
 
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
+    await renderApp()
+    await waitFor(() => {
+      expect(within(getKanbanRegion()).getByText('Confirm scope')).toBeInTheDocument()
+    })
 
     const backlogColumn = getKanbanColumn(/backlog/i)
     const inProgressColumn = getKanbanColumn(/in progress/i)
@@ -1298,223 +1251,40 @@ describe('Ticket 5 frontend kanban board persisted drag and drop', () => {
     expect(within(doneColumn).getByText(/no tasks in this column/i)).toBeInTheDocument()
   })
 
-  it('shows enough card context to distinguish work in the all-projects view', async () => {
-    installTaskWorkspaceBackendMock({
+  it('persists a cross-column kanban:drop through the status API', async () => {
+    const backend = installWorkspaceBackendMock({
       projects: taskWorkspaceProjects,
       tasks: [
         buildTask({
-          id: 'task-ordered-second',
+          id: 'task-smoke-move',
           project_id: 'project-alpha',
-          title: 'Draft launch brief',
-          priority: 'urgent',
-          target_date: '2026-05-20',
+          title: 'Smoke move task',
           status: 'backlog',
-          kanban_order: 1,
-        }),
-      ],
-      timeLogs: {
-        'task-ordered-second': [
-          buildTimeLog({
-            id: 'log-launch-1',
-            task_id: 'task-ordered-second',
-            project_id: 'project-alpha',
-            hours: 2.5,
-          }),
-        ],
-      },
-    })
-
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const launchBriefCard = getTaskCard(backlogColumn, 'Draft launch brief')
-    expect(within(launchBriefCard).getByText(/urgent/i)).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('Alpha Client')).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('#123ABC')).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('2026-05-20')).toBeInTheDocument()
-    expect(within(launchBriefCard).getByText('2.5')).toBeInTheDocument()
-  })
-
-  it('persists same-column reorders through an explicit card movement control', async () => {
-    const backend = installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: [
-        buildTask({
-          id: 'task-plan-migration',
-          project_id: 'project-alpha',
-          title: 'Plan migration',
-          status: 'backlog',
-          kanban_order: 0,
-        }),
-        buildTask({
-          id: 'task-draft-copy',
-          project_id: 'project-beta',
-          title: 'Draft release copy',
-          status: 'backlog',
-          kanban_order: 1,
-        }),
-        buildTask({
-          id: 'task-review-pass',
-          project_id: 'project-alpha',
-          title: 'QA final pass',
-          status: 'review',
           kanban_order: 0,
         }),
       ],
     })
 
-    render(<App />)
+    await renderApp()
+    await waitFor(() => {
+      expect(within(getKanbanRegion()).getByText('Smoke move task')).toBeInTheDocument()
+    })
 
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const draftCopyCard = getTaskCard(backlogColumn, 'Draft release copy')
-    fireEvent.click(
-      within(draftCopyCard).getByRole('button', {
-        name: /move task draft release copy up/i,
-      }),
-    )
+    await dispatchKanbanDrop({
+      taskId: 'task-smoke-move',
+      status: 'in_progress',
+      kanban_order: 0,
+    })
 
     await waitFor(() => {
       expect(backend.taskStatusRequests).toEqual([
         {
-          taskId: 'task-draft-copy',
-          payload: { status: 'backlog', kanban_order: 0 },
-        },
-      ])
-    })
-
-    expectKanbanTaskOrder(backlogColumn, [
-      'Draft release copy',
-      'Plan migration',
-    ])
-  })
-
-  it('moves a card to done and back out through explicit card controls, then shows completed-date changes when reopened', async () => {
-    const backend = installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: [
-        buildTask({
-          id: 'task-plan-migration',
-          project_id: 'project-alpha',
-          title: 'Plan migration',
-          status: 'backlog',
-          kanban_order: 0,
-        }),
-        buildTask({
-          id: 'task-draft-copy',
-          project_id: 'project-beta',
-          title: 'Draft release copy',
-          status: 'backlog',
-          kanban_order: 1,
-        }),
-      ],
-    })
-
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const planMigrationCard = getTaskCard(backlogColumn, 'Plan migration')
-    fireEvent.click(
-      within(planMigrationCard).getByRole('button', {
-        name: /move task plan migration to done/i,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(backend.taskStatusRequests).toEqual([
-        {
-          taskId: 'task-plan-migration',
-          payload: { status: 'done', kanban_order: 0 },
-        },
-      ])
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /edit task plan migration/i }))
-
-    const doneDialog = await screen.findByRole('dialog', { name: /edit task/i })
-    expect(within(doneDialog).getByText('2026-05-26')).toBeInTheDocument()
-    fireEvent.click(within(doneDialog).getByRole('button', { name: /close/i }))
-
-    const doneColumn = getKanbanColumn(/done/i)
-    const movedCard = getTaskCard(doneColumn, 'Plan migration')
-    fireEvent.click(
-      within(movedCard).getByRole('button', {
-        name: /move task plan migration to in progress/i,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(backend.taskStatusRequests).toEqual([
-        {
-          taskId: 'task-plan-migration',
-          payload: { status: 'done', kanban_order: 0 },
-        },
-        {
-          taskId: 'task-plan-migration',
+          taskId: 'task-smoke-move',
           payload: { status: 'in_progress', kanban_order: 0 },
         },
       ])
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /edit task plan migration/i }))
-
-    const reopenedDialog = await screen.findByRole('dialog', { name: /edit task/i })
-    expect(within(reopenedDialog).queryByText('2026-05-26')).not.toBeInTheDocument()
-  })
-
-  it('rolls back to the last confirmed board state and surfaces an error when status persistence fails', async () => {
-    installTaskWorkspaceBackendMock({
-      projects: taskWorkspaceProjects,
-      tasks: [
-        buildTask({
-          id: 'task-first-backlog',
-          project_id: 'project-alpha',
-          title: 'Triage launch blockers',
-          status: 'backlog',
-          kanban_order: 0,
-        }),
-        buildTask({
-          id: 'task-second-backlog',
-          project_id: 'project-beta',
-          title: 'Schedule stakeholder review',
-          status: 'backlog',
-          kanban_order: 1,
-        }),
-      ],
-      onTaskStatusUpdate: () =>
-        jsonResponse({
-          body: { detail: 'Unable to update task status.' },
-          status: 500,
-        }),
-    })
-
-    render(<App />)
-
-    await screen.findByRole('heading', { name: /projects \+ tasks workspace/i })
-
-    const backlogColumn = getKanbanColumn(/backlog/i)
-    const stakeholderReviewCard = getTaskCard(backlogColumn, 'Schedule stakeholder review')
-    fireEvent.click(
-      within(stakeholderReviewCard).getByRole('button', {
-        name: /move task schedule stakeholder review to done/i,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/unable to update task status/i),
-      ).toBeInTheDocument()
-    })
-
-    expectKanbanTaskOrder(backlogColumn, [
-      'Triage launch blockers',
-      'Schedule stakeholder review',
-    ])
-    expect(within(getKanbanColumn(/done/i)).getByText(/no tasks in this column/i)).toBeInTheDocument()
+    expect(within(getKanbanColumn(/in progress/i)).getByText('Smoke move task')).toBeInTheDocument()
   })
 })

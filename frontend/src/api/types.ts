@@ -1,6 +1,8 @@
 export type ProjectStatus = 'active' | 'archived'
 
-export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done'
+export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done' | 'archived'
+
+export type KanbanTaskStatus = 'backlog' | 'in_progress' | 'review' | 'done'
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
@@ -40,14 +42,18 @@ export type TaskPayload = {
   project_id: string
   title: string
   description: string | null
-  status: TaskStatus
+  status: KanbanTaskStatus
   priority: TaskPriority
   target_date: string | null
   estimated_hours: number | null
 }
 
+export type TaskUpdatePayload = Partial<TaskPayload> & {
+  status?: TaskStatus
+}
+
 export type TaskStatusPayload = {
-  status: TaskStatus
+  status: KanbanTaskStatus
   kanban_order: number | null
 }
 
@@ -58,6 +64,8 @@ export type TimeLog = {
   hours: number
   logged_date: string
   notes: string | null
+  title: string | null
+  location: string | null
   source: 'manual'
   created_at: string
   updated_at: string
@@ -67,6 +75,8 @@ export type TimeLogPayload = {
   hours: number
   logged_date: string
   notes: string | null
+  title?: string | null
+  location?: string | null
 }
 
 export type TaskFilters = {

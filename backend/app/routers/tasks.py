@@ -72,3 +72,12 @@ def list_time_logs(session: SessionDep, task_id: str) -> list[TimeLog]:
 )
 def create_time_log(session: SessionDep, task_id: str, payload: TimeLogCreate) -> TimeLog:
     return task_services.create_time_log(session, task_id, payload)
+
+
+@router.delete(
+    "/{task_id}/time-logs/{time_log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_time_log(session: SessionDep, task_id: str, time_log_id: str) -> Response:
+    task_services.delete_time_log(session, task_id, time_log_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

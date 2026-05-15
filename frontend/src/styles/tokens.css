@@ -1,0 +1,16 @@
+:root {
+  --primary-bg: #f6efe2;
+  --primary-surface: #fffaf4;
+  --primary-text: #1f1712;
+  --accent-action: #9c5d35;
+  --accent-action-hover: #824c29;
+  --accent-highlight: #d97048;
+  --accent-muted: rgba(90, 58, 37, 0.14);
+  --accent-success: #1f5d2f;
+  --accent-success-fg: var(--accent-success);
+  --accent-success-bg: #d9edd5;
+  --accent-warning: #7a4c00;
+  --accent-warning-fg: var(--accent-warning);
+  --accent-warning-bg: #f8e2b5;
+  --sidebar-width: 240px;
+}

@@ -25,6 +25,7 @@ Write the minimum production code needed to make the failing tests pass without 
 - Respect the architectural boundaries in `docs/V1-TRD.md`
 - Read existing production code patterns before introducing new ones
 - Do not gold-plate, refactor unrelated areas, or add unrequested features
+- **No AI/meta copy in UI.** User-visible strings are labels for fields, actions, and data — never implementation notes, phase names, ticket references, or phrases like “backend-derived”, “Phase 1 workspace”, or “refresh totals after save”. See `docs/patterns.md` § UI copy.
 - Use failing test output as the contract, not guesswork beyond the approved ticket
 - Run the necessary tests and quality gates until the relevant work passes cleanly
 - If the cleanest implementation would require a schema change or API contract change that was not already approved, stop and report instead of improvising
