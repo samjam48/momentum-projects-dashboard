@@ -179,6 +179,17 @@ def update_project_board_status(
 
     order_projects: list[Project] = []
     if payload.order is not None:
+        if len(payload.order) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="order must include at least one project",
+            )
+        order_ids = [item.project_id for item in payload.order]
+        if len(order_ids) != len(set(order_ids)):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="order contains duplicate project_id",
+            )
         for order_item in payload.order:
             order_project = session.get(Project, order_item.project_id)
             if order_project is None:

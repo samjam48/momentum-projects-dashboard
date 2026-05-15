@@ -193,6 +193,65 @@ def test_patch_board_status_reorders_column_when_order_payload_supplied(client: 
     assert first_db.kanban_order == 2
 
 
+def test_board_status_reorder_empty_order_returns_422(client: TestClient) -> None:
+    venture = _create_venture_in_db("empty order venture")
+    project = _create_project(client, venture_id=venture.id, board_status="active")
+
+    response = client.patch(
+        f"{PROJECTS_ENDPOINT}/{project['id']}/board-status",
+        json={"board_status": "active", "order": []},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "order must include at least one project"
+
+
+def test_board_status_reorder_unknown_project_returns_422(client: TestClient) -> None:
+    venture = _create_venture_in_db("unknown order venture")
+    project = _create_project(client, venture_id=venture.id, board_status="active")
+    unknown_id = "00000000-0000-0000-0000-000000000099"
+
+    response = client.patch(
+        f"{PROJECTS_ENDPOINT}/{project['id']}/board-status",
+        json={
+            "board_status": "active",
+            "order": [{"project_id": unknown_id, "kanban_order": 1}],
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "order contains unknown project_id"
+
+
+def test_board_status_reorder_duplicate_project_id_returns_422(client: TestClient) -> None:
+    venture = _create_venture_in_db("duplicate project_id order venture")
+    first = _create_project(
+        client,
+        venture_id=venture.id,
+        name="dup a",
+        board_status="active",
+        kanban_order=1,
+    )
+    _create_project(
+        client,
+        venture_id=venture.id,
+        name="dup b",
+        board_status="active",
+        kanban_order=2,
+    )
+
+    response = client.patch(
+        f"{PROJECTS_ENDPOINT}/{first['id']}/board-status",
+        json={
+            "board_status": "active",
+            "order": [
+                {"project_id": first["id"], "kanban_order": 1},
+                {"project_id": first["id"], "kanban_order": 2},
+            ],
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "order contains duplicate project_id"
+
+
 def test_board_status_move_archived_project_returns_conflict(client: TestClient) -> None:
     venture = _create_venture_in_db("archived project venture")
     project = _create_project(client, venture_id=venture.id, board_status="active")
