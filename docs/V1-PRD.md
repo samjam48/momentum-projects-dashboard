@@ -32,7 +32,7 @@ Projects share one table; **project type** distinguishes general work from incom
 
 | Entity | Description |
 | --- | --- |
-| **Venture** | Top-level business line or life area (podcast business, trading bots, property, education). Code/table name: `venture`. UI label is user-selectable: hustle (default), business, investment, property, or education. |
+| **Venture** | Top-level business line or life area (podcast business, trading bots, property, education). Code/table name: `venture`. Category label is user-defined, presented in Title Case, and defaults to `Hustle`. Seed labels include Hustle, Business, Investment, Property, Education, and Hobby. |
 | **Project** | Work container inside a venture. Default `project_type = project`. Shorter-term initiatives (build website, research algo). |
 | **Asset** | `project_type = asset` — ongoing income-bearing unit (apartment, individual bot, Etsy SKU). Same table as projects. |
 | **Gig** | `project_type = gig` — paid work, often under a hustle (design a website, edit a podcast). May pay once or on a recurring cadence (Phase 2 income). |
@@ -41,7 +41,7 @@ Projects share one table; **project type** distinguishes general work from incom
 
 Everything — tasks, income streams, goals, time logs — ultimately rolls up through this hierarchy.
 
-**Phase note:** Phase 1 shipped Project → Task only. Ventures and `project_type` are introduced in Phase 1.6 per `plans/phase-1.5-ux.md`. **Until Phase 2**, selecting a non-default project type does not change project behaviour — it is classification for future income UX. Payment cadence (weekly, monthly, one-time) and stream-to-type rules are **Phase 2** scope; requires architect review before implementation.
+**Phase note:** Phase 1 shipped Project → Task only. Ventures, user-defined venture category labels, `project_type`, Project Kanban, project completion state, and time log activity types are introduced in Phase 1.6 per `plans/phase-1.5-ux.md`. Phase-scoped planning lives in `plans/PRD-phase-1.6-2026-05-15.md` and `plans/TRD-phase-1.6-2026-05-15.md`. **Until Phase 2**, selecting a non-default project type does not change project behaviour — it is classification for future income UX. Payment cadence (weekly, monthly, one-time) and stream-to-type rules are **Phase 2** scope; requires architect review before implementation.
 
 ---
 
@@ -53,6 +53,7 @@ Ventures are the top-level organisational unit.
 
 **User can:**
 - Create a venture with name, description, colour (picker: one selected swatch, click for 12 options), optional icon, and category label
+- Create, rename, and delete unused category labels; default seeded labels are Hustle, Business, Investment, Property, Education, and Hobby
 - Archive a venture (soft delete; data retained; viewable via Archive in sidebar)
 - Expand venture in sidebar to see and filter child projects
 - View venture-level income rollup and goals (Phase 2–3)
@@ -69,7 +70,7 @@ Projects belong to exactly one venture. Type is stored as `project_type` on the 
 - Create a project inside a venture (name, description, colour, optional icon)
 - Set **project type** (defaults to project; asset / gig / contract for classification)
 - Move project across Kanban columns: Idea → Active → Paused → Shipped
-- Archive a project; view archived projects via sidebar Archive link
+- Archive a project; mark it finished or unfinished; view archived projects via sidebar Archive link
 - Open project hub (Phase 3): stats, goals, tasks; edit via explicit control
 - Interim (Phase 1b): click project title → edit modal with archive at bottom
 
@@ -82,6 +83,8 @@ Projects belong to exactly one venture. Type is stored as `project_type` on the 
 | `contract` | Business | Formal agreement; retainer or milestone pay |
 
 **Phase 1.6:** type selector in create/edit UI only — **no difference in fields, status workflow, or task behaviour** by type.
+
+**Archive completion semantics:** Project archive status, Project Kanban status, and completion are separate. `board_status = shipped` defaults `finished = true`. Archived and finished projects count as completed history for future earnings/activity views; archived unfinished projects remain history but do not count as completed.
 
 **Archive / delete policy:**
 - **Archive** — reversible; user-visible via Archive view
@@ -127,7 +130,6 @@ Tasks are the unit of work inside projects.
 **Task fields:**
 - Title, description
 - Project (required)
-- **Type** (Phase 1.6): writing | research | code | meeting | admin — semantic colour on cards
 - Status: Backlog → In Progress → Review → Done
 - Priority: Low / Medium / High / Urgent
 - Target completion date
@@ -148,6 +150,7 @@ Tasks are the unit of work inside projects.
 - Drag anywhere on card; no status buttons or hex codes in UI
 
 **Time tracking (v1):** manual time log entry per task (date + hours + notes).
+**Time tracking activity types (Phase 1.6):** user-defined activity type tags label time logs. Defaults are `planning`, `meeting`, and `admin`; users can add more. Activity type is the row label, notes remain optional, `location` remains, and null/cleared activity types display as `uncategorised`. Tasks do not have a type field in Phase 1.6.
 **Time tracking (v2):** Toggl Track sync — see Section 7.
 
 ---
@@ -236,7 +239,7 @@ Warm parchment background, terracotta orange accent, `Instrument Serif` for big 
 
 - **UI chrome:** 3 primary + 3 accent tokens (terracotta-derived; see `plans/phase-1.5-ux.md`)
 - **Ventures and projects:** shared 12-colour palette via compact picker (`Colour` label, selected swatch + click-to-expand); no free-form hex in UI
-- **Tasks:** semantic colour by task type (Phase 1.6)
+- **Tasks:** no semantic task type colours in Phase 1.6; cards use project and venture colours only
 - Colour assigned to a venture/project is consistent app-wide (Kanban, charts, KPIs)
 
 ### 4.4 Motion
