@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
-import { toQueryState, type QueryState } from './queryUtils'
+import { useQueryState, type QueryState } from './queryUtils'
 import type { TimeLog, TimeLogPayload } from './types'
 
 export const timeLogQueryKeys = {
@@ -65,7 +65,7 @@ export function useTaskTimeLogs(taskId: string | null): QueryState<TimeLog[]> {
     enabled: taskId !== null,
   })
 
-  return toQueryState(query, [])
+  return useQueryState(query, [])
 }
 
 function useTimeLogMutationErrorState(): {

@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
 import { projectQueryKeys } from './projects'
-import { toQueryState, type QueryState } from './queryUtils'
+import { useQueryState, type QueryState } from './queryUtils'
 import type { Venture, VenturePayload, VentureStatus } from './types'
 
 export const ventureQueryKeys = {
@@ -105,13 +105,19 @@ function useVentureMutationErrorState(): {
   }
 }
 
-export function useVentures(status: VentureStatus = 'active'): QueryState<Venture[]> {
+export function useVentures(
+  status: VentureStatus = 'active',
+  options?: { enabled?: boolean },
+): QueryState<Venture[]> {
+  const enabled = options?.enabled ?? true
+
   const query = useQuery({
     queryKey: ventureQueryKeys.list(status),
     queryFn: () => listVentures(status),
+    enabled,
   })
 
-  return toQueryState(query, [])
+  return useQueryState(query, [])
 }
 
 export function useVentureMutations(): {

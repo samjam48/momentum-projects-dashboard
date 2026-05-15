@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
-import { toQueryState, type QueryState } from './queryUtils'
+import { useQueryState, type QueryState } from './queryUtils'
 import { timeLogQueryKeys } from './timeLogs'
 import type { ActivityType, ActivityTypePayload, ActivityTypeStatus } from './types'
 
@@ -106,7 +106,7 @@ export function useActivityTypes(status: ActivityTypeStatus = 'active'): QuerySt
     queryFn: () => listActivityTypes(status),
   })
 
-  return toQueryState(query, [])
+  return useQueryState(query, [])
 }
 
 export function useActivityTypeMutations(): {

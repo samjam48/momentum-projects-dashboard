@@ -391,22 +391,22 @@ function App() {
   const previousFilterKeyRef = useRef(storedProjectIdsKey)
   const previousTasksDataRef = useRef(tasksQuery.data)
 
-  if (previousFilterKeyRef.current !== storedProjectIdsKey) {
+  useEffect(() => {
+    if (previousFilterKeyRef.current === storedProjectIdsKey) {
+      return
+    }
     previousFilterKeyRef.current = storedProjectIdsKey
-    if (optimisticTasks !== null) {
-      setOptimisticTasks(null)
-    }
-    if (kanbanMutationError !== null) {
-      setKanbanMutationError(null)
-    }
-  }
+    setOptimisticTasks((current) => (current !== null ? null : current))
+    setKanbanMutationError((current) => (current !== null ? null : current))
+  }, [storedProjectIdsKey])
 
-  if (previousTasksDataRef.current !== tasksQuery.data) {
-    previousTasksDataRef.current = tasksQuery.data
-    if (optimisticTasks !== null) {
-      setOptimisticTasks(null)
+  useEffect(() => {
+    if (previousTasksDataRef.current === tasksQuery.data) {
+      return
     }
-  }
+    previousTasksDataRef.current = tasksQuery.data
+    setOptimisticTasks((current) => (current !== null ? null : current))
+  }, [tasksQuery.data])
 
   const visibleDisambiguationTaskIds = tableTitleDisambiguationTaskIds.filter((taskId) =>
     displayTasks.some((task) => task.id === taskId),
@@ -619,7 +619,7 @@ function App() {
         onEditTask={() => undefined}
         projectsError={null}
         projectsLoading
-        reloadProjects={async () => Promise.resolve()}
+        reloadProjects={() => Promise.resolve([])}
       >
         <section className="workspace-panel">
           <p className="muted-copy">Loading workspace…</p>
@@ -670,9 +670,7 @@ function App() {
       onEditTask={openEditTaskDialog}
       projectsError={projectsQuery.error}
       projectsLoading={projectsQuery.isLoading}
-      reloadProjects={async () => {
-        await projectsQuery.reload()
-      }}
+      reloadProjects={projectsQuery.reload}
     >
       <ProjectsPage
         activeProjects={activeProjects}

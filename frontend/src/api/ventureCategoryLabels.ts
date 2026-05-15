@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
-import { toQueryState, type QueryState } from './queryUtils'
+import { useQueryState, type QueryState } from './queryUtils'
 import type { VentureCategoryLabel, VentureCategoryLabelPayload } from './types'
 import { ventureQueryKeys } from './ventures'
 
@@ -99,7 +99,7 @@ export function useVentureCategoryLabels(): QueryState<VentureCategoryLabel[]> {
     queryFn: listVentureCategoryLabels,
   })
 
-  return toQueryState(query, [])
+  return useQueryState(query, [])
 }
 
 export function useVentureCategoryLabelMutations(): {
@@ -117,7 +117,6 @@ export function useVentureCategoryLabelMutations(): {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ventureCategoryLabelQueryKeys.list() }),
       queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('active') }),
-      queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('archived') }),
     ])
   }
 

@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
-import { listProjects } from '../../api/projects'
 import type { Project, Task, Venture, VenturePayload } from '../../api/types'
 import {
   useVentureCategoryLabelMutations,
@@ -23,7 +22,7 @@ export type SidebarProps = {
   onEditTask: (task: Task) => void
   projectsError: string | null
   projectsLoading: boolean
-  reloadProjects: () => Promise<void>
+  reloadProjects: () => Promise<Project[]>
 }
 
 function titleCaseCategory(name: string): string {
@@ -61,18 +60,8 @@ export function Sidebar({
   const venturesQuery = useVentures('active')
   const labelsQuery = useVentureCategoryLabels()
 
-  /* eslint-disable react-hooks/exhaustive-deps -- reload identities track mutation refreshes without broader query churn */
-  const reloadVenturesAndProjects = useCallback(async () => {
-    await Promise.all([venturesQuery.reload(), reloadProjects()])
-  }, [reloadProjects, venturesQuery.reload])
-
-  const reloadLabels = useCallback(async () => {
-    await labelsQuery.reload()
-  }, [labelsQuery.reload])
-  /* eslint-enable react-hooks/exhaustive-deps */
-
-  const ventureMutations = useVentureMutations(reloadVenturesAndProjects)
-  const labelMutations = useVentureCategoryLabelMutations(reloadLabels)
+  const ventureMutations = useVentureMutations()
+  const labelMutations = useVentureCategoryLabelMutations()
 
   const hustleLabelId =
     labelsQuery.data.find(
@@ -151,9 +140,8 @@ export function Sidebar({
 
     try {
       await ventureMutations.archive(ventureId)
-      await reloadProjects()
+      const nextActive = await reloadProjects()
       if (archivedVentureIntersectsSidebarSelection) {
-        const nextActive = await listProjects({ status: 'active' })
         resetSidebarToAllProjects(nextActive.map((project) => project.id))
       }
       setVentureDialog(null)

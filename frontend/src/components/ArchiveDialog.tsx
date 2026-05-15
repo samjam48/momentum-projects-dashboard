@@ -34,8 +34,8 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
   const [archivedVentures, setArchivedVentures] = useState<Venture[]>([])
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([])
 
-  const archivedVenturesQuery = useVentures('archived')
-  const archivedProjectsQuery = useProjects(ARCHIVED_PROJECT_FILTERS)
+  const archivedVenturesQuery = useVentures('archived', { enabled: open })
+  const archivedProjectsQuery = useProjects(ARCHIVED_PROJECT_FILTERS, { enabled: open })
 
   useEffect(() => {
     if (!open) {
@@ -70,10 +70,6 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen)
-        if (nextOpen) {
-          void archivedVenturesQuery.reload()
-          void archivedProjectsQuery.reload()
-        }
 
         if (!nextOpen) {
           setActiveTab('projects')

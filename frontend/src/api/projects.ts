@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
-import { toQueryState, type QueryState } from './queryUtils'
+import { useQueryState, type QueryState } from './queryUtils'
 import type {
   Project,
   ProjectBoardStatus,
@@ -117,19 +117,25 @@ export async function updateProjectBoardStatus(
 
 const DEFAULT_PROJECT_FILTERS: ProjectFilters = { status: 'active' }
 
-export function useProjects(filters: ProjectFilters = DEFAULT_PROJECT_FILTERS): QueryState<Project[]> {
+export function useProjects(
+  filters: ProjectFilters = DEFAULT_PROJECT_FILTERS,
+  options?: { enabled?: boolean },
+): QueryState<Project[]> {
   const { status, venture_id, board_status, project_type, finished } = filters
   const stableFilters = useMemo<ProjectFilters>(
     () => ({ status, venture_id, board_status, project_type, finished }),
     [status, venture_id, board_status, project_type, finished],
   )
 
+  const enabled = options?.enabled ?? true
+
   const query = useQuery({
     queryKey: projectQueryKeys.list(stableFilters),
     queryFn: () => listProjects(stableFilters),
+    enabled,
   })
 
-  return toQueryState(query, [])
+  return useQueryState(query, [])
 }
 
 function useProjectMutationErrorState(): {
