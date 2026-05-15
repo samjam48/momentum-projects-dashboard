@@ -1,4 +1,4 @@
-import type { Task } from '../api/types'
+import type { Project, ProjectBoardStatus, Task } from '../api/types'
 
 export function compareTasksForKanban(leftTask: Task, rightTask: Task): number {
   if (leftTask.kanban_order !== null && rightTask.kanban_order !== null) {
@@ -24,4 +24,35 @@ export function sortTasksForKanban(tasks: Task[]): Task[] {
 
 export function taskOrderByStatus(tasks: Task[], status: Task['status']): Task[] {
   return sortTasksForKanban(tasks.filter((task) => task.status === status))
+}
+
+export function compareProjectsForKanban(left: Project, right: Project): number {
+  if (left.kanban_order !== null && right.kanban_order !== null) {
+    if (left.kanban_order !== right.kanban_order) {
+      return left.kanban_order - right.kanban_order
+    }
+  } else if (left.kanban_order !== null) {
+    return -1
+  } else if (right.kanban_order !== null) {
+    return 1
+  }
+
+  if (left.created_at !== right.created_at) {
+    return left.created_at.localeCompare(right.created_at)
+  }
+
+  return left.id.localeCompare(right.id)
+}
+
+export function sortProjectsForKanbanBoard(projects: Project[]): Project[] {
+  return [...projects].sort(compareProjectsForKanban)
+}
+
+export function projectOrderByBoardStatus(
+  projects: Project[],
+  boardStatus: ProjectBoardStatus,
+): Project[] {
+  return sortProjectsForKanbanBoard(
+    projects.filter((project) => project.board_status === boardStatus),
+  )
 }

@@ -61,8 +61,18 @@ export type WorkspaceBackendOptions = {
     payload: TimeLogPayload,
     count: number,
   ) => Response | Promise<Response> | null
+  onProjectBoardStatus?: (
+    projectId: string,
+    payload: Record<string, unknown>,
+    count: number,
+  ) => Response | Promise<Response> | null
   ventures?: Venture[]
   ventureCategoryLabels?: VentureCategoryLabel[]
+}
+
+export type ProjectBoardStatusRequestRecord = {
+  payload: Record<string, unknown>
+  projectId: string
 }
 
 function defaultVentureCategoryLabels(): VentureCategoryLabel[] {
@@ -199,6 +209,7 @@ export function installWorkspaceBackendMock(
   options: WorkspaceBackendOptions,
 ): {
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
+  projectBoardStatusRequests: ProjectBoardStatusRequestRecord[]
   taskStatusRequests: TaskStatusRequest[]
 } {
   const projects = [...(options.projects ?? [])]
@@ -223,6 +234,8 @@ export function installWorkspaceBackendMock(
   let taskStatusUpdateCount = 0
   let timeLogCreateCount = 0
   const taskStatusRequests: TaskStatusRequest[] = []
+  let projectBoardStatusUpdateCount = 0
+  const projectBoardStatusRequests: ProjectBoardStatusRequestRecord[] = []
 
   const actualHoursForTask = (taskId: string): number => {
     const timeLogs = timeLogsByTask.get(taskId) ?? []
@@ -483,13 +496,79 @@ export function installWorkspaceBackendMock(
       }
 
       if (method === 'GET' && pathname === '/api/v1/projects') {
-        const status = url.searchParams.get('status')
-        const items =
-          status === 'archived'
+        const statusParam = url.searchParams.get('status')
+        let items =
+          statusParam === 'archived'
             ? projects.filter((project) => project.status === 'archived')
             : projects.filter((project) => project.status === 'active')
 
+        const ventureIdFilter = url.searchParams.get('venture_id')
+        if (ventureIdFilter) {
+          items = items.filter((project) => project.venture_id === ventureIdFilter)
+        }
+
+        const projectTypeFilter = url.searchParams.get('project_type')
+        if (
+          projectTypeFilter === 'project' ||
+          projectTypeFilter === 'asset' ||
+          projectTypeFilter === 'gig' ||
+          projectTypeFilter === 'contract'
+        ) {
+          items = items.filter((project) => project.project_type === projectTypeFilter)
+        }
+
         return jsonResponse({ body: items })
+      }
+
+      const projectBoardStatusMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/board-status$/)
+      if (projectBoardStatusMatch && method === 'PATCH') {
+        const [, projectId] = projectBoardStatusMatch
+        const projectIndex = projects.findIndex((candidate) => candidate.id === projectId)
+
+        if (projectIndex < 0) {
+          return jsonResponse({ body: { detail: 'Project not found' }, status: 404 })
+        }
+
+        projectBoardStatusUpdateCount += 1
+        projectBoardStatusRequests.push({ projectId, payload: body })
+
+        const handlerResponse = options.onProjectBoardStatus
+          ? await options.onProjectBoardStatus(projectId, body, projectBoardStatusUpdateCount)
+          : null
+
+        if (handlerResponse) {
+          return handlerResponse
+        }
+
+        const current = projects[projectIndex]
+        const nextBoardRaw = body.board_status
+        const nextBoardStatus =
+          nextBoardRaw === 'idea' ||
+          nextBoardRaw === 'active' ||
+          nextBoardRaw === 'paused' ||
+          nextBoardRaw === 'shipped'
+            ? nextBoardRaw
+            : current.board_status
+
+        const nextKanbanOrder =
+          typeof body.kanban_order === 'number' ? body.kanban_order : current.kanban_order
+
+        let nextFinished =
+          typeof body.finished === 'boolean' ? body.finished : current.finished
+
+        if (typeof body.finished !== 'boolean' && nextBoardStatus === 'shipped') {
+          nextFinished = true
+        }
+
+        projects[projectIndex] = {
+          ...current,
+          board_status: nextBoardStatus,
+          kanban_order: nextKanbanOrder,
+          finished: nextFinished,
+          updated_at: '2026-05-13T14:05:00Z',
+        }
+
+        return jsonResponse({ body: projects[projectIndex] })
       }
 
       if (method === 'POST' && pathname === '/api/v1/projects') {
@@ -883,5 +962,5 @@ export function installWorkspaceBackendMock(
   )
 
   vi.stubGlobal('fetch', fetchMock)
-  return { fetchMock, taskStatusRequests }
+  return { fetchMock, projectBoardStatusRequests, taskStatusRequests }
 }

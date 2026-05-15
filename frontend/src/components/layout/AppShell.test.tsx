@@ -70,7 +70,7 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
       'aria-selected',
       'true',
     )
-    expect(within(toolbar).getByRole('tab', { name: /projects/i })).toBeDisabled()
+    expect(within(toolbar).getByRole('tab', { name: /^projects$/i })).not.toBeDisabled()
     expect(within(toolbar).getByRole('combobox', { name: /project filter/i })).toBeInTheDocument()
     expect(within(toolbar).getByRole('button', { name: /new task/i })).toBeInTheDocument()
     expect(
