@@ -5,7 +5,13 @@ from typing import Any, cast
 
 from app.models.project import Project
 from app.models.venture import Venture
-from app.schemas.project import ProjectCreate, ProjectStatus, ProjectUpdate
+from app.schemas.project import (
+    ProjectBoardStatus,
+    ProjectCreate,
+    ProjectStatus,
+    ProjectType,
+    ProjectUpdate,
+)
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
@@ -39,13 +45,25 @@ def _get_active_venture_or_404(session: Session, venture_id: str) -> Venture:
     return venture
 
 
-def list_projects(session: Session, project_status: ProjectStatus | None) -> list[Project]:
+def list_projects(
+    session: Session,
+    project_status: ProjectStatus | None,
+    venture_id: str | None = None,
+    board_status: ProjectBoardStatus | None = None,
+    project_type: ProjectType | None = None,
+    finished: bool | None = None,
+) -> list[Project]:
     status_filter = project_status or "active"
-    statement = (
-        select(Project)
-        .where(Project.status == status_filter)
-        .order_by(cast(Any, Project.created_at))
-    )
+    statement = select(Project).where(Project.status == status_filter)
+    if venture_id is not None:
+        statement = statement.where(Project.venture_id == venture_id)
+    if board_status is not None:
+        statement = statement.where(Project.board_status == board_status)
+    if project_type is not None:
+        statement = statement.where(Project.project_type == project_type)
+    if finished is not None:
+        statement = statement.where(Project.finished == finished)
+    statement = statement.order_by(cast(Any, Project.created_at))
     return list(session.exec(statement))
 
 
@@ -61,7 +79,7 @@ def create_project(session: Session, payload: ProjectCreate) -> Project:
         board_status=payload.board_status,
         kanban_order=payload.kanban_order,
         finished=payload.finished,
-        archived_by_venture=payload.archived_by_venture,
+        archived_by_venture=False,
     )
     session.add(project)
     session.commit()
@@ -95,10 +113,33 @@ def update_project(session: Session, project_id: str, payload: ProjectUpdate) ->
     return project
 
 
-def archive_project(session: Session, project_id: str) -> None:
+def archive_project(session: Session, project_id: str, finished: bool | None = None) -> None:
     project = _get_project_or_404(session, project_id)
     if project.status != "archived":
         project.status = "archived"
+        if finished is None:
+            project.finished = project.board_status == "shipped"
+        else:
+            project.finished = finished
+        project.archived_by_venture = False
         project.updated_at = _utc_now()
         session.add(project)
         session.commit()
+
+
+def unarchive_project(session: Session, project_id: str) -> Project:
+    project = _get_project_or_404(session, project_id)
+    venture = session.get(Venture, project.venture_id) if project.venture_id is not None else None
+    if venture is None or venture.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot unarchive project under archived venture.",
+        )
+    if project.status == "archived":
+        project.status = "active"
+        project.archived_by_venture = False
+        project.updated_at = _utc_now()
+        session.add(project)
+        session.commit()
+        session.refresh(project)
+    return project

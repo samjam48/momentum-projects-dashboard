@@ -38,7 +38,6 @@ class ProjectCreate(SQLModel):
     board_status: ProjectBoardStatus = "active"
     kanban_order: int | None = None
     finished: bool = False
-    archived_by_venture: bool = False
 
     @field_validator("name")
     @classmethod
@@ -61,7 +60,6 @@ class ProjectUpdate(SQLModel):
     board_status: ProjectBoardStatus | None = None
     kanban_order: int | None = None
     finished: bool | None = None
-    archived_by_venture: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -98,3 +96,7 @@ class ProjectRead(SQLModel):
     archived_by_venture: bool
     created_at: datetime
     updated_at: datetime
+
+
+class ProjectArchive(SQLModel):
+    finished: bool | None = None
