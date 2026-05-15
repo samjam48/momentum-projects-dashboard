@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import type { Project, Venture, VentureCategoryLabel } from '../../api/types'
 import { buildProject, buildVenture, buildVentureCategoryLabel } from '../../test/fixtures'
+import { renderWithQueryClient } from '../../test/renderApp'
 import { resetProjectFilterStore } from '../../stores/projectFilter'
 import { Sidebar } from './Sidebar'
 
@@ -135,7 +136,7 @@ async function renderSidebar(options?: {
   projectsError?: string | null
   projectsLoading?: boolean
   skipReadyWait?: boolean
-}): Promise<ReturnType<typeof render>> {
+}): Promise<ReturnType<typeof renderWithQueryClient>> {
   const activeProjects = options?.activeProjects ?? []
 
   installSidebarFetchMock({
@@ -143,7 +144,7 @@ async function renderSidebar(options?: {
     projectsForList: activeProjects,
   })
 
-  const view = render(
+  const view = renderWithQueryClient(
     <Sidebar
       activeProjects={activeProjects}
       onCreateProject={vi.fn()}
@@ -347,7 +348,7 @@ describe('Ticket 1.6-8 Venture Tree Sidebar and Venture Dialogs', () => {
       projectsForList: activeProjects,
     })
 
-    render(
+    renderWithQueryClient(
       <Sidebar
         activeProjects={activeProjects}
         onCreateProject={vi.fn()}

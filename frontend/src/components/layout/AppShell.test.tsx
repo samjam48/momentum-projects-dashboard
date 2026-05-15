@@ -1,6 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 
 import App from '../../App'
+import { renderWithQueryClient } from '../../test/renderApp'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -26,7 +27,7 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
 
   it('renders top navigation with Projects active and future routes stubbed', async () => {
     installEmptyProjectsMock()
-    render(<App />)
+    renderWithQueryClient(<App />)
 
     const nav = await screen.findByRole('navigation', { name: /primary/i })
     expect(within(nav).getByRole('button', { name: /^projects$/i })).toHaveAttribute(
@@ -40,7 +41,7 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
 
   it('renders sidebar scaffold and omits the workspace filter panel', async () => {
     installEmptyProjectsMock()
-    render(<App />)
+    renderWithQueryClient(<App />)
 
     expect(await screen.findByRole('complementary', { name: /projects sidebar/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /workspace filter/i })).not.toBeInTheDocument()
@@ -48,7 +49,7 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
 
   it('stacks the kanban board above the task summary table in the main column', async () => {
     installEmptyProjectsMock()
-    render(<App />)
+    renderWithQueryClient(<App />)
 
     const main = screen.getByRole('main')
     const kanban = await within(main).findByRole('region', { name: /kanban board/i })
@@ -62,7 +63,7 @@ describe('Ticket 1b-1 app shell and Projects page layout', () => {
 
   it('exposes the Projects page toolbar controls', async () => {
     installEmptyProjectsMock()
-    render(<App />)
+    renderWithQueryClient(<App />)
 
     const toolbar = await screen.findByRole('toolbar', { name: /projects page/i })
     expect(within(toolbar).getByRole('tab', { name: /^tasks$/i })).toHaveAttribute(
