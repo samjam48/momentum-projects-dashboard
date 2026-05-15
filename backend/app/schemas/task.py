@@ -98,6 +98,7 @@ class TaskRead(SQLModel):
 
 
 class TimeLogCreate(SQLModel):
+    activity_type_id: str | None = None
     hours: float
     logged_date: date
     notes: str | None = None

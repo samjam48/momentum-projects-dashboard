@@ -4,7 +4,6 @@ from fastapi import APIRouter, Query, Response, status
 
 from app.db.database import SessionDep
 from app.models.task import Task
-from app.models.time_log import TimeLog
 from app.schemas.task import (
     TaskCreate,
     TaskPriority,
@@ -61,7 +60,7 @@ def update_task_status(
 
 
 @router.get("/{task_id}/time-logs", response_model=list[TimeLogRead])
-def list_time_logs(session: SessionDep, task_id: str) -> list[TimeLog]:
+def list_time_logs(session: SessionDep, task_id: str) -> list[TimeLogRead]:
     return task_services.list_time_logs(session, task_id)
 
 
@@ -70,7 +69,11 @@ def list_time_logs(session: SessionDep, task_id: str) -> list[TimeLog]:
     response_model=TimeLogRead,
     status_code=status.HTTP_201_CREATED,
 )
-def create_time_log(session: SessionDep, task_id: str, payload: TimeLogCreate) -> TimeLog:
+def create_time_log(
+    session: SessionDep,
+    task_id: str,
+    payload: TimeLogCreate,
+) -> TimeLogRead:
     return task_services.create_time_log(session, task_id, payload)
 
 

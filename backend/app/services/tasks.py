@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import cast
 
+from app.models.activity_type import ActivityType
 from app.models.project import Project
 from app.models.task import Task
 from app.models.time_log import TimeLog
@@ -13,6 +14,7 @@ from app.schemas.task import (
     TaskStatusUpdate,
     TaskUpdate,
     TimeLogCreate,
+    TimeLogRead,
 )
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -72,6 +74,28 @@ def _recompute_actual_hours(session: Session, task: Task) -> None:
     task.actual_hours = float(hours_total or 0.0)
     task.updated_at = _utc_now()
     session.add(task)
+
+
+def _to_time_log_read(
+    time_log: TimeLog,
+    activity_type_name: str | None = None,
+) -> TimeLogRead:
+    return TimeLogRead(
+        id=time_log.id,
+        task_id=time_log.task_id,
+        project_id=time_log.project_id,
+        activity_type_id=time_log.activity_type_id,
+        activity_type_name=activity_type_name,
+        activity_type_display_name=activity_type_name or "uncategorised",
+        hours=time_log.hours,
+        logged_date=time_log.logged_date,
+        source=time_log.source,
+        external_id=time_log.external_id,
+        notes=time_log.notes,
+        title=time_log.title,
+        location=time_log.location,
+        created_at=time_log.created_at,
+    )
 
 
 def list_tasks(
@@ -163,21 +187,53 @@ def update_task_status(session: Session, task_id: str, payload: TaskStatusUpdate
     return task
 
 
-def list_time_logs(session: Session, task_id: str) -> list[TimeLog]:
+def list_time_logs(session: Session, task_id: str) -> list[TimeLogRead]:
     task = _get_task_or_404(session, task_id)
-    statement = (
-        select(TimeLog)
-        .where(TimeLog.task_id == task.id)
-        .order_by(col(TimeLog.logged_date).desc(), col(TimeLog.created_at).desc())
+    time_logs = list(
+        session.exec(
+            select(TimeLog)
+            .where(TimeLog.task_id == task.id)
+            .order_by(col(TimeLog.logged_date).desc(), col(TimeLog.created_at).desc())
+        )
     )
-    return list(session.exec(statement))
+    if not time_logs:
+        return []
+    activity_type_ids = {
+        time_log.activity_type_id for time_log in time_logs if time_log.activity_type_id is not None
+    }
+    activity_types_by_id: dict[str, str] = {}
+    if activity_type_ids:
+        activity_types = session.exec(
+            select(ActivityType).where(col(ActivityType.id).in_(activity_type_ids))
+        ).all()
+        activity_types_by_id = {
+            activity_type.id: activity_type.name for activity_type in activity_types
+        }
+
+    return [
+        _to_time_log_read(
+            time_log,
+            activity_types_by_id.get(time_log.activity_type_id or ""),
+        )
+        for time_log in time_logs
+    ]
 
 
-def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> TimeLog:
+def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> TimeLogRead:
     task = _get_task_or_404(session, task_id)
+    activity_type_name: str | None = None
+    if payload.activity_type_id is not None:
+        activity_type = session.get(ActivityType, payload.activity_type_id)
+        if activity_type is None or activity_type.status != "active":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="activity_type_id must reference an active activity type",
+            )
+        activity_type_name = activity_type.name
     time_log = TimeLog(
         task_id=task.id,
         project_id=task.project_id,
+        activity_type_id=payload.activity_type_id,
         hours=payload.hours,
         logged_date=payload.logged_date,
         notes=payload.notes,
@@ -191,7 +247,7 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     session.commit()
     session.refresh(time_log)
     session.refresh(task)
-    return time_log
+    return _to_time_log_read(time_log, activity_type_name)
 
 
 def delete_time_log(session: Session, task_id: str, time_log_id: str) -> None:
