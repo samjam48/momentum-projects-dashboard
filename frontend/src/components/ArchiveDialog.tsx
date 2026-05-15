@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
-import { listProjects } from '../api/projects'
-import { listTasks } from '../api/tasks'
-import type { Project, Task } from '../api/types'
+import { useProjects, type ProjectFilters } from '../api/projects'
+import type { Project, Venture } from '../api/types'
+import { useVentures } from '../api/ventures'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -12,106 +12,73 @@ import {
   DialogTrigger,
 } from './ui/dialog'
 
-type ArchiveTab = 'projects' | 'tasks'
+type ArchiveTab = 'ventures' | 'projects'
+
+const ARCHIVED_PROJECT_FILTERS: ProjectFilters = { status: 'archived' }
 
 type ArchiveDialogProps = {
-  activeProjects: Project[]
   onEditProject: (project: Project) => void
-  onEditTask: (task: Task) => void
 }
 
-export function ArchiveDialog({
-  activeProjects,
-  onEditProject,
-  onEditTask,
-}: ArchiveDialogProps): JSX.Element {
+function titleCaseLabel(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
+export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
+  const [archivedVentures, setArchivedVentures] = useState<Venture[]>([])
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([])
-  const [archivedTasks, setArchivedTasks] = useState<Task[]>([])
-  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false)
-  const [projectsLoadError, setProjectsLoadError] = useState<string | null>(null)
-  const [tasksLoadError, setTasksLoadError] = useState<string | null>(null)
 
-  const projectsById = activeProjects.reduce<Record<string, Project>>((projectMap, project) => {
-    projectMap[project.id] = project
-    return projectMap
-  }, {})
+  const archivedVenturesQuery = useVentures('archived')
+  const archivedProjectsQuery = useProjects(ARCHIVED_PROJECT_FILTERS)
 
   useEffect(() => {
     if (!open) {
       return
     }
-
-    let cancelled = false
-    setIsLoadingProjects(true)
-    setProjectsLoadError(null)
-
-    void listProjects('archived')
-      .then((projects) => {
-        if (!cancelled) {
-          setArchivedProjects(projects)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setProjectsLoadError('Unable to load archived projects.')
-          setArchivedProjects([])
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoadingProjects(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
+    if (!archivedVenturesQuery.isLoading && !archivedVenturesQuery.error) {
+      setArchivedVentures(archivedVenturesQuery.data)
     }
-  }, [open])
+  }, [
+    open,
+    archivedVenturesQuery.data,
+    archivedVenturesQuery.error,
+    archivedVenturesQuery.isLoading,
+  ])
 
   useEffect(() => {
-    if (!open || activeTab !== 'tasks') {
+    if (!open) {
       return
     }
-
-    let cancelled = false
-    setIsLoadingTasks(true)
-    setTasksLoadError(null)
-
-    void listTasks({ status: 'archived' })
-      .then((tasks) => {
-        if (!cancelled) {
-          setArchivedTasks(tasks)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTasksLoadError('Unable to load archived tasks.')
-          setArchivedTasks([])
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoadingTasks(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
+    if (!archivedProjectsQuery.isLoading && !archivedProjectsQuery.error) {
+      setArchivedProjects(archivedProjectsQuery.data)
     }
-  }, [activeTab, open])
+  }, [
+    open,
+    archivedProjectsQuery.data,
+    archivedProjectsQuery.error,
+    archivedProjectsQuery.isLoading,
+  ])
 
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen)
+        if (nextOpen) {
+          void archivedVenturesQuery.reload()
+          void archivedProjectsQuery.reload()
+        }
+
         if (!nextOpen) {
           setActiveTab('projects')
+          setArchivedVentures([])
           setArchivedProjects([])
-          setArchivedTasks([])
         }
       }}
     >
@@ -128,6 +95,15 @@ export function ArchiveDialog({
 
         <div aria-label="Archive views" className="archive-dialog-tabs" role="tablist">
           <button
+            aria-selected={activeTab === 'ventures'}
+            className={`archive-dialog-tab${activeTab === 'ventures' ? ' archive-dialog-tab-active' : ''}`}
+            role="tab"
+            type="button"
+            onClick={() => setActiveTab('ventures')}
+          >
+            Archived ventures
+          </button>
+          <button
             aria-selected={activeTab === 'projects'}
             className={`archive-dialog-tab${activeTab === 'projects' ? ' archive-dialog-tab-active' : ''}`}
             role="tab"
@@ -136,25 +112,45 @@ export function ArchiveDialog({
           >
             Archived projects
           </button>
-          <button
-            aria-selected={activeTab === 'tasks'}
-            className={`archive-dialog-tab${activeTab === 'tasks' ? ' archive-dialog-tab-active' : ''}`}
-            role="tab"
-            type="button"
-            onClick={() => setActiveTab('tasks')}
-          >
-            Archived tasks
-          </button>
         </div>
 
-        {activeTab === 'projects' ? (
+        {activeTab === 'ventures' ? (
           <ArchiveTabPanel>
-            {projectsLoadError ? <p className="form-error">{projectsLoadError}</p> : null}
-            {isLoadingProjects ? <p className="muted-copy">Loading archived projects…</p> : null}
-            {!isLoadingProjects && archivedProjects.length === 0 ? (
+            {archivedVenturesQuery.isLoading ? (
+              <p className="muted-copy">Loading archived ventures…</p>
+            ) : null}
+            {!archivedVenturesQuery.isLoading && archivedVenturesQuery.error ? (
+              <p className="form-error">{archivedVenturesQuery.error}</p>
+            ) : null}
+            {!archivedVenturesQuery.isLoading &&
+            !archivedVenturesQuery.error &&
+            archivedVentures.length === 0 ? (
+              <p className="muted-copy">No archived ventures.</p>
+            ) : null}
+            {!archivedVenturesQuery.isLoading && archivedVentures.length > 0 ? (
+              <ul className="archive-project-list">
+                {archivedVentures.map((venture) => (
+                  <li key={venture.id} className="archive-project-row">
+                    <span>{titleCaseLabel(venture.name)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </ArchiveTabPanel>
+        ) : (
+          <ArchiveTabPanel>
+            {archivedProjectsQuery.isLoading ? (
+              <p className="muted-copy">Loading archived projects…</p>
+            ) : null}
+            {!archivedProjectsQuery.isLoading && archivedProjectsQuery.error ? (
+              <p className="form-error">{archivedProjectsQuery.error}</p>
+            ) : null}
+            {!archivedProjectsQuery.isLoading &&
+            !archivedProjectsQuery.error &&
+            archivedProjects.length === 0 ? (
               <p className="muted-copy">No archived projects.</p>
             ) : null}
-            {!isLoadingProjects && archivedProjects.length > 0 ? (
+            {!archivedProjectsQuery.isLoading && archivedProjects.length > 0 ? (
               <ul className="archive-project-list">
                 {archivedProjects.map((project) => (
                   <li key={project.id}>
@@ -176,43 +172,6 @@ export function ArchiveDialog({
                     </button>
                   </li>
                 ))}
-              </ul>
-            ) : null}
-          </ArchiveTabPanel>
-        ) : (
-          <ArchiveTabPanel>
-            {tasksLoadError ? <p className="form-error">{tasksLoadError}</p> : null}
-            {isLoadingTasks ? <p className="muted-copy">Loading archived tasks…</p> : null}
-            {!isLoadingTasks && archivedTasks.length === 0 ? (
-              <p className="muted-copy">No archived tasks.</p>
-            ) : null}
-            {!isLoadingTasks && archivedTasks.length > 0 ? (
-              <ul className="archive-task-list">
-                {archivedTasks.map((task) => {
-                  const project = projectsById[task.project_id]
-
-                  return (
-                    <li key={task.id}>
-                      <button
-                        className="archive-task-row"
-                        type="button"
-                        onClick={() => {
-                          setOpen(false)
-                          onEditTask(task)
-                        }}
-                      >
-                        <span
-                          aria-hidden
-                          className="project-colour-dot"
-                          data-testid={`archive-task-dot-${task.project_id}`}
-                          style={{ backgroundColor: project?.colour ?? undefined }}
-                        />
-                        <span>{task.title}</span>
-                        {project ? <span className="archive-task-project">{project.name}</span> : null}
-                      </button>
-                    </li>
-                  )
-                })}
               </ul>
             ) : null}
           </ArchiveTabPanel>

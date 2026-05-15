@@ -99,7 +99,7 @@ function installDelayedArchivedProjectsMock(
       const status = url.searchParams.get('status')
       if (status === 'archived') {
         archivedFetchCount += 1
-        if (archivedFetchCount > 1) {
+        if (archivedFetchCount > 2) {
           archivedPayload = []
           await new Promise((resolve) => {
             setTimeout(resolve, delayMs)

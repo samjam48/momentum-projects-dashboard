@@ -619,6 +619,7 @@ function App() {
         onEditTask={() => undefined}
         projectsError={null}
         projectsLoading
+        reloadProjects={async () => Promise.resolve()}
       >
         <section className="workspace-panel">
           <p className="muted-copy">Loading workspace…</p>
@@ -669,10 +670,14 @@ function App() {
       onEditTask={openEditTaskDialog}
       projectsError={projectsQuery.error}
       projectsLoading={projectsQuery.isLoading}
+      reloadProjects={async () => {
+        await projectsQuery.reload()
+      }}
     >
       <ProjectsPage
         activeProjects={activeProjects}
         kanbanSection={kanbanSection}
+        onOpenCreateProject={openCreateProjectDialog}
         onOpenCreateTask={openCreateTaskDialog}
         projectFilterLabel={projectFilterLabel}
         selectedProjectId={selectedProjectId}

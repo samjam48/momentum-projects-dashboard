@@ -1,6 +1,23 @@
-import type { Project, Task, TaskPayload, TaskStatus, TaskStatusPayload, TimeLog, TimeLogPayload } from '../api/types'
+import type {
+  Project,
+  Task,
+  TaskPayload,
+  TaskStatus,
+  TaskStatusPayload,
+  TimeLog,
+  TimeLogPayload,
+  Venture,
+  VentureCategoryLabel,
+} from '../api/types'
 
-import { buildProject, buildTask, buildTimeLog } from './fixtures'
+import {
+  buildProject,
+  buildTask,
+  buildTimeLog,
+  buildVenture,
+  buildVentureCategoryLabel,
+  MOCK_DEFAULT_VENTURE_ID,
+} from './fixtures'
 
 type MockResponseOptions = {
   body?: unknown
@@ -12,7 +29,7 @@ export type WorkspaceBackendOptions = {
   tasks?: Task[]
   timeLogs?: Record<string, TimeLog[]>
   onProjectCreate?: (
-    payload: { name: string; description: string | null; colour: string },
+    payload: { name: string; description: string | null; colour: string; venture_id?: string },
     count: number,
   ) => Response | Promise<Response> | null
   onProjectUpdate?: (
@@ -35,6 +52,27 @@ export type WorkspaceBackendOptions = {
     payload: TimeLogPayload,
     count: number,
   ) => Response | Promise<Response> | null
+  ventures?: Venture[]
+  ventureCategoryLabels?: VentureCategoryLabel[]
+}
+
+function defaultVentureCategoryLabels(): VentureCategoryLabel[] {
+  const seeds = [
+    ['Hustle', 'hustle'],
+    ['Business', 'business'],
+    ['Investment', 'investment'],
+    ['Property', 'property'],
+    ['Education', 'education'],
+    ['Hobby', 'hobby'],
+  ] as const
+
+  return seeds.map(([name, slug], index) =>
+    buildVentureCategoryLabel({
+      id: `label-seed-${index + 1}`,
+      name,
+      slug,
+    }),
+  )
 }
 
 function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
@@ -155,6 +193,15 @@ export function installWorkspaceBackendMock(
   taskStatusRequests: TaskStatusRequest[]
 } {
   const projects = [...(options.projects ?? [])]
+  const ventureLabels = [...(options.ventureCategoryLabels ?? defaultVentureCategoryLabels())]
+  const ventures = [
+    ...(options.ventures ?? [
+      buildVenture({
+        category_label: ventureLabels[0],
+        category_label_id: ventureLabels[0]?.id ?? 'label-seed-1',
+      }),
+    ]),
+  ]
   const tasks = [...(options.tasks ?? [])]
   const timeLogsByTask = new Map<string, TimeLog[]>(
     Object.entries(options.timeLogs ?? {}).map(([taskId, timeLogs]) => [
@@ -188,6 +235,244 @@ export function installWorkspaceBackendMock(
       const pathname = url.pathname
       const body = parseJsonBody(init)
 
+      if (method === 'GET' && pathname === '/api/v1/venture-category-labels') {
+        return jsonResponse({ body: ventureLabels })
+      }
+
+      if (method === 'POST' && pathname === '/api/v1/venture-category-labels') {
+        const payload = body as { name?: string }
+        const trimmedName =
+          typeof payload.name === 'string' ? payload.name.trim().slice(0, 120) : ''
+        if (!trimmedName) {
+          return jsonResponse({
+            body: { detail: [{ loc: ['body', 'name'], msg: 'Name is required' }] },
+            status: 422,
+          })
+        }
+
+        const duplicate = ventureLabels.some(
+          (label) => label.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+        )
+        if (duplicate) {
+          return jsonResponse({
+            body: {
+              detail: [{ loc: ['body', 'name'], msg: 'A label with this name already exists' }],
+            },
+            status: 422,
+          })
+        }
+
+        const slug = trimmedName.toLowerCase().replace(/\s+/g, '-')
+        const createdLabel = buildVentureCategoryLabel({
+          id: `label-created-${ventureLabels.length + 1}`,
+          name: trimmedName,
+          slug,
+        })
+        ventureLabels.push(createdLabel)
+        return jsonResponse({ body: createdLabel, status: 201 })
+      }
+
+      if (method === 'GET' && pathname === '/api/v1/ventures') {
+        const statusParam = url.searchParams.get('status') ?? 'active'
+        const items = [
+          ...new Map(
+            ventures
+              .filter((venture) => venture.status === statusParam)
+              .map((venture) => [venture.id, venture]),
+          ).values(),
+        ]
+        return jsonResponse({ body: items })
+      }
+
+      if (method === 'POST' && pathname === '/api/v1/ventures') {
+        const payload = body as {
+          category_label_id?: string
+          colour?: string | null
+          description?: string | null
+          icon?: string | null
+          name?: string
+        }
+
+        const name =
+          typeof payload.name === 'string' ? payload.name.trim().slice(0, 200) : ''
+
+        if (!name) {
+          return jsonResponse({
+            body: { detail: [{ loc: ['body', 'name'], msg: 'Name is required' }] },
+            status: 422,
+          })
+        }
+
+        let categoryLabelId = payload.category_label_id ?? ventureLabels[0]?.id
+        let categoryLabel = ventureLabels.find((label) => label.id === categoryLabelId)
+
+        if (!categoryLabel) {
+          categoryLabel = ventureLabels[0]
+          categoryLabelId = categoryLabel?.id
+        }
+
+        const createdVenture = buildVenture({
+          id: `venture-created-${ventures.length + 1}`,
+          name,
+          description:
+            typeof payload.description === 'string' ? payload.description.trim() || null : null,
+          colour: typeof payload.colour === 'string' ? payload.colour : '#D97048',
+          icon: typeof payload.icon === 'string' ? payload.icon.trim() || null : null,
+          category_label_id: categoryLabelId ?? 'label-seed-1',
+          category_label: categoryLabel ?? null,
+          status: 'active',
+        })
+        ventures.push(createdVenture)
+        return jsonResponse({ body: createdVenture, status: 201 })
+      }
+
+      const ventureArchiveMatch = pathname.match(/^\/api\/v1\/ventures\/([^/]+)\/unarchive$/)
+      if (ventureArchiveMatch && method === 'PATCH') {
+        const [, ventureId] = ventureArchiveMatch
+        const ventureIndex = ventures.findIndex((candidate) => candidate.id === ventureId)
+
+        if (ventureIndex < 0) {
+          return jsonResponse({ body: { detail: 'Venture not found' }, status: 404 })
+        }
+
+        ventures[ventureIndex] = {
+          ...ventures[ventureIndex],
+          status: 'active',
+          updated_at: '2026-05-13T11:00:00Z',
+        }
+
+        for (let index = 0; index < projects.length; index += 1) {
+          const candidate = projects[index]
+          if (candidate.venture_id !== ventureId || !candidate.archived_by_venture) {
+            continue
+          }
+
+          projects[index] = {
+            ...candidate,
+            archived_by_venture: false,
+            status: 'active',
+            updated_at: '2026-05-13T11:00:00Z',
+          }
+        }
+
+        return jsonResponse({ body: ventures[ventureIndex] })
+      }
+
+      const ventureIdMatch = pathname.match(/^\/api\/v1\/ventures\/([^/]+)$/)
+      if (ventureIdMatch && method === 'GET') {
+        const [, ventureId] = ventureIdMatch
+        const venture = ventures.find((candidate) => candidate.id === ventureId)
+
+        if (!venture) {
+          return jsonResponse({ body: { detail: 'Venture not found' }, status: 404 })
+        }
+
+        return jsonResponse({ body: venture })
+      }
+
+      if (ventureIdMatch && method === 'PATCH') {
+        const [, ventureId] = ventureIdMatch
+        const ventureIndex = ventures.findIndex((candidate) => candidate.id === ventureId)
+
+        if (ventureIndex < 0) {
+          return jsonResponse({ body: { detail: 'Venture not found' }, status: 404 })
+        }
+
+        const currentVenture = ventures[ventureIndex]
+        if (currentVenture.status === 'archived') {
+          return jsonResponse({
+            body: { detail: 'Archived ventures cannot be updated.' },
+            status: 409,
+          })
+        }
+
+        const payload = body as {
+          category_label_id?: string
+          colour?: string | null
+          description?: string | null
+          icon?: string | null
+          name?: string
+        }
+
+        const nextName =
+          typeof payload.name === 'string'
+            ? payload.name.trim().slice(0, 200)
+            : currentVenture.name
+
+        if (!nextName) {
+          return jsonResponse({
+            body: { detail: [{ loc: ['body', 'name'], msg: 'Name is required' }] },
+            status: 422,
+          })
+        }
+
+        let nextCategoryLabelId = currentVenture.category_label_id
+        let nextCategoryLabel = currentVenture.category_label
+
+        if (typeof payload.category_label_id === 'string') {
+          const matchedLabel = ventureLabels.find(
+            (label) => label.id === payload.category_label_id,
+          )
+          if (matchedLabel) {
+            nextCategoryLabelId = matchedLabel.id
+            nextCategoryLabel = matchedLabel
+          }
+        }
+
+        ventures[ventureIndex] = {
+          ...currentVenture,
+          name: nextName,
+          description:
+            typeof payload.description === 'string'
+              ? payload.description.trim() || null
+              : currentVenture.description,
+          colour:
+            typeof payload.colour === 'string'
+              ? payload.colour
+              : currentVenture.colour,
+          icon:
+            typeof payload.icon === 'string'
+              ? payload.icon.trim() || null
+              : currentVenture.icon,
+          category_label_id: nextCategoryLabelId,
+          category_label: nextCategoryLabel,
+          updated_at: '2026-05-13T10:45:00Z',
+        }
+
+        return jsonResponse({ body: ventures[ventureIndex] })
+      }
+
+      if (ventureIdMatch && method === 'DELETE') {
+        const [, ventureId] = ventureIdMatch
+        const ventureIndex = ventures.findIndex((candidate) => candidate.id === ventureId)
+
+        if (ventureIndex < 0) {
+          return jsonResponse({ body: { detail: 'Venture not found' }, status: 404 })
+        }
+
+        ventures[ventureIndex] = {
+          ...ventures[ventureIndex],
+          status: 'archived',
+          updated_at: '2026-05-13T10:30:00Z',
+        }
+
+        for (let index = 0; index < projects.length; index += 1) {
+          const candidate = projects[index]
+          if (candidate.venture_id !== ventureId || candidate.status !== 'active') {
+            continue
+          }
+
+          projects[index] = {
+            ...candidate,
+            status: 'archived',
+            archived_by_venture: true,
+            updated_at: '2026-05-13T10:30:00Z',
+          }
+        }
+
+        return new Response(null, { status: 204 })
+      }
+
       if (method === 'GET' && pathname === '/api/v1/projects') {
         const status = url.searchParams.get('status')
         const items =
@@ -200,7 +485,12 @@ export function installWorkspaceBackendMock(
 
       if (method === 'POST' && pathname === '/api/v1/projects') {
         projectCreateCount += 1
-        const payload = body as { name: string; description: string | null; colour: string }
+        const payload = body as {
+          colour: string
+          description: string | null
+          name: string
+          venture_id?: string
+        }
         const handlerResponse = options.onProjectCreate
           ? await options.onProjectCreate(payload, projectCreateCount)
           : null
@@ -209,11 +499,17 @@ export function installWorkspaceBackendMock(
           return handlerResponse
         }
 
+        const ventureId =
+          typeof payload.venture_id === 'string' && payload.venture_id.length > 0
+            ? payload.venture_id
+            : MOCK_DEFAULT_VENTURE_ID
+
         const createdProject = buildProject({
           id: `project-created-${projectCreateCount}`,
           name: payload.name,
           description: payload.description,
           colour: payload.colour,
+          venture_id: ventureId,
           created_at: `2026-05-13T09:00:0${projectCreateCount}Z`,
           updated_at: `2026-05-13T09:00:0${projectCreateCount}Z`,
         })

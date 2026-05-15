@@ -120,7 +120,9 @@ export async function updateProjectBoardStatus(
   })
 }
 
-export function useProjects(filters: ProjectFilters = { status: 'active' }): QueryState<Project[]> {
+const DEFAULT_PROJECT_FILTERS: ProjectFilters = { status: 'active' }
+
+export function useProjects(filters: ProjectFilters = DEFAULT_PROJECT_FILTERS): QueryState<Project[]> {
   const [data, setData] = useState<Project[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)

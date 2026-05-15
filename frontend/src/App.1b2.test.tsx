@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import { renderApp } from './test/renderApp'
 import { resetProjectFilterStore, useProjectFilterStore } from './stores/projectFilter'
@@ -53,6 +54,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
+function getProjectsToolbar(): HTMLElement {
+  return screen.getByRole('toolbar', { name: /projects page/i })
+}
+
 describe('Ticket 1b-2 project and task modal UX', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -84,7 +89,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getSidebar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
       const createDialog = await screen.findByRole('dialog', { name: /new project/i })
       expect(createDialog).toHaveAttribute('data-slot', 'dialog-content')
 
@@ -132,14 +137,15 @@ describe('Ticket 1b-2 project and task modal UX', () => {
       expect(within(sidebar).getByRole('button', { name: /view archive/i })).toBeInTheDocument()
     })
 
-    it('shows a disabled + Hustle stub labelled for Phase 1.6', async () => {
+    it('enables + Hustle and opens the new venture dialog', async () => {
       installWorkspaceBackendMock({ projects: [alphaProject] })
 
       await renderApp()
 
       const hustleButton = within(getSidebar()).getByRole('button', { name: /\+ hustle/i })
-      expect(hustleButton).toBeDisabled()
-      expect(hustleButton).toHaveAccessibleName(/1\.6/i)
+      expect(hustleButton).toBeEnabled()
+      await userEvent.click(hustleButton)
+      expect(await screen.findByRole('dialog', { name: /new venture/i })).toBeInTheDocument()
     })
   })
 
@@ -149,7 +155,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getSidebar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
       expect(within(dialog).getByText(/^colour$/i)).toBeInTheDocument()
@@ -169,7 +175,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getSidebar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
       const picker = within(dialog).getByRole('button', { name: /^colour$/i })
 
@@ -315,7 +321,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getSidebar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
       fireEvent.change(within(dialog).getByLabelText(/project name/i), {
@@ -338,14 +344,19 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
     it('preserves project dialog form state when validation fails', async () => {
       installWorkspaceBackendMock({
-        projects: [],
+        projects: [
+          buildProject({
+            id: 'project-seed',
+            name: 'Seed project',
+          }),
+        ],
         onProjectCreate: () =>
           jsonResponse({ detail: 'colour must match #RRGGBB' }, 422),
       })
 
       await renderApp()
 
-      fireEvent.click(within(getSidebar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
       fireEvent.change(within(dialog).getByLabelText(/project name/i), {

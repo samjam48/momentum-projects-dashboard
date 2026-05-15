@@ -53,8 +53,9 @@ const EMPTY_PROJECT_FORM: ProjectFormState = {
 
 const KANBAN_STATUSES: KanbanTaskStatus[] = ['backlog', 'in_progress', 'review', 'done']
 
-function projectPayloadFromForm(formState: ProjectFormState): ProjectPayload {
+function projectPayloadFromForm(formState: ProjectFormState, ventureId: string): ProjectPayload {
   return {
+    venture_id: ventureId,
     colour: formState.colour.trim() || null,
     description: formState.description.trim() || null,
     name: formState.name.trim(),
@@ -465,10 +466,25 @@ export function useWorkspaceDialogs({
     setProjectFormErrors({})
 
     try {
+      const ventureOwner =
+        editingProjectId !== null
+          ? projectsQueryData.find((candidate) => candidate.id === editingProjectId)
+          : activeProjects[0]
+
+      const resolvedVentureId = ventureOwner?.venture_id
+
+      if (!resolvedVentureId) {
+        setProjectFormErrors({ form: 'Create a venture before adding projects.' })
+        return
+      }
+
       if (editingProjectId) {
-        await projectMutations.update(editingProjectId, projectPayloadFromForm(projectForm))
+        await projectMutations.update(
+          editingProjectId,
+          projectPayloadFromForm(projectForm, resolvedVentureId),
+        )
       } else {
-        await projectMutations.create(projectPayloadFromForm(projectForm))
+        await projectMutations.create(projectPayloadFromForm(projectForm, resolvedVentureId))
       }
 
       resetProjectForm()

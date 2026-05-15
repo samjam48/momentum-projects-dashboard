@@ -37,10 +37,14 @@ function extractVentures(payload: unknown): Venture[] {
   return []
 }
 
+function dedupeVenturesById(ventures: Venture[]): Venture[] {
+  return [...new Map(ventures.map((venture) => [venture.id, venture])).values()]
+}
+
 export async function listVentures(status: VentureStatus = 'active'): Promise<Venture[]> {
   const query = new URLSearchParams({ status })
   const payload = await apiRequest<unknown>(`/api/v1/ventures?${query.toString()}`)
-  return extractVentures(payload)
+  return dedupeVenturesById(extractVentures(payload))
 }
 
 export async function createVenture(payload: VenturePayload): Promise<Venture> {
