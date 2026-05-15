@@ -3,6 +3,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { ApiError, apiRequest } from './client'
 import type { TimeLog, TimeLogPayload } from './types'
 
+// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
+export const timeLogQueryKeys = {
+  all: ['time-logs'] as const,
+  list: (taskId: string) => [...timeLogQueryKeys.all, { taskId }] as const,
+}
+
 type QueryState<T> = {
   data: T
   error: string | null
@@ -36,9 +42,14 @@ export async function createTimeLog(
   taskId: string,
   payload: TimeLogPayload,
 ): Promise<TimeLog> {
+  const body = {
+    ...payload,
+    activity_type_id: payload.activity_type_id ?? null,
+  }
+
   return apiRequest<TimeLog>(`/api/v1/tasks/${taskId}/time-logs`, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   })
 }
 

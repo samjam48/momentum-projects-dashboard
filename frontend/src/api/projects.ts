@@ -1,7 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { ApiError, apiRequest } from './client'
-import type { Project, ProjectPayload, ProjectStatus } from './types'
+import type {
+  Project,
+  ProjectBoardStatus,
+  ProjectPayload,
+  ProjectStatus,
+  ProjectType,
+} from './types'
+
+// TanStack Query migration target: @tanstack/react-query useQuery/useMutation queryKey invalidateQueries
+export const projectQueryKeys = {
+  all: ['projects'] as const,
+  lists: () => [...projectQueryKeys.all, 'list'] as const,
+  list: (filters: ProjectFilters) => [...projectQueryKeys.lists(), filters] as const,
+  board: () => [...projectQueryKeys.all, 'board'] as const,
+}
 
 type QueryState<T> = {
   data: T
@@ -27,8 +41,36 @@ function extractProjects(payload: unknown): Project[] {
   return []
 }
 
-export async function listProjects(status: ProjectStatus = 'active'): Promise<Project[]> {
-  const query = new URLSearchParams({ status })
+export type ProjectFilters = {
+  status?: ProjectStatus
+  venture_id?: string
+  board_status?: ProjectBoardStatus
+  project_type?: ProjectType
+  finished?: boolean
+}
+
+function buildProjectQuery(filters: ProjectFilters = {}): string {
+  const query = new URLSearchParams()
+  if (filters.status) {
+    query.set('status', filters.status)
+  }
+  if (filters.venture_id) {
+    query.set('venture_id', filters.venture_id)
+  }
+  if (filters.board_status) {
+    query.set('board_status', filters.board_status)
+  }
+  if (filters.project_type) {
+    query.set('project_type', filters.project_type)
+  }
+  if (typeof filters.finished === 'boolean') {
+    query.set('finished', String(filters.finished))
+  }
+  return query.toString()
+}
+
+export async function listProjects(filters: ProjectFilters = {}): Promise<Project[]> {
+  const query = buildProjectQuery(filters)
   const payload = await apiRequest<unknown>(`/api/v1/projects?${query.toString()}`)
   return extractProjects(payload)
 }
@@ -56,7 +98,29 @@ export async function archiveProject(projectId: string): Promise<void> {
   })
 }
 
-export function useProjects(status: ProjectStatus = 'active'): QueryState<Project[]> {
+export async function unarchiveProject(projectId: string): Promise<Project> {
+  return apiRequest<Project>(`/api/v1/projects/${projectId}/unarchive`, {
+    method: 'PATCH',
+  })
+}
+
+export type UpdateProjectBoardStatusPayload = {
+  board_status: ProjectBoardStatus
+  order?: { project_id: string; kanban_order: number }[]
+  finished?: boolean
+}
+
+export async function updateProjectBoardStatus(
+  projectId: string,
+  payload: UpdateProjectBoardStatusPayload,
+): Promise<Project> {
+  return apiRequest<Project>(`/api/v1/projects/${projectId}/board-status`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function useProjects(filters: ProjectFilters = { status: 'active' }): QueryState<Project[]> {
   const [data, setData] = useState<Project[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -66,7 +130,7 @@ export function useProjects(status: ProjectStatus = 'active'): QueryState<Projec
     setError(null)
 
     try {
-      setData(await listProjects(status))
+      setData(await listProjects(filters))
     } catch (caughtError) {
       if (caughtError instanceof Error) {
         setError(caughtError.message)
@@ -76,7 +140,7 @@ export function useProjects(status: ProjectStatus = 'active'): QueryState<Projec
     } finally {
       setIsLoading(false)
     }
-  }, [status])
+  }, [filters])
 
   useEffect(() => {
     void reload()
