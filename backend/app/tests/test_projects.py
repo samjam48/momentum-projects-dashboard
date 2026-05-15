@@ -7,6 +7,8 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from .venture_test_utils import create_active_venture_in_db
+
 PROJECTS_ENDPOINT = "/api/v1/projects"
 APP_DIR = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = APP_DIR / "db" / "migrations"
@@ -31,6 +33,8 @@ def _create_project(client: TestClient, **overrides: object) -> dict[str, object
         "colour": "#D97048",
     }
     payload.update(overrides)
+    if "venture_id" not in payload:
+        payload["venture_id"] = create_active_venture_in_db()
 
     response = client.post(PROJECTS_ENDPOINT, json=payload)
 
@@ -76,9 +80,11 @@ def test_projects_router_delegates_to_service_layer() -> None:
 def test_create_project_returns_active_project_with_generated_metadata(
     client: TestClient,
 ) -> None:
+    venture_id = create_active_venture_in_db("Venture for create metadata test")
     response = client.post(
         PROJECTS_ENDPOINT,
         json={
+            "venture_id": venture_id,
             "name": "Momentum Phase 1",
             "description": "Projects CRUD and archive",
             "colour": "#D97048",
@@ -91,6 +97,7 @@ def test_create_project_returns_active_project_with_generated_metadata(
     assert body["name"] == "Momentum Phase 1"
     assert body["description"] == "Projects CRUD and archive"
     assert body["colour"] == "#D97048"
+    assert body["venture_id"] == venture_id
     assert body["status"] == "active"
     _assert_is_uuid(body["id"])
     _assert_is_iso8601_timestamp(body["created_at"])
@@ -99,14 +106,19 @@ def test_create_project_returns_active_project_with_generated_metadata(
 
 @pytest.mark.parametrize("name", ["", "   "])
 def test_create_project_rejects_blank_name(client: TestClient, name: str) -> None:
-    response = client.post(PROJECTS_ENDPOINT, json={"name": name})
+    venture_id = create_active_venture_in_db()
+    response = client.post(PROJECTS_ENDPOINT, json={"name": name, "venture_id": venture_id})
 
     assert response.status_code == 422, response.text
 
 
 @pytest.mark.parametrize("colour", ["D97048", "#FFF", "#12GG45", "#1234567"])
 def test_create_project_rejects_invalid_colour(client: TestClient, colour: str) -> None:
-    response = client.post(PROJECTS_ENDPOINT, json={"name": "Valid Name", "colour": colour})
+    venture_id = create_active_venture_in_db()
+    response = client.post(
+        PROJECTS_ENDPOINT,
+        json={"name": "Valid Name", "colour": colour, "venture_id": venture_id},
+    )
 
     assert response.status_code == 422, response.text
 

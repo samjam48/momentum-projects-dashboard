@@ -7,6 +7,8 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from .venture_test_utils import create_active_venture_in_db
+
 PROJECTS_ENDPOINT = "/api/v1/projects"
 TASKS_ENDPOINT = "/api/v1/tasks"
 APP_DIR = Path(__file__).resolve().parents[1]
@@ -35,9 +37,11 @@ def _create_project(
     name: str = "Phase 1 Project",
     archived: bool = False,
 ) -> dict[str, object]:
+    venture_id = create_active_venture_in_db()
     response = client.post(
         PROJECTS_ENDPOINT,
         json={
+            "venture_id": venture_id,
             "name": name,
             "description": "Project used by backend task tests.",
             "colour": "#D97048",

@@ -131,8 +131,8 @@ describe('Ticket 1b-4 Projects page polish', () => {
       expect(within(dialog).getByTestId('archive-project-dot-project-archived')).toBeInTheDocument()
     })
 
-    it('exposes Archived projects and Archived tasks tabs with a tasks placeholder', async () => {
-      installWorkspaceBackendMock({
+    it('exposes Archived ventures and Archived projects tabs (1.6-8) with ventures empty state', async () => {
+      const { fetchMock } = installWorkspaceBackendMock({
         projects: [alphaProject, archivedProject],
         tasks: [],
       })
@@ -142,10 +142,21 @@ describe('Ticket 1b-4 Projects page polish', () => {
       fireEvent.click(getArchiveViewControl())
       const dialog = await screen.findByRole('dialog', { name: /archive/i })
 
-      fireEvent.click(within(dialog).getByRole('tab', { name: /archived tasks/i }))
+      expect(within(dialog).getByRole('tab', { name: /archived ventures/i })).toBeInTheDocument()
+      expect(within(dialog).getByRole('tab', { name: /archived projects/i })).toBeInTheDocument()
 
       await waitFor(() => {
-        expect(within(dialog).getByText(/no archived tasks/i)).toBeInTheDocument()
+        const archivedVenturesRequest = fetchMock.mock.calls.some(([first]) => {
+          const url = urlFromFetchMockFirstArg(first)
+          return url.pathname === '/api/v1/ventures' && url.searchParams.get('status') === 'archived'
+        })
+        expect(archivedVenturesRequest).toBe(true)
+      })
+
+      fireEvent.click(within(dialog).getByRole('tab', { name: /archived ventures/i }))
+
+      await waitFor(() => {
+        expect(within(dialog).getByText(/no archived ventures/i)).toBeInTheDocument()
       })
     })
 
@@ -160,7 +171,9 @@ describe('Ticket 1b-4 Projects page polish', () => {
       fireEvent.click(getArchiveViewControl())
       const dialog = await screen.findByRole('dialog', { name: /archive/i })
 
-      expect(within(dialog).getByText(/no archived projects/i)).toBeInTheDocument()
+      expect(
+        await within(dialog).findByText(/no archived projects/i),
+      ).toBeInTheDocument()
     })
   })
 

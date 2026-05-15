@@ -231,9 +231,20 @@ export function useWorkspaceDialogs({
 
   useEffect(() => {
     setLocallyArchivedProjectIds((currentIds) =>
-      currentIds.filter((projectId) =>
-        projectsQueryData.some((project) => project.id === projectId),
-      ),
+      {
+        const nextIds = currentIds.filter((projectId) =>
+          projectsQueryData.some((project) => project.id === projectId),
+        )
+
+        if (
+          nextIds.length === currentIds.length &&
+          nextIds.every((projectId, index) => projectId === currentIds[index])
+        ) {
+          return currentIds
+        }
+
+        return nextIds
+      },
     )
   }, [projectsQueryData, setLocallyArchivedProjectIds])
 
