@@ -100,3 +100,15 @@ class ProjectRead(SQLModel):
 
 class ProjectArchive(SQLModel):
     finished: bool | None = None
+
+
+class ProjectBoardOrderItem(SQLModel):
+    project_id: str
+    kanban_order: int
+
+
+class ProjectBoardStatusUpdate(SQLModel):
+    board_status: ProjectBoardStatus
+    kanban_order: int | None = None
+    finished: bool | None = None
+    order: list[ProjectBoardOrderItem] | None = None

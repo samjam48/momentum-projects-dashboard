@@ -6,6 +6,7 @@ from app.db.database import SessionDep
 from app.schemas.project import (
     ProjectArchive,
     ProjectBoardStatus,
+    ProjectBoardStatusUpdate,
     ProjectCreate,
     ProjectRead,
     ProjectStatus,
@@ -76,4 +77,14 @@ def archive_project(
 @router.patch("/{project_id}/unarchive", response_model=ProjectRead)
 def unarchive_project(session: SessionDep, project_id: str) -> ProjectRead:
     project = project_services.unarchive_project(session, project_id)
+    return ProjectRead.model_validate(project)
+
+
+@router.patch("/{project_id}/board-status", response_model=ProjectRead)
+def update_project_board_status(
+    session: SessionDep,
+    project_id: str,
+    payload: ProjectBoardStatusUpdate,
+) -> ProjectRead:
+    project = project_services.update_project_board_status(session, project_id, payload)
     return ProjectRead.model_validate(project)

@@ -7,13 +7,15 @@ from app.models.project import Project
 from app.models.venture import Venture
 from app.schemas.project import (
     ProjectBoardStatus,
+    ProjectBoardStatusUpdate,
     ProjectCreate,
     ProjectStatus,
     ProjectType,
     ProjectUpdate,
 )
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlalchemy import case
+from sqlmodel import Session, col, select
 
 
 def _utc_now() -> datetime:
@@ -63,7 +65,19 @@ def list_projects(
         statement = statement.where(Project.project_type == project_type)
     if finished is not None:
         statement = statement.where(Project.finished == finished)
-    statement = statement.order_by(cast(Any, Project.created_at))
+    board_rank = case(
+        (col(Project.board_status) == "idea", 0),
+        (col(Project.board_status) == "active", 1),
+        (col(Project.board_status) == "paused", 2),
+        (col(Project.board_status) == "shipped", 3),
+        else_=99,
+    )
+    statement = statement.order_by(
+        board_rank,
+        col(Project.kanban_order).nulls_last(),
+        cast(Any, Project.created_at),
+        cast(Any, Project.id),
+    )
     return list(session.exec(statement))
 
 
@@ -142,4 +156,69 @@ def unarchive_project(session: Session, project_id: str) -> Project:
         session.add(project)
         session.commit()
         session.refresh(project)
+    return project
+
+
+def update_project_board_status(
+    session: Session,
+    project_id: str,
+    payload: ProjectBoardStatusUpdate,
+) -> Project:
+    project = _get_project_or_404(session, project_id)
+    if project.status == "archived":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Archived projects cannot move on the board.",
+        )
+    venture = session.get(Venture, project.venture_id) if project.venture_id is not None else None
+    if venture is None or venture.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Projects under archived ventures cannot move on the board.",
+        )
+
+    order_projects: list[Project] = []
+    if payload.order is not None:
+        for order_item in payload.order:
+            order_project = session.get(Project, order_item.project_id)
+            if order_project is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="order contains unknown project_id",
+                )
+            if order_project.status == "archived":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Archived projects cannot be reordered.",
+                )
+            if order_project.venture_id != project.venture_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="order contains project outside reorder scope",
+                )
+            if order_project.board_status != payload.board_status:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="order contains project outside target board column",
+                )
+            order_projects.append(order_project)
+
+    project.board_status = payload.board_status
+    if payload.kanban_order is not None:
+        project.kanban_order = payload.kanban_order
+    if payload.board_status == "shipped" and payload.finished is None:
+        project.finished = True
+    elif payload.finished is not None:
+        project.finished = payload.finished
+    project.updated_at = _utc_now()
+    session.add(project)
+
+    if payload.order is not None:
+        for order_item, order_project in zip(payload.order, order_projects, strict=True):
+            order_project.kanban_order = order_item.kanban_order
+            order_project.updated_at = _utc_now()
+            session.add(order_project)
+
+    session.commit()
+    session.refresh(project)
     return project
