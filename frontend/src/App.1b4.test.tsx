@@ -127,7 +127,7 @@ describe('Ticket 1b-4 Projects page polish', () => {
         expect(archivedRequest).toBe(true)
       })
 
-      expect(within(dialog).getByText('Sunset Studio')).toBeInTheDocument()
+      expect(await within(dialog).findByText('Sunset Studio')).toBeInTheDocument()
       expect(within(dialog).getByTestId('archive-project-dot-project-archived')).toBeInTheDocument()
     })
 

@@ -17,7 +17,7 @@ import { Checkbox } from '../ui/checkbox'
 
 export type SidebarProps = {
   activeProjects: Project[]
-  onCreateProject: () => void
+  onCreateProject: (ventureId: string) => void
   onEditProject: (project: Project) => void
   onEditTask: (task: Task) => void
   projectsError: string | null
@@ -42,7 +42,6 @@ export function Sidebar({
   projectsLoading,
   reloadProjects,
 }: SidebarProps): JSX.Element {
-  void onCreateProject
   void onEditTask
   const toggleSidebarProject = useProjectFilterStore(
     (state: ProjectFilterState): ProjectFilterState['toggleSidebarProject'] =>
@@ -58,6 +57,7 @@ export function Sidebar({
   )
 
   const venturesQuery = useVentures('active')
+  const archivedVenturesQuery = useVentures('archived')
   const labelsQuery = useVentureCategoryLabels()
 
   const ventureMutations = useVentureMutations()
@@ -174,7 +174,13 @@ export function Sidebar({
             </Button>
 
             {!sidebarLoading && dedupedVentures.length === 0 ? (
-              <p className="muted-copy">Create a venture to get started.</p>
+              archivedVenturesQuery.isLoading ? (
+                <p className="muted-copy">Loading ventures…</p>
+              ) : archivedVenturesQuery.data.length > 0 ? (
+                <p className="muted-copy">All ventures are archived.</p>
+              ) : (
+                <p className="muted-copy">Create a venture to get started.</p>
+              )
             ) : null}
 
             {dedupedVentures.map((venture) => {
@@ -222,11 +228,30 @@ export function Sidebar({
                       {childProjects.length}{' '}
                       {childProjects.length === 1 ? 'project' : 'projects'}
                     </span>
+
+                    {childProjects.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => onCreateProject(venture.id)}
+                      >
+                        Add project
+                      </Button>
+                    ) : null}
                   </div>
 
                   {expanded ? (
                     childProjects.length === 0 ? (
-                      <p className="muted-copy ml-6 text-sm">No projects yet.</p>
+                      <div className="ml-6 space-y-2">
+                        <p className="muted-copy text-sm">No projects yet.</p>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => onCreateProject(venture.id)}
+                        >
+                          Add project
+                        </Button>
+                      </div>
                     ) : (
                       <ul className="project-list sidebar-project-list">
                         {childProjects.map((project) => {

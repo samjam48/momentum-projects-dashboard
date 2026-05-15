@@ -665,7 +665,7 @@ function App() {
   return (
     <AppShell
       activeProjects={activeProjects}
-      onCreateProject={openCreateProjectDialog}
+      onCreateProject={(ventureId) => openCreateProjectDialog(ventureId)}
       onEditProject={handleProjectEdit}
       onEditTask={openEditTaskDialog}
       projectsError={projectsQuery.error}
@@ -675,7 +675,6 @@ function App() {
       <ProjectsPage
         activeProjects={activeProjects}
         kanbanSection={kanbanSection}
-        onOpenCreateProject={openCreateProjectDialog}
         onOpenCreateTask={openCreateTaskDialog}
         projectFilterLabel={projectFilterLabel}
         selectedProjectId={selectedProjectId}

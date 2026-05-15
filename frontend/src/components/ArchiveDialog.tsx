@@ -1,7 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 
-import { projectQueryKeys, useProjects, type ProjectFilters } from '../api/projects'
+import { ApiError } from '../api/client'
+import {
+  listProjects,
+  projectQueryKeys,
+  unarchiveProject,
+  useProjects,
+  type ProjectFilters,
+} from '../api/projects'
 import type { Project, Venture } from '../api/types'
 import { useVentures, ventureQueryKeys } from '../api/ventures'
 import { Button } from './ui/button'
@@ -15,7 +22,13 @@ import {
 
 type ArchiveTab = 'ventures' | 'projects'
 
-const ARCHIVED_PROJECT_FILTERS: ProjectFilters = { status: 'archived' }
+function stableProjectFilters(filters: ProjectFilters): ProjectFilters {
+  const { status, venture_id, board_status, project_type, finished } = filters
+  return { status, venture_id, board_status, project_type, finished }
+}
+
+const ARCHIVED_PROJECT_FILTERS: ProjectFilters = stableProjectFilters({ status: 'archived' })
+const ACTIVE_PROJECT_FILTERS: ProjectFilters = stableProjectFilters({ status: 'active' })
 
 type ArchiveDialogProps = {
   onEditProject: (project: Project) => void
@@ -35,6 +48,8 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
   const [archivedVentures, setArchivedVentures] = useState<Venture[]>([])
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([])
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [projectActionPending, setProjectActionPending] = useState(false)
 
   const archivedVenturesQuery = useVentures('archived', { enabled: open })
   const archivedProjectsQuery = useProjects(ARCHIVED_PROJECT_FILTERS, { enabled: open })
@@ -67,16 +82,47 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
     archivedProjectsQuery.isLoading,
   ])
 
+  const handleUnarchiveProject = async (projectId: string): Promise<void> => {
+    setActionError(null)
+    setProjectActionPending(true)
+    try {
+      await unarchiveProject(projectId)
+      await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: projectQueryKeys.list(ACTIVE_PROJECT_FILTERS),
+          queryFn: () => listProjects(ACTIVE_PROJECT_FILTERS),
+        }),
+        queryClient.fetchQuery({
+          queryKey: projectQueryKeys.list(ARCHIVED_PROJECT_FILTERS),
+          queryFn: () => listProjects(ARCHIVED_PROJECT_FILTERS),
+        }),
+      ])
+      setOpen(false)
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setActionError(caughtError.formError ?? caughtError.message)
+        return
+      }
+      setActionError('Unable to unarchive project.')
+    } finally {
+      setProjectActionPending(false)
+    }
+  }
+
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen)
+        if (nextOpen) {
+          setActionError(null)
+        }
 
         if (!nextOpen) {
           setActiveTab('projects')
           setArchivedVentures([])
           setArchivedProjects([])
+          setActionError(null)
           queryClient.removeQueries({ queryKey: projectQueryKeys.list(ARCHIVED_PROJECT_FILTERS) })
           queryClient.removeQueries({ queryKey: ventureQueryKeys.list('archived') })
         }
@@ -99,7 +145,10 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
             className={`archive-dialog-tab${activeTab === 'ventures' ? ' archive-dialog-tab-active' : ''}`}
             role="tab"
             type="button"
-            onClick={() => setActiveTab('ventures')}
+            onClick={() => {
+              setActiveTab('ventures')
+              setActionError(null)
+            }}
           >
             Archived ventures
           </button>
@@ -108,11 +157,20 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
             className={`archive-dialog-tab${activeTab === 'projects' ? ' archive-dialog-tab-active' : ''}`}
             role="tab"
             type="button"
-            onClick={() => setActiveTab('projects')}
+            onClick={() => {
+              setActiveTab('projects')
+              setActionError(null)
+            }}
           >
             Archived projects
           </button>
         </div>
+
+        {actionError ? (
+          <p className="form-error" role="alert">
+            {actionError}
+          </p>
+        ) : null}
 
         {activeTab === 'ventures' ? (
           <ArchiveTabPanel>
@@ -154,22 +212,32 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
               <ul className="archive-project-list">
                 {archivedProjects.map((project) => (
                   <li key={project.id}>
-                    <button
-                      className="archive-project-row"
-                      type="button"
-                      onClick={() => {
-                        setOpen(false)
-                        onEditProject(project)
-                      }}
-                    >
-                      <span
-                        aria-hidden
-                        className="project-colour-dot"
-                        data-testid={`archive-project-dot-${project.id}`}
-                        style={{ backgroundColor: project.colour ?? undefined }}
-                      />
-                      <span>{project.name}</span>
-                    </button>
+                    <div className="archive-project-row archive-project-actions">
+                      <button
+                        className="archive-project-title"
+                        type="button"
+                        onClick={() => {
+                          setOpen(false)
+                          onEditProject(project)
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          className="project-colour-dot"
+                          data-testid={`archive-project-dot-${project.id}`}
+                          style={{ backgroundColor: project.colour ?? undefined }}
+                        />
+                        <span>{project.name}</span>
+                      </button>
+                      <Button
+                        disabled={projectActionPending}
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void handleUnarchiveProject(project.id)}
+                      >
+                        Unarchive
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>

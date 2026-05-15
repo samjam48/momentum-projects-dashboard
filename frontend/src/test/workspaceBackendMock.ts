@@ -29,12 +29,21 @@ export type WorkspaceBackendOptions = {
   tasks?: Task[]
   timeLogs?: Record<string, TimeLog[]>
   onProjectCreate?: (
-    payload: { name: string; description: string | null; colour: string; venture_id?: string },
+    payload: {
+      name: string
+      description: string | null
+      colour: string | null
+      venture_id?: string
+      icon?: string | null
+      project_type?: string
+      board_status?: string
+      finished?: boolean
+    },
     count: number,
   ) => Response | Promise<Response> | null
   onProjectUpdate?: (
     projectId: string,
-    payload: { name: string; description: string | null; colour: string },
+    payload: Record<string, unknown>,
   ) => Response | Promise<Response> | null
   onProjectArchive?: (projectId: string) => Response | Promise<Response> | null
   onTaskCreate?: (payload: TaskPayload, count: number) => Response | Promise<Response> | null
@@ -486,9 +495,13 @@ export function installWorkspaceBackendMock(
       if (method === 'POST' && pathname === '/api/v1/projects') {
         projectCreateCount += 1
         const payload = body as {
-          colour: string
+          colour: string | null
+          board_status?: string
           description: string | null
+          finished?: boolean
+          icon?: string | null
           name: string
+          project_type?: string
           venture_id?: string
         }
         const handlerResponse = options.onProjectCreate
@@ -510,11 +523,57 @@ export function installWorkspaceBackendMock(
           description: payload.description,
           colour: payload.colour,
           venture_id: ventureId,
+          icon: typeof payload.icon === 'string' ? payload.icon : null,
+          project_type:
+            payload.project_type === 'asset' ||
+            payload.project_type === 'gig' ||
+            payload.project_type === 'contract'
+              ? payload.project_type
+              : 'project',
+          board_status:
+            payload.board_status === 'idea' ||
+            payload.board_status === 'active' ||
+            payload.board_status === 'paused' ||
+            payload.board_status === 'shipped'
+              ? payload.board_status
+              : 'active',
+          finished: typeof payload.finished === 'boolean' ? payload.finished : false,
           created_at: `2026-05-13T09:00:0${projectCreateCount}Z`,
           updated_at: `2026-05-13T09:00:0${projectCreateCount}Z`,
         })
         projects.push(createdProject)
         return jsonResponse({ body: createdProject, status: 201 })
+      }
+
+      const projectUnarchiveMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/unarchive$/)
+      if (projectUnarchiveMatch && method === 'PATCH') {
+        const [, projectId] = projectUnarchiveMatch
+        const projectIndex = projects.findIndex((candidate) => candidate.id === projectId)
+
+        if (projectIndex < 0) {
+          return jsonResponse({ body: { detail: 'Project not found' }, status: 404 })
+        }
+
+        const candidate = projects[projectIndex]
+        const parentVenture = ventures.find((venture) => venture.id === candidate.venture_id)
+
+        if (parentVenture?.status === 'archived') {
+          return jsonResponse({
+            body: {
+              detail: 'Unarchive the venture first to restore this project.',
+            },
+            status: 409,
+          })
+        }
+
+        projects[projectIndex] = {
+          ...candidate,
+          status: 'active',
+          archived_by_venture: false,
+          updated_at: '2026-05-13T11:30:00Z',
+        }
+
+        return jsonResponse({ body: projects[projectIndex] })
       }
 
       const projectMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)$/)
@@ -527,7 +586,7 @@ export function installWorkspaceBackendMock(
         }
 
         if (method === 'PATCH') {
-          const payload = body as { name: string; description: string | null; colour: string }
+          const payload = body
           const handlerResponse = options.onProjectUpdate
             ? await options.onProjectUpdate(projectId, payload)
             : null
@@ -536,9 +595,47 @@ export function installWorkspaceBackendMock(
             return handlerResponse
           }
 
+          const current = projects[projectIndex]
+          const nextVentureId =
+            typeof payload.venture_id === 'string' ? payload.venture_id : current.venture_id
+          const nextName = typeof payload.name === 'string' ? payload.name : current.name
+          const nextDescription =
+            payload.description === null || typeof payload.description === 'string'
+              ? payload.description
+              : current.description
+          const nextColour =
+            payload.colour === null || typeof payload.colour === 'string'
+              ? payload.colour
+              : current.colour
+          const nextIcon =
+            payload.icon === null || typeof payload.icon === 'string' ? payload.icon : current.icon
+          const nextProjectType =
+            payload.project_type === 'asset' ||
+            payload.project_type === 'gig' ||
+            payload.project_type === 'contract' ||
+            payload.project_type === 'project'
+              ? payload.project_type
+              : current.project_type
+          const nextBoardStatus =
+            payload.board_status === 'idea' ||
+            payload.board_status === 'active' ||
+            payload.board_status === 'paused' ||
+            payload.board_status === 'shipped'
+              ? payload.board_status
+              : current.board_status
+          const nextFinished =
+            typeof payload.finished === 'boolean' ? payload.finished : current.finished
+
           projects[projectIndex] = {
-            ...projects[projectIndex],
-            ...payload,
+            ...current,
+            venture_id: nextVentureId,
+            name: nextName,
+            description: nextDescription,
+            colour: nextColour,
+            icon: nextIcon,
+            project_type: nextProjectType,
+            board_status: nextBoardStatus,
+            finished: nextFinished,
             updated_at: '2026-05-13T10:00:00Z',
           }
           return jsonResponse({ body: projects[projectIndex] })

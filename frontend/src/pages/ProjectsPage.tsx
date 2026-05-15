@@ -7,7 +7,6 @@ import { Button } from '../components/ui/button'
 type ProjectsPageProps = {
   activeProjects: Project[]
   kanbanSection: ReactNode
-  onOpenCreateProject: () => void
   onOpenCreateTask: () => void
   projectFilterLabel: string
   selectedProjectId: string
@@ -19,7 +18,6 @@ type ProjectsPageProps = {
 export function ProjectsPage({
   activeProjects,
   kanbanSection,
-  onOpenCreateProject,
   onOpenCreateTask,
   projectFilterLabel,
   selectedProjectId,
@@ -44,10 +42,10 @@ export function ProjectsPage({
             className="board-toggle-tab"
             disabled
             role="tab"
-            title="Project board ships in Phase 1.6"
+            title="Coming soon"
             type="button"
           >
-            Projects (1.6)
+            Projects
           </button>
         </div>
 
@@ -66,10 +64,6 @@ export function ProjectsPage({
             ))}
           </select>
         </label>
-
-        <Button type="button" variant="secondary" onClick={onOpenCreateProject}>
-          New project
-        </Button>
 
         <Button disabled={tasksAreBlocked} type="button" onClick={onOpenCreateTask}>
           + New task

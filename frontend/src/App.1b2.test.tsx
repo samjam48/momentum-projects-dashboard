@@ -54,10 +54,6 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-function getProjectsToolbar(): HTMLElement {
-  return screen.getByRole('toolbar', { name: /projects page/i })
-}
-
 describe('Ticket 1b-2 project and task modal UX', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -89,7 +85,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getSidebar()).getByRole('button', { name: /add project/i }))
       const createDialog = await screen.findByRole('dialog', { name: /new project/i })
       expect(createDialog).toHaveAttribute('data-slot', 'dialog-content')
 
@@ -155,7 +151,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getSidebar()).getByRole('button', { name: /add project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
       expect(within(dialog).getByText(/^colour$/i)).toBeInTheDocument()
@@ -175,7 +171,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getSidebar()).getByRole('button', { name: /add project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
       const picker = within(dialog).getByRole('button', { name: /^colour$/i })
 
@@ -321,7 +317,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getSidebar()).getByRole('button', { name: /add project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
       fireEvent.change(within(dialog).getByLabelText(/project name/i), {
@@ -356,7 +352,7 @@ describe('Ticket 1b-2 project and task modal UX', () => {
 
       await renderApp()
 
-      fireEvent.click(within(getProjectsToolbar()).getByRole('button', { name: /new project/i }))
+      fireEvent.click(within(getSidebar()).getByRole('button', { name: /add project/i }))
       const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
       fireEvent.change(within(dialog).getByLabelText(/project name/i), {

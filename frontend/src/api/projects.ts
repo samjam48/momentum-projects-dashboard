@@ -86,10 +86,15 @@ export async function updateProject(
   })
 }
 
-export async function archiveProject(projectId: string): Promise<void> {
-  await apiRequest<null>(`/api/v1/projects/${projectId}`, {
-    method: 'DELETE',
-  })
+export async function archiveProject(
+  projectId: string,
+  options?: { finished?: boolean },
+): Promise<void> {
+  const init: RequestInit = { method: 'DELETE' }
+  if (options !== undefined && options.finished !== undefined) {
+    init.body = JSON.stringify({ finished: options.finished })
+  }
+  await apiRequest<null>(`/api/v1/projects/${projectId}`, init)
 }
 
 export async function unarchiveProject(projectId: string): Promise<Project> {
@@ -176,7 +181,7 @@ function useProjectMutationErrorState(): {
 export function useProjectMutations(): {
   create: (payload: ProjectPayload) => Promise<Project>
   update: (projectId: string, payload: ProjectPayload) => Promise<Project>
-  archive: (projectId: string) => Promise<void>
+  archive: (projectId: string, archivePayload?: { finished?: boolean }) => Promise<void>
   unarchive: (projectId: string) => Promise<Project>
   updateBoardStatus: (
     projectId: string,
@@ -206,7 +211,13 @@ export function useProjectMutations(): {
     onSettled,
   })
   const archiveMutation = useMutation({
-    mutationFn: archiveProject,
+    mutationFn: ({
+      projectId,
+      archivePayload,
+    }: {
+      projectId: string
+      archivePayload?: { finished?: boolean }
+    }) => archiveProject(projectId, archivePayload),
     onSettled,
   })
   const unarchiveMutation = useMutation({
@@ -228,7 +239,8 @@ export function useProjectMutations(): {
     create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
     update: (projectId, payload) =>
       runMutation(() => updateMutation.mutateAsync({ projectId, payload })),
-    archive: (projectId) => runMutation(() => archiveMutation.mutateAsync(projectId)),
+    archive: (projectId, archivePayload) =>
+      runMutation(() => archiveMutation.mutateAsync({ projectId, archivePayload })),
     unarchive: (projectId) => runMutation(() => unarchiveMutation.mutateAsync(projectId)),
     updateBoardStatus: (projectId, payload) =>
       runMutation(() =>

@@ -14,6 +14,7 @@ import type {
   TaskUpdatePayload,
   TimeLogPayload,
 } from '../api/types'
+import { useVentures } from '../api/ventures'
 import { DEFAULT_PROJECT_COLOUR } from '../lib/projectPalette'
 import {
   DEFAULT_PROJECT_FILTER,
@@ -21,52 +22,56 @@ import {
   useProjectFilterStore,
   type ProjectFilterState,
 } from '../stores/projectFilter'
-import { ProjectDialog } from './ProjectDialog'
+import {
+  ProjectDialog,
+  type ProjectFormErrors,
+  type ProjectFormState,
+} from './ProjectDialog'
 import {
   TaskDialog,
   type TaskFormErrors,
   type TaskFormState,
 } from './TaskDialog'
 
-type ProjectFormState = {
-  colour: string
-  description: string
-  name: string
-}
-
-type ProjectFormErrors = {
-  colour?: string
-  description?: string
-  form?: string
-  name?: string
-}
-
 type ProjectDialogMode = 'create' | 'edit' | null
 
 export type TaskDialogMode = 'create' | 'edit' | null
 
 const EMPTY_PROJECT_FORM: ProjectFormState = {
+  board_status: 'active',
   colour: '',
   description: '',
+  icon: '',
   name: '',
+  project_type: 'project',
+  shippedWhenArchiving: false,
+  venture_id: '',
 }
 
 const KANBAN_STATUSES: KanbanTaskStatus[] = ['backlog', 'in_progress', 'review', 'done']
 
-function projectPayloadFromForm(formState: ProjectFormState, ventureId: string): ProjectPayload {
+function projectPayloadFromForm(formState: ProjectFormState): ProjectPayload {
   return {
-    venture_id: ventureId,
+    venture_id: formState.venture_id.trim(),
     colour: formState.colour.trim() || null,
     description: formState.description.trim() || null,
+    icon: formState.icon.trim() || null,
     name: formState.name.trim(),
+    project_type: formState.project_type,
+    board_status: formState.board_status,
   }
 }
 
 function formStateFromProject(project: Project): ProjectFormState {
   return {
+    board_status: project.board_status,
     colour: project.colour ?? '',
     description: project.description ?? '',
+    icon: project.icon ?? '',
     name: project.name,
+    project_type: project.project_type,
+    shippedWhenArchiving: false,
+    venture_id: project.venture_id,
   }
 }
 
@@ -80,6 +85,7 @@ function projectFieldErrors(error: ApiError | null): ProjectFormErrors {
     description: error.fieldErrors.description,
     form: error.formError ?? undefined,
     name: error.fieldErrors.name,
+    venture_id: error.fieldErrors.venture_id,
   }
 }
 
@@ -210,6 +216,8 @@ export function useWorkspaceDialogs({
   taskDialogMode,
   taskMutations,
 }: UseWorkspaceDialogsParams) {
+  const venturesQuery = useVentures('active')
+  const activeVentureIds = venturesQuery.data.map((venture) => venture.id)
   const [projectDialogMode, setProjectDialogMode] = useState<ProjectDialogMode>(null)
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [projectForm, setProjectForm] = useState<ProjectFormState>(EMPTY_PROJECT_FORM)
@@ -434,9 +442,9 @@ export function useWorkspaceDialogs({
     await onTasksReload()
   }
 
-  const handleProjectInputChange = (
-    field: keyof ProjectFormState,
-    value: string,
+  const handleProjectInputChange = <K extends keyof ProjectFormState>(
+    field: K,
+    value: ProjectFormState[K],
   ): void => {
     setProjectForm((currentState) => ({ ...currentState, [field]: value }))
     setProjectFormErrors((currentErrors) => ({
@@ -455,11 +463,17 @@ export function useWorkspaceDialogs({
     projectMutations.resetError()
   }
 
-  const openCreateProjectDialog = (): void => {
+  const openCreateProjectDialog = (ventureId?: string): void => {
     setProjectDialogMode('create')
     setEditingProjectId(null)
+    const ventures = venturesQuery.data
+    const resolvedVentureId =
+      ventureId !== undefined && ventures.some((venture) => venture.id === ventureId)
+        ? ventureId
+        : ventures[0]?.id ?? ''
     setProjectForm({
       ...EMPTY_PROJECT_FORM,
+      venture_id: resolvedVentureId,
       colour: DEFAULT_PROJECT_COLOUR,
     })
     setProjectFormErrors({})
@@ -473,25 +487,32 @@ export function useWorkspaceDialogs({
     setProjectFormErrors({})
 
     try {
-      const ventureOwner =
-        editingProjectId !== null
-          ? projectsQueryData.find((candidate) => candidate.id === editingProjectId)
-          : activeProjects[0]
+      const ventureId = projectForm.venture_id.trim()
 
-      const resolvedVentureId = ventureOwner?.venture_id
+      if (!ventureId) {
+        setProjectFormErrors({ form: 'Select a venture.' })
+        return
+      }
 
-      if (!resolvedVentureId) {
-        setProjectFormErrors({ form: 'Create a venture before adding projects.' })
+      if (!activeVentureIds.includes(ventureId)) {
+        setProjectFormErrors({
+          form: 'Create or unarchive a venture before adding projects.',
+        })
+        return
+      }
+
+      if (projectForm.name.trim() === '') {
+        setProjectFormErrors({ name: 'Enter a project name.' })
         return
       }
 
       if (editingProjectId) {
         await projectMutations.update(
           editingProjectId,
-          projectPayloadFromForm(projectForm, resolvedVentureId),
+          projectPayloadFromForm(projectForm),
         )
       } else {
-        await projectMutations.create(projectPayloadFromForm(projectForm, resolvedVentureId))
+        await projectMutations.create(projectPayloadFromForm(projectForm))
       }
 
       resetProjectForm()
@@ -528,7 +549,10 @@ export function useWorkspaceDialogs({
     )
 
     try {
-      await projectMutations.archive(projectId)
+      await projectMutations.archive(
+        projectId,
+        projectForm.shippedWhenArchiving ? { finished: true } : undefined,
+      )
       await onProjectsReload()
       const remainingActiveProjectIds = activeProjectIds.filter(
         (activeProjectId) => activeProjectId !== projectId,
@@ -572,6 +596,7 @@ export function useWorkspaceDialogs({
     <>
       {projectDialogMode ? (
         <ProjectDialog
+          activeVentures={venturesQuery.data}
           editingProjectId={editingProjectId}
           formErrors={projectFormErrors}
           formState={projectForm}
