@@ -11,6 +11,7 @@ import type {
   TimeLogPayload,
 } from './api/types'
 import { resetProjectFilterStore } from './stores/projectFilter'
+import { buildProject as buildFixtureProject } from './test/fixtures'
 import { resetTestStorage } from './test/storage'
 import { installWorkspaceBackendMock } from './test/workspaceBackendMock'
 import {
@@ -516,32 +517,26 @@ describe('Ticket 3 project management and shared data layer', () => {
   })
 
   it('renders active projects, colour tags, and shared filter targets', async () => {
-    installFetchMock([
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-          {
-            id: 'project-newsletter',
-            name: 'Newsletter',
-            description: 'Weekly letters',
-            colour: '#123ABC',
-            status: 'active',
-            created_at: '2026-05-13T09:00:00Z',
-            updated_at: '2026-05-13T09:00:00Z',
-          },
-        ],
-      }),
-    ])
+    installWorkspaceBackendMock({
+      projects: [
+        buildFixtureProject({
+          id: 'project-podcast',
+          name: 'Podcast',
+          description: 'Main show',
+          colour: '#D97048',
+        }),
+        buildFixtureProject({
+          id: 'project-newsletter',
+          name: 'Newsletter',
+          description: 'Weekly letters',
+          colour: '#123ABC',
+        }),
+      ],
+    })
 
-    await renderApp()
+    renderAppBare()
+    await screen.findByRole('button', { name: /\+ hustle/i })
+    await screen.findByTestId('sidebar-project-project-podcast')
 
     expect(screen.getByTestId('sidebar-project-project-podcast')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
@@ -556,109 +551,23 @@ describe('Ticket 3 project management and shared data layer', () => {
   })
 
   it('supports create, edit, and archive flows without a page reload', async () => {
-    installFetchMock([
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-        ],
-      }),
-      jsonResponse({ body: [] }),
-      jsonResponse({
-        body: {
-          id: 'project-newsletter',
-          name: 'Newsletter',
-          description: 'Weekly letters',
-          colour: '#123ABC',
-          status: 'active',
-          created_at: '2026-05-13T09:00:00Z',
-          updated_at: '2026-05-13T09:00:00Z',
-        },
-        status: 201,
-      }),
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-          {
-            id: 'project-newsletter',
-            name: 'Newsletter',
-            description: 'Weekly letters',
-            colour: '#123ABC',
-            status: 'active',
-            created_at: '2026-05-13T09:00:00Z',
-            updated_at: '2026-05-13T09:00:00Z',
-          },
-        ],
-      }),
-      jsonResponse({
-        body: {
-          id: 'project-newsletter',
-          name: 'Newsletter Updated',
-          description: 'Weekly letters revised',
-          colour: '#456DEF',
-          status: 'active',
-          created_at: '2026-05-13T09:00:00Z',
-          updated_at: '2026-05-13T10:00:00Z',
-        },
-      }),
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-          {
-            id: 'project-newsletter',
-            name: 'Newsletter Updated',
-            description: 'Weekly letters revised',
-            colour: '#456DEF',
-            status: 'active',
-            created_at: '2026-05-13T09:00:00Z',
-            updated_at: '2026-05-13T10:00:00Z',
-          },
-        ],
-      }),
-      new Response(null, { status: 204 }),
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-        ],
-      }),
-    ])
+    installWorkspaceBackendMock({
+      projects: [
+        buildFixtureProject({
+          id: 'project-podcast',
+          name: 'Podcast',
+          description: 'Main show',
+          colour: '#D97048',
+        }),
+      ],
+    })
 
     renderAppBare()
-
+    await screen.findByRole('button', { name: /\+ hustle/i })
     await screen.findByTestId('sidebar-project-project-podcast')
 
-    fireEvent.click(screen.getByRole('button', { name: /new project/i }))
+    const toolbar = await screen.findByRole('toolbar', { name: /projects page/i })
+    fireEvent.click(within(toolbar).getByRole('button', { name: /new project/i }))
     const createDialog = await screen.findByRole('dialog', { name: /new project/i })
 
     fireEvent.change(within(createDialog).getByLabelText(/project name/i), {
@@ -673,7 +582,7 @@ describe('Ticket 3 project management and shared data layer', () => {
     )
     fireEvent.click(within(createDialog).getByRole('button', { name: /create project/i }))
 
-    expect(await screen.findByTestId('sidebar-project-project-newsletter')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^newsletter$/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /^newsletter$/i }))
     const editDialog = await screen.findByRole('dialog', { name: /edit project/i })
@@ -691,9 +600,7 @@ describe('Ticket 3 project management and shared data layer', () => {
     fireEvent.click(within(editDialog).getByRole('button', { name: /save project/i }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('sidebar-project-project-newsletter')).toHaveTextContent(
-        'Newsletter Updated',
-      )
+      expect(screen.getByRole('button', { name: /^newsletter updated$/i })).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /^newsletter updated$/i }))
@@ -701,22 +608,30 @@ describe('Ticket 3 project management and shared data layer', () => {
     fireEvent.click(within(archiveDialog).getByRole('button', { name: /archive project/i }))
 
     await waitFor(() => {
-      expect(screen.queryByTestId('sidebar-project-project-newsletter')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^newsletter updated$/i })).not.toBeInTheDocument()
     })
   })
 
   it('shows inline validation errors and preserves form values after server rejection', async () => {
-    installFetchMock([
-      jsonResponse({ body: [] }),
-      jsonResponse({
-        body: { detail: 'colour must match #RRGGBB' },
-        status: 422,
-      }),
-    ])
+    installWorkspaceBackendMock({
+      projects: [
+        buildFixtureProject({
+          id: 'project-seed',
+          name: 'Seed project',
+        }),
+      ],
+      onProjectCreate: () =>
+        jsonResponse({
+          body: { detail: 'colour must match #RRGGBB' },
+          status: 422,
+        }),
+    })
 
-    await renderApp()
+    renderAppBare()
+    await screen.findByRole('toolbar', { name: /projects page/i })
 
-    fireEvent.click(screen.getByRole('button', { name: /new project/i }))
+    const toolbar = screen.getByRole('toolbar', { name: /projects page/i })
+    fireEvent.click(within(toolbar).getByRole('button', { name: /new project/i }))
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
     fireEvent.change(within(dialog).getByLabelText(/project name/i), {
@@ -730,46 +645,26 @@ describe('Ticket 3 project management and shared data layer', () => {
   })
 
   it('falls back to all projects when the selected project is archived', async () => {
-    installFetchMock([
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-          {
-            id: 'project-newsletter',
-            name: 'Newsletter',
-            description: 'Weekly letters',
-            colour: '#123ABC',
-            status: 'active',
-            created_at: '2026-05-13T09:00:00Z',
-            updated_at: '2026-05-13T09:00:00Z',
-          },
-        ],
-      }),
-      new Response(null, { status: 204 }),
-      jsonResponse({
-        body: [
-          {
-            id: 'project-podcast',
-            name: 'Podcast',
-            description: 'Main show',
-            colour: '#D97048',
-            status: 'active',
-            created_at: '2026-05-13T08:00:00Z',
-            updated_at: '2026-05-13T08:00:00Z',
-          },
-        ],
-      }),
-    ])
+    installWorkspaceBackendMock({
+      projects: [
+        buildFixtureProject({
+          id: 'project-podcast',
+          name: 'Podcast',
+          description: 'Main show',
+          colour: '#D97048',
+        }),
+        buildFixtureProject({
+          id: 'project-newsletter',
+          name: 'Newsletter',
+          description: 'Weekly letters',
+          colour: '#123ABC',
+        }),
+      ],
+    })
 
     renderAppBare()
+    await screen.findByRole('button', { name: /\+ hustle/i })
+    await screen.findByTestId('sidebar-project-project-podcast')
 
     const filter = await screen.findByRole('combobox', { name: /project filter/i })
     fireEvent.change(filter, { target: { value: 'project-newsletter' } })
@@ -785,10 +680,9 @@ describe('Ticket 3 project management and shared data layer', () => {
   })
 
   it('blocks task creation when there are no active projects', async () => {
-    installFetchMock([jsonResponse({ body: [] })])
+    installWorkspaceBackendMock({ projects: [] })
 
     renderAppBare()
-
     expect(await screen.findByText(/create a project first/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /new task/i })).toBeDisabled()
   })

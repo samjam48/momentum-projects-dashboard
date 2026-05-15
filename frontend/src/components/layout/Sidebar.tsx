@@ -75,7 +75,9 @@ export function Sidebar({
   const labelMutations = useVentureCategoryLabelMutations(reloadLabels)
 
   const hustleLabelId =
-    labelsQuery.data.find((label) => label.slug.toLowerCase() === 'hustle')?.id ??
+    labelsQuery.data.find(
+      (label) => typeof label.slug === 'string' && label.slug.toLowerCase() === 'hustle',
+    )?.id ??
     labelsQuery.data[0]?.id ??
     null
 
@@ -149,8 +151,9 @@ export function Sidebar({
 
     try {
       await ventureMutations.archive(ventureId)
-      const nextActive = await listProjects({ status: 'active' })
+      await reloadProjects()
       if (archivedVentureIntersectsSidebarSelection) {
+        const nextActive = await listProjects({ status: 'active' })
         resetSidebarToAllProjects(nextActive.map((project) => project.id))
       }
       setVentureDialog(null)

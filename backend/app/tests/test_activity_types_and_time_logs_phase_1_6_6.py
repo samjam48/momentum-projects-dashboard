@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TypedDict, cast
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -102,12 +101,12 @@ def _time_log_activity_type_id(task_id: str) -> str | None:
         project_id = row[1]
         from app.models.time_log import TimeLog
 
-        log = session.exec(
+        logs = session.exec(
             select(TimeLog)
             .where(TimeLog.task_id == task_id)
             .where(TimeLog.project_id == project_id)
-            .order_by(TimeLog.created_at.desc())
-        ).first()
+        ).all()
+        log = max(logs, key=lambda entry: entry.created_at) if logs else None
     assert log is not None
     return log.activity_type_id
 
