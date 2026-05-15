@@ -33,14 +33,11 @@ npm run test -- --coverage  # ≥ 70%
 ```
 `make lint` and `make test` run these. Use them.
 ---
-## Current Sprint — Phase 1.6: Ventures, project types, project Kanban, activity types
-**Goal:** Introduce ventures and venture category labels; nest projects under ventures with `project_type`; ship project Kanban (Tasks \| Projects toggle); add time-log activity types (no task typing in 1.6); migrate existing data per `plans/PRD-phase-1.6-2026-05-15.md` and `plans/TRD-phase-1.6-2026-05-15.md`.
-**Done when:**
-- Schema, API, and UI match signed-off Phase 1.6 PRD/TRD (venture tree sidebar, venture archive cascade with `archived_by_venture`, project board + type filter, `finished` vs archive semantics, activity types on time logs with combobox + create flow, `uncategorised` migration for legacy logs)
-- Ticket file for this phase is complete and implemented in order with per-ticket Reviewer sign-off
-- Owner runs `make lint` and `make test` before merge (orchestrator does not substitute verification during the ticket loop)
-**In scope:** All tickets in `plans/tickets-phase-1.6-2026-05-15.md` (created by Planner) unless rescoped by owner.
-**Out of scope:** Task `type` / labels, time-log grouping/filter by activity type, income/goals/dashboard ship, Toggl sync, server-persisted preferences — see Phase 1.6 PRD out-of-scope.
+## Current Sprint — Phase 1.6: Ventures, Project Types, Project Kanban, Activity Types
+**Goal:** Implement the signed-off Phase 1.6 domain migration: ventures and category labels, projects nested under ventures with `project_type`, a dedicated Project Kanban board, and time-log activity types.
+**Ticket source:** Implement `plans/tickets-phase-1.6-2026-05-15.md` in dependency order (`1.6-1` through `1.6-12`) with per-ticket Reviewer sign-off.
+**Primary references:** `plans/PRD-phase-1.6-2026-05-15.md`, `plans/TRD-phase-1.6-2026-05-15.md`, `docs/V1-PRD.md`, and `docs/V1-TRD.md`.
+**Out of scope:** Task `type` / labels, time-log grouping/filter by activity type, income/goals/dashboard ship, Toggl sync, server-persisted preferences, and true hard-delete/purge UI.
 ---
 ## Definition of Done
 1. All acceptance criteria tests pass
