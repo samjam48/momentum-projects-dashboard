@@ -9,7 +9,7 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 3. Relevant sections of `docs/V1-PRD.md`
 4. Relevant sections of `docs/V1-TRD.md`
 5. The latest approved planning docs in `/plans/`
-6. `docs/patterns.md` if it exists
+6. `docs/patterns.md`
 7. `docs/architecture.md` if it exists
 
 ## When To Use

@@ -27,10 +27,14 @@
 6. **1.6-6** adds activity type and time-log backend behaviour independently of project-board UI.
 7. **1.6-7** establishes frontend types/API hooks before feature components consume the new contracts.
 8. **1.6-8** makes the sidebar venture tree and venture CRUD usable before project creation is moved into venture context.
-9. **1.6-9** updates project create/edit/archive UX to require ventures and expose project types.
-10. **1.6-10** activates the Project Kanban board and project type filter after project lifecycle APIs and project dialogs are in place.
-11. **1.6-11** updates time-log UI for activity types after backend contracts and shared frontend API hooks exist.
-12. **1.6-12** performs phase-level regression, migration, and scope-guard hardening after the implementation tickets are complete.
+9. **1.6-C1** hardens the local dev stack and reduces frontend cache/render churn after Docker Desktop instability on macOS bind mounts (no feature scope).
+10. **1.6-C2** migrates legacy backend and frontend integration tests to Phase 1.6 venture-aware fixtures so `make test` is trustworthy again (no feature scope).
+11. **1.6-C3** completes the frontend QueryClient test-harness migration for legacy App/Sidebar suites so `make test` can exercise Phase 1.6 UI paths reliably.
+12. **1.6-C4** stabilizes legacy time-log integration tests after the harness migration so remaining frontend reds represent real product regressions rather than stale async expectations.
+13. **1.6-9** updates project create/edit/archive UX to require ventures and expose project types.
+14. **1.6-10** activates the Project Kanban board and project type filter after project lifecycle APIs and project dialogs are in place.
+15. **1.6-11** updates time-log UI for activity types after backend contracts and shared frontend API hooks exist.
+16. **1.6-12** performs phase-level regression, migration, and scope-guard hardening after the implementation tickets are complete.
 
 ---
 
@@ -90,7 +94,7 @@ Venture Category Label Service and API
 
 ### Edge Cases
 
-- Creating `hustle`, ` Hustle `, or `HUSTLE` when `Hustle` exists returns a validation error.
+- Creating `hustle`,  `Hustle` , or `HUSTLE` when `Hustle` exists returns a validation error.
 - Renaming a label to a blank string, duplicate name, or punctuation-only slug returns a validation error.
 - Deleting a label used by one or more ventures returns a validation error and leaves ventures unchanged.
 - Deleting a non-existent label returns `404`.
@@ -222,7 +226,7 @@ Activity Type Service, API, and Time Log Contract
 
 ### Edge Cases
 
-- Creating `Planning`, ` planning `, or `PLANNING` when `planning` exists returns a validation error.
+- Creating `Planning`,  `planning` , or `PLANNING` when `planning` exists returns a validation error.
 - Creating or renaming to more than 25 characters returns a validation error.
 - Creating a time log with an unknown or archived `activity_type_id` returns a validation error.
 - Deleting a used activity type returns a validation error and does not clear logs; archiving is the lifecycle action that clears references.
@@ -289,6 +293,268 @@ Venture Tree Sidebar and Venture Dialogs
 - Unarchiving a venture restores projects archived by the cascade and refreshes the default tree.
 - Archived ventures do not appear in the active sidebar, even if active project query data is stale.
 - Loading state does not render dead checkboxes or misleading project rows.
+
+---
+
+## Chore 1.6-C1
+
+### Title
+
+Dev Stack Stability and Frontend Query Churn Reduction
+
+### Type
+
+Chore (no new product features). Run through the agent ticket loop after **1.6-8** and before **1.6-9**. Do not mix with **1.6-9+** feature tickets in one implementation pass.
+
+### Background
+
+Full `docker compose up` on macOS (Vite in-container + bind-mounted `./frontend`, uvicorn `--reload` on `./backend`, SQLite under `./backend/data`) has caused Docker Desktop VM instability, high file-watcher CPU, and occasional Desktop crashes—especially under heavy parallel test/agent load. **Backend-in-Docker + frontend-on-host** (`VITE_PROXY_TARGET=http://localhost:8000`, `npm run dev`) has been validated as stable for normal Phase 1.6 UI work. This chore documents that workflow and reduces avoidable frontend refetch/render churn from TanStack Query (post **1.6-7**) and a known `App.tsx` render-time state pattern.
+
+### Acceptance Criteria
+
+#### 1. Docker / local dev stack (stability)
+
+- Document the **recommended default dev workflow** for macOS: backend via Compose (or backend-only service), frontend via host `npm run dev` with API proxy to `localhost:8000`.
+- Document **full Compose** (frontend + backend in containers) as optional smoke/parity only, with explicit caveats about bind mounts and file watchers.
+- Add a **backend-only Compose path** (profile, override file, or documented command) so developers can run `docker compose up` for the API without starting the Vite container—without duplicating unrelated service definitions.
+- Where the repo controls it, reduce container watcher load for the documented backend-only path (e.g. do not require `uvicorn --reload` for the recommended Docker backend command if a separate documented full-reload path remains available).
+- Do not increase Docker Desktop memory limits in repo config; fixes must work within existing Desktop constraints.
+
+#### 2. TanStack Query invalidation storms (medium priority)
+
+- Narrow mutation `invalidateQueries` scope so routine edits do not refetch unrelated surfaces:
+  - Category label mutations must refresh venture list data used for sidebar label display (not only the label list).
+  - Activity type mutations must invalidate affected time-log query keys when display names can go stale.
+  - Project mutations must invalidate project list **and** project board query keys where board data exists.
+- Avoid blanket invalidation that refetches archived venture/project queries while archive UI is closed, where practical (e.g. enable or mount archived queries only when `ArchiveDialog` is open).
+- Preserve correct UI after archive/unarchive; add or update targeted tests in `modules.test.tsx` (or equivalent) proving the minimum invalidation keys fire.
+
+#### 3. `setState` during render in `App.tsx` (correctness)
+
+- Remove `setOptimisticTasks` / `setKanbanMutationError` calls from the render body (currently keyed off `storedProjectIdsKey` and `tasksQuery.data` reference changes).
+- Reimplement the same behaviour in `useEffect` (or equivalent) so Kanban optimistic state clears when filters or server task data change, without violating React render rules.
+- Add or extend a frontend test that would fail if render-time `setState` is reintroduced during filter/task data churn (Kanban or filter interaction path).
+
+#### 4. Stable `reload` in `queryUtils.ts` (performance)
+
+- Memoize `reload` in `toQueryState` (e.g. `useCallback` tied to `query.refetch`) so consumers like `Sidebar` do not get a new function identity every render.
+- Remove dead or misleading arguments passed into hooks that no longer accept reload callbacks (e.g. `useVentureMutations(reloadVenturesAndProjects)` if the hook uses internal invalidation only).
+- No change to public hook contracts beyond stabilizing `reload`; `tsc --noEmit` and ESLint remain clean.
+
+### Out of Scope
+
+- New venture, project, board, or activity-type product behaviour (**1.6-9+**).
+- Migrating `test_tasks.py` / `test_projects.py` (see **Chore 1.6-C2**).
+- Fixing all `App.1b*` archive-tab tests (see **Chore 1.6-C2**).
+- Increasing Docker Desktop RAM, resetting owner machines, or requiring a specific Docker Desktop version.
+
+### Edge Cases
+
+- Backend-only Compose must still run migrations and serve `/api/v1` on port 8000 as today.
+- Narrower invalidation must not leave sidebar venture labels stale after label rename/delete.
+- Moving optimistic task reset to `useEffect` must not reintroduce Kanban flicker or stale optimistic cards after successful status PATCH.
+- Documented dev commands work on a clean clone after `npm ci` / backend venv install without hardcoded owner paths.
+
+### Verification (Implementer / Reviewer)
+
+- Owner can run documented **backend-only Docker + host frontend** flow and use ventures, labels, and archive without Vite-in-Docker.
+- Targeted frontend tests for query invalidation and `App` optimistic behaviour pass.
+- `make lint` on touched frontend files passes; no `any` introduced.
+
+---
+
+## Chore 1.6-C2
+
+### Title
+
+Legacy Test Migration — Venture-Aware Project Fixtures and Integration Harness
+
+### Type
+
+Chore (no new product features). Run through the agent ticket loop after **Chore 1.6-C1** and before **1.6-9**. Do not mix with feature tickets in one implementation pass.
+
+### Background
+
+After Phase 1.6, `POST /api/v1/projects` requires `venture_id`. Legacy suites **`test_tasks.py`** (22 failures) and **`test_projects.py`** (13 failures) still call helpers that create projects without a venture, failing immediately with `422` (`Field required` on `venture_id`). **`make test` runs `test-backend` first**; when those 35 tests fail, the Makefile may never reach the frontend suite.
+
+Frontend integration tests using `renderApp()` render `<App />` without `QueryClientProvider` while production uses TanStack Query (**1.6-7**), causing widespread `No QueryClient set` failures in `App.1b4` / `App.1b5` (and similar) if run in isolation. Some **1.6-8** archive UI tests still expect an **Archived tasks** tab; the product archive dialog now has **Archived ventures** and **Archived projects** only.
+
+Backend coverage (~86% with failing legacy tests) comes from new Phase 1.6 API tests on the branch, not from the broken helpers—the failing legacy tests add almost no regression signal until fixed.
+
+### Acceptance Criteria
+
+#### Backend — venture-aware helpers
+
+- Update shared project-creation helpers in **`backend/app/tests/test_tasks.py`** and **`backend/app/tests/test_projects.py`** (and `conftest.py` if shared fixtures belong there) so every project create:
+  - Creates or reuses a valid **active** venture first (e.g. via API or test DB helper aligned with `test_ventures.py` / `test_projects_phase_1_6_4.py` patterns).
+  - Passes `venture_id` on `POST /api/v1/projects`.
+- All **35** previously failing tests in those two modules pass without weakening assertions (still expect `201` where creation should succeed).
+- No production schema or API changes unless a test reveals a real bug; prefer test-only fixture fixes.
+
+#### Frontend — integration harness
+
+- Wrap **`renderApp` / `renderAppBare`** in `frontend/src/test/renderApp.tsx` with the same `QueryClientProvider` / test client pattern used in `modules.test.tsx` and `QueryProvider.tsx` so `App` and descendants using TanStack hooks mount correctly.
+- Confirm **`App.test.tsx`** Ticket 3 and other venture-tree tests still pass after harness change.
+
+#### Frontend — archive dialog test alignment (**1.6-8**)
+
+- Update or remove **`App.1b4`** / **`App.1b5`** expectations that require an **Archived tasks** tab or `GET /api/v1/tasks?status=archived` from the archive dialog, aligning tests with current product behaviour (ventures + archived projects tabs only).
+- Preserve coverage for task archive from the **task edit modal** and other **1.6-8**-relevant archive flows where the product still supports them.
+- Do not reintroduce an Archived tasks tab in product UI as part of this chore unless the owner explicitly expands scope.
+
+#### Quality gates
+
+- `cd backend && pytest` (or `make test-backend`) passes with no failures in `test_tasks.py` or `test_projects.py`.
+- `cd frontend && CI=true npm run test` passes for touched `App.1b4` / `App.1b5` (and any other files fixed by the harness change); document any remaining pre-existing failures separately in the handoff without hiding new regressions.
+- `make lint` passes for touched files.
+
+### Out of Scope
+
+- Docker dev stack documentation (**Chore 1.6-C1**).
+- New tickets **1.6-9** through **1.6-12** feature work.
+- Rewriting the entire `App.1b*` suite beyond what the harness and archive-tab alignment require.
+- Backend migration or Alembic changes.
+
+### Edge Cases
+
+- Helpers work on empty DB and on DBs with seeded `Unsorted` venture from migration.
+- Archived-project and archived-venture scenarios in legacy tests use valid venture ownership rules from **1.6-4**.
+- `QueryClient` in tests is isolated per test where needed to avoid cross-test cache leakage (match existing `QueryProvider` / `modules.test.tsx` patterns).
+- Tests do not depend on execution order across files.
+
+### Verification (Implementer / Reviewer)
+
+- `make test-backend`: **125** backend tests collected, **0** failures (or document any unrelated pre-existing failures explicitly).
+- `make test` completes both backend and frontend recipes when owner runs full gate.
+- Handoff lists before/after failure counts and confirms the 35 backend failures were addressed by fixture migration, not by deleting tests.
+
+---
+
+## Chore 1.6-C3
+
+### Title
+
+Frontend Test Harness Completion — QueryClient Coverage for Legacy App and Sidebar Suites
+
+### Type
+
+Chore (no new product features). Run through the agent ticket loop after **Chore 1.6-C2** and before **1.6-9**. Do not mix with feature tickets in one implementation pass.
+
+### Background
+
+After **1.6-C2**, backend tests pass again and the `renderApp()` harness covers the archive-dialog slices that were blocking that chore. Full `make test` still fails in legacy frontend suites that render `<App />` or `<Sidebar />` directly without the shared TanStack Query test wrapper. Current failures in **`AppShell.test.tsx`** and **`Sidebar.phase-1-6-8.test.tsx`** are not product regressions; they fail immediately with `No QueryClient set, use QueryClientProvider to set one`.
+
+These suites now exercise query-backed components introduced by **1.6-7** and **1.6-8**, so the old “raw render” pattern no longer matches production wiring. Until those tests use the shared provider pattern, `make test` continues to report avoidable frontend failures and obscures genuine UI regressions.
+
+### Acceptance Criteria
+
+#### Frontend — shared QueryClient test harness
+
+- Update legacy frontend tests that directly render query-backed surfaces without a provider so they use the shared QueryClient test pattern already established in `frontend/src/test/renderApp.tsx`, `frontend/src/test/QueryProvider.tsx`, and `frontend/src/api/modules.test.tsx`.
+- At minimum, migrate:
+  - **`frontend/src/components/layout/AppShell.test.tsx`**
+  - **`frontend/src/components/layout/Sidebar.phase-1-6-8.test.tsx`**
+- If any additional Phase 1b / 1.6 suites fail for the same `No QueryClient set` reason during this chore, migrate them in the same pass rather than leaving a second harness-only ticket behind.
+- Prefer one shared helper or wrapper pattern over per-file ad hoc provider setup where practical.
+- Preserve the existing behavioural intent of the tests; this chore changes test harness wiring, not product scope.
+
+#### Frontend — venture/tree regression coverage remains meaningful
+
+- `AppShell.test.tsx` still asserts the original shell/page-layout expectations after the wrapper change.
+- `Sidebar.phase-1-6-8.test.tsx` still covers venture-tree rendering, expand/collapse, default project selection, venture create/edit entry points, archive dialog entry points, and active-tree removal after venture archive.
+- Query-backed tests do not rely on cross-test cache leakage; QueryClient state remains isolated per test or per render helper.
+
+#### Quality gates
+
+- `make test` no longer fails on `No QueryClient set` errors in the migrated suites.
+- `cd frontend && CI=true npm run test` passes for the touched harness and suite files, or any unrelated remaining failures are documented explicitly in the handoff.
+- `make lint` passes for touched files.
+
+### Out of Scope
+
+- Backend fixture work already covered by **Chore 1.6-C2**.
+- Rewriting archive, time-log, or board assertions unrelated to QueryClient/provider wiring.
+- New venture, project, board, or activity-type product behaviour.
+
+### Edge Cases
+
+- Tests that intentionally assert the failure mode without a provider may remain, but they must not poison suite-level stderr or cause false negatives in surrounding tests.
+- Shared test helpers must not hide fetch mocks, localStorage setup, or store resets that individual suites still need to control explicitly.
+- Adding the provider must not accidentally auto-fetch archived data or mutate local UI state in ways the test did not previously need to account for.
+
+### Verification (Implementer / Reviewer)
+
+- Handoff lists which files were migrated from raw `render(...)` to the shared query-aware test wrapper.
+- Handoff confirms the prior `No QueryClient set` failures are gone.
+- Reviewer verifies the change is harness-only unless a tiny shared test utility adjustment was required.
+
+---
+
+## Chore 1.6-C4
+
+### Title
+
+Legacy Time-Log Frontend Test Stabilization
+
+### Type
+
+Chore (no new product features). Run through the agent ticket loop after **Chore 1.6-C3** and before **1.6-9**. Do not mix with feature tickets in one implementation pass.
+
+### Background
+
+Once the remaining QueryClient harness failures are removed, full `make test` still exposes legacy time-log test drift in **`App.1b6.test.tsx`** and related app-level suites such as **`App.test.tsx`**. Current failures include timeouts while waiting for time logs to load, assertions that run before log rows appear, and missing controls such as the delete action because the test is asserting against an intermediate loading state rather than the settled dialog.
+
+These failures are different from the QueryClient/provider problem. They may be stale test expectations, async timing mistakes, or a genuine product regression in time-log rendering/refresh. They should be isolated and resolved before **1.6-9+** so the remaining phase work runs against a trustworthy frontend suite.
+
+### Acceptance Criteria
+
+#### Frontend — time-log integration test alignment
+
+- Investigate the remaining failing time-log tests after **Chore 1.6-C3** is green and classify each as:
+  - stale test timing/assertion,
+  - stale expectation after signed-off UI changes, or
+  - genuine product regression.
+- At minimum, address the failing slices currently surfacing in:
+  - **`frontend/src/App.1b6.test.tsx`**
+  - **`frontend/src/App.test.tsx`** time-log integration coverage
+- Tests wait for time-log data and controls at the correct lifecycle point instead of asserting against transient loading states.
+- Delete/update/create time-log tests assert against the current accessible UI affordances and refreshed derived-hour values after the relevant network round-trip completes.
+- If a genuine product bug is revealed, fix the minimum production code required and keep the scope strictly limited to restoring signed-off Phase 1b / 1.6 behaviour.
+
+#### Frontend — preserve regression value ahead of 1.6-11
+
+- Existing manual time-log behaviours from Phase 1b remain covered:
+  - load logs when the task dialog opens,
+  - create via POST,
+  - delete via DELETE,
+  - refresh actual hours and related derived fields after mutation,
+  - display existing notes/detail rows once data has loaded.
+- Do not pre-implement **1.6-11** activity-type UI as part of this chore.
+- Do not weaken the suite by deleting the failing time-log scenarios outright unless the behaviour is explicitly obsolete and replaced with an equivalent assertion.
+
+#### Quality gates
+
+- After **Chore 1.6-C3**, `make test` passes the remaining time-log-related frontend slices touched by this chore.
+- `cd frontend && CI=true npm run test` passes for touched `App.1b6` / `App.test` files, or any unrelated remaining failures are documented explicitly in the handoff.
+- `make lint` passes for touched files.
+
+### Out of Scope
+
+- QueryClient/provider migration already covered by **Chore 1.6-C3**.
+- Activity-type combobox and display work reserved for **1.6-11**.
+- Backend time-log API changes unless a failing frontend test proves a real regression already within current phase scope.
+
+### Edge Cases
+
+- Tests must not pass only because mocked time-log fetches are skipped; they need to prove the UI handles the loading-to-loaded transition.
+- If deletion controls are conditionally rendered, tests must cover the state that legitimately exposes them rather than reaching into hidden DOM.
+- If a timing issue comes from optimistic UI or dialog state reset, the fix must not introduce brittle `setTimeout`-style waits.
+
+### Verification (Implementer / Reviewer)
+
+- Handoff lists the exact before/after failing assertions for each time-log test fixed.
+- Handoff states whether each fix was test-only or required production code.
+- Reviewer verifies no premature **1.6-11** scope expansion was introduced.
 
 ---
 

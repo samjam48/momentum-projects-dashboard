@@ -7,7 +7,7 @@ Turn a loosely defined feature request into a clear, project-specific planning p
 1. `AGENTS.md`
 2. `docs/V1-PRD.md`
 3. `docs/V1-TRD.md`
-4. `docs/patterns.md` if it exists
+4. `docs/patterns.md`
 5. `docs/architecture.md` if it exists
 6. Relevant ADRs in `/ADR/`
 7. Relevant code paths end-to-end before drafting any significant change

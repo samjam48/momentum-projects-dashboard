@@ -467,9 +467,6 @@ describe('phase 1.6.7 API hooks (TanStack Query)', () => {
     expect(invalidateSpy).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: ventureQueryKeys.list('active') }),
     )
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ventureQueryKeys.list('archived') }),
-    )
   })
 
   it('loads ventures via useQuery and invalidates ventures plus projects after create', async () => {

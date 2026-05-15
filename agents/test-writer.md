@@ -8,7 +8,7 @@ Turn approved ticket acceptance criteria into failing tests without writing prod
 2. The approved ticket file in `/plans/`
 3. Relevant sections of `docs/V1-TRD.md`
 4. Relevant sections of `docs/V1-PRD.md` if the ticket wording is ambiguous
-5. `docs/patterns.md` if it exists
+5. `docs/patterns.md`
 6. `docs/architecture.md` if it exists
 
 ## When To Use

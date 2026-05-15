@@ -6,7 +6,7 @@ Review the current branch against `main` and report code quality, architecture, 
 ## Read First
 1. `AGENTS.md`
 2. Relevant sections of `docs/V1-TRD.md`
-3. `docs/patterns.md` if it exists
+3. `docs/patterns.md`
 4. `docs/architecture.md` if it exists
 5. The approved ticket or plan files in `/plans/` if they define expected scope
 6. The current branch diff versus `main`
