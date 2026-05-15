@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session
+
+from app.db.database import get_engine
+from app.models.activity_type import ActivityType
 
 from .venture_test_utils import create_active_venture_in_db
 
@@ -113,6 +117,20 @@ def _create_manual_time_log(
     body = response.json()
     assert isinstance(body, dict)
     return body
+
+
+def _create_activity_type(*, name: str, status: str = "active") -> ActivityType:
+    activity_type = ActivityType(
+        id=str(uuid4()),
+        name=name,
+        slug=name.strip().lower().replace(" ", "-"),
+        status=status,
+    )
+    with Session(get_engine()) as session:
+        session.add(activity_type)
+        session.commit()
+        session.refresh(activity_type)
+    return activity_type
 
 
 def test_tasks_migration_exists_for_phase_1_schema() -> None:
@@ -556,3 +574,130 @@ def test_time_logs_accept_optional_title_and_location(client: TestClient) -> Non
     assert body["title"] == "Client call"
     assert body["location"] == "Home office"
     assert body["notes"] == "Captured launch prep"
+
+
+def test_patch_time_log_updates_fields_and_recomputes_actual_hours(
+    client: TestClient,
+) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+    first_log = _create_manual_time_log(
+        client,
+        str(task["id"]),
+        hours=1.0,
+        logged_date="2026-05-10",
+    )
+    _create_manual_time_log(client, str(task["id"]), hours=2.0, logged_date="2026-05-11")
+
+    patch_response = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{first_log['id']}",
+        json={
+            "hours": 3.0,
+            "logged_date": "2026-05-12",
+            "notes": "Updated notes",
+            "title": "Deep work block",
+            "location": "Remote",
+            "activity_type_id": None,
+        },
+    )
+
+    assert patch_response.status_code == 200, patch_response.text
+    body = patch_response.json()
+    assert body["hours"] == 3.0
+    assert body["logged_date"] == "2026-05-12"
+    assert body["notes"] == "Updated notes"
+    assert body["title"] == "Deep work block"
+    assert body["location"] == "Remote"
+    assert body["activity_type_id"] is None
+    assert body["activity_type_display_name"] == "uncategorised"
+
+    task_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}")
+    assert task_response.status_code == 200, task_response.text
+    assert task_response.json()["actual_hours"] == 5.0
+
+
+def test_patch_time_log_sets_activity_type_when_valid(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+    unique = uuid4().hex[:8]
+    activity_type = _create_activity_type(name=f"planning-{unique}")
+    time_log = _create_manual_time_log(client, str(task["id"]), hours=1.0)
+
+    patch_response = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{time_log['id']}",
+        json={"activity_type_id": activity_type.id},
+    )
+
+    assert patch_response.status_code == 200, patch_response.text
+    patched = patch_response.json()
+    assert patched["activity_type_id"] == activity_type.id
+    assert patched["activity_type_name"] == activity_type.name
+    assert patched["hours"] == 1.0
+
+
+def test_patch_time_log_rejects_unknown_or_archived_activity_type(
+    client: TestClient,
+) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+    archived = _create_activity_type(name=f"archived-type-{uuid4().hex[:8]}", status="archived")
+    time_log = _create_manual_time_log(client, str(task["id"]), hours=1.0)
+
+    unknown = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{time_log['id']}",
+        json={"activity_type_id": "00000000-0000-4000-8000-000000000001"},
+    )
+    bad_archived = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{time_log['id']}",
+        json={"activity_type_id": archived.id},
+    )
+
+    assert unknown.status_code == 422, unknown.text
+    assert bad_archived.status_code == 422, bad_archived.text
+
+
+def test_patch_time_log_returns_404_for_wrong_task_or_missing_entry(
+    client: TestClient,
+) -> None:
+    project = _create_project(client)
+    task_a = _create_task(client, project_id=str(project["id"]), title="Task A")
+    task_b = _create_task(client, project_id=str(project["id"]), title="Task B")
+    time_log = _create_manual_time_log(client, str(task_a["id"]), hours=1.0)
+
+    wrong_task = client.patch(
+        f"{TASKS_ENDPOINT}/{task_b['id']}/time-logs/{time_log['id']}",
+        json={"hours": 2.0},
+    )
+    missing = client.patch(
+        f"{TASKS_ENDPOINT}/{task_a['id']}/time-logs/00000000-0000-4000-8000-000000000099",
+        json={"hours": 2.0},
+    )
+
+    assert wrong_task.status_code == 404, wrong_task.text
+    assert missing.status_code == 404, missing.text
+
+
+def test_patch_time_log_requires_at_least_one_field(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+    time_log = _create_manual_time_log(client, str(task["id"]), hours=1.0)
+
+    empty = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{time_log['id']}",
+        json={},
+    )
+
+    assert empty.status_code == 422, empty.text
+
+
+def test_patch_time_log_rejects_non_positive_hours(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+    time_log = _create_manual_time_log(client, str(task["id"]), hours=1.0)
+
+    response = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{time_log['id']}",
+        json={"hours": 0},
+    )
+
+    assert response.status_code == 422, response.text

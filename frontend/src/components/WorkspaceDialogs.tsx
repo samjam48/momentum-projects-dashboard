@@ -419,6 +419,7 @@ export function useWorkspaceDialogs({
   }
 
   const handleTimeLogCreate = async (payload: {
+    activity_type_id: string | null
     hours: number
     location: string | null
     logged_date: string
@@ -426,6 +427,7 @@ export function useWorkspaceDialogs({
     title: string | null
   }): Promise<void> => {
     const timeLogPayload: TimeLogPayload = {
+      activity_type_id: payload.activity_type_id ?? null,
       hours: payload.hours,
       location: payload.location,
       logged_date: payload.logged_date,
@@ -434,6 +436,30 @@ export function useWorkspaceDialogs({
     }
 
     await timeLogMutations.create(timeLogPayload)
+    await onTasksReload()
+  }
+
+  const handleTimeLogUpdate = async (
+    timeLogId: string,
+    payload: {
+      activity_type_id: string | null
+      hours: number
+      location: string | null
+      logged_date: string
+      notes: string | null
+      title: string | null
+    },
+  ): Promise<void> => {
+    const timeLogPayload: TimeLogPayload = {
+      activity_type_id: payload.activity_type_id ?? null,
+      hours: payload.hours,
+      location: payload.location,
+      logged_date: payload.logged_date,
+      notes: payload.notes,
+      title: payload.title,
+    }
+
+    await timeLogMutations.update(timeLogId, timeLogPayload)
     await onTasksReload()
   }
 
@@ -634,6 +660,7 @@ export function useWorkspaceDialogs({
           onFieldChange={handleTaskInputChange}
           onTimeLogCreate={handleTimeLogCreate}
           onTimeLogDelete={handleTimeLogDelete}
+          onTimeLogUpdate={handleTimeLogUpdate}
         />
       ) : null}
     </>

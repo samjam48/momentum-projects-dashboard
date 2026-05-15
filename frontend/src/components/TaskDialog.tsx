@@ -1,7 +1,10 @@
 import type { FormEvent, MouseEvent } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 
+import { activityTypeQueryKeys, createActivityType, useActivityTypes } from '../api/activityTypes'
+import { ApiError } from '../api/client'
 import type {
   Project,
   Task,
@@ -9,12 +12,15 @@ import type {
   TaskStatus,
   TimeLog,
 } from '../api/types'
+import { formatActivityTypeLabel } from '../lib/activityTypeDisplay'
 import {
   formatTimeLogDate,
   getTimeLogBody,
+  getTimeLogListPrimaryLabel,
   getTimeLogLocation,
-  getTimeLogTitle,
 } from '../lib/timeLogDisplay'
+import { ActivityTypeCombobox } from './ActivityTypeCombobox'
+import { ActivityTypesManageDialog } from './ActivityTypesManageDialog'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -94,6 +100,7 @@ type TaskDialogProps = {
   onFieldBlur: () => Promise<void>
   onFieldChange: (field: keyof TaskFormState, value: string) => void
   onTimeLogCreate: (payload: {
+    activity_type_id: string | null
     hours: number
     location: string | null
     logged_date: string
@@ -101,6 +108,17 @@ type TaskDialogProps = {
     title: string | null
   }) => Promise<void>
   onTimeLogDelete: (timeLogId: string) => Promise<void>
+  onTimeLogUpdate?: (
+    timeLogId: string,
+    payload: {
+      activity_type_id: string | null
+      hours: number
+      location: string | null
+      logged_date: string
+      notes: string | null
+      title: string | null
+    },
+  ) => Promise<void>
   selectedTask: Task | null
   taskForm: TaskFormState
   taskFormErrors: TaskFormErrors
@@ -122,6 +140,7 @@ export function TaskDialog({
   onFieldChange,
   onTimeLogCreate,
   onTimeLogDelete,
+  onTimeLogUpdate,
   selectedTask,
   taskForm,
   taskFormErrors,
@@ -132,7 +151,14 @@ export function TaskDialog({
   timeLogsLoading,
 }: TaskDialogProps): JSX.Element {
   const dialogLabelId = useId()
+  const queryClient = useQueryClient()
+  const activityTypesQuery = useActivityTypes('active')
   const [timeLogDialogOpen, setTimeLogDialogOpen] = useState(false)
+  const [editingTimeLog, setEditingTimeLog] = useState<TimeLog | null>(null)
+  const [manageActivityTypesOpen, setManageActivityTypesOpen] = useState(false)
+  const [activityFilterText, setActivityFilterText] = useState('')
+  const [selectedActivityTypeId, setSelectedActivityTypeId] = useState<string | null>(null)
+  const [activityTypeComboError, setActivityTypeComboError] = useState<string | null>(null)
   const [timeLogForm, setTimeLogForm] = useState<TimeLogSubFormState>({
     date: todayIsoDate(),
     hours: '',
@@ -152,6 +178,7 @@ export function TaskDialog({
   }, [mode, taskForm.title])
 
   const resetTimeLogForm = (): void => {
+    setEditingTimeLog(null)
     setTimeLogForm({
       date: todayIsoDate(),
       hours: '',
@@ -160,6 +187,52 @@ export function TaskDialog({
       title: '',
     })
     setTimeLogFormErrors({})
+    setActivityFilterText('')
+    setSelectedActivityTypeId(null)
+    setActivityTypeComboError(null)
+  }
+
+  const openTimeLogEditor = (timeLog: TimeLog): void => {
+    setEditingTimeLog(timeLog)
+    setTimeLogForm({
+      date: timeLog.logged_date,
+      hours: timeLog.hours === 0 ? '' : String(timeLog.hours),
+      location: timeLog.location ?? '',
+      notes: timeLog.notes ?? '',
+      title: timeLog.title ?? '',
+    })
+    setSelectedActivityTypeId(timeLog.activity_type_id)
+    setActivityFilterText(
+      timeLog.activity_type_id ? timeLog.activity_type_display_name : '',
+    )
+    setActivityTypeComboError(null)
+    setTimeLogFormErrors({})
+    setTimeLogDialogOpen(true)
+  }
+
+  const handleInlineCreateActivity = async (name: string): Promise<boolean> => {
+    setActivityTypeComboError(null)
+    const trimmed = name.trim()
+    if (trimmed.length > 25) {
+      setActivityTypeComboError('Name must be at most 25 characters.')
+      return false
+    }
+    if (trimmed.toLowerCase() === 'uncategorised') {
+      setActivityTypeComboError('Reserved name "uncategorised" cannot be used for an activity type.')
+      return false
+    }
+    try {
+      const created = await createActivityType({ name: trimmed })
+      await queryClient.invalidateQueries({ queryKey: activityTypeQueryKeys.list('active') })
+      setSelectedActivityTypeId(created.id)
+      setActivityFilterText(formatActivityTypeLabel(created.name))
+      return true
+    } catch (caught) {
+      const message =
+        caught instanceof ApiError ? caught.message : 'Unable to create activity type.'
+      setActivityTypeComboError(message)
+      return false
+    }
   }
 
   const handleTimeLogSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -172,16 +245,30 @@ export function TaskDialog({
       return
     }
 
-    await onTimeLogCreate({
+    const payload = {
+      activity_type_id: selectedActivityTypeId,
       hours: Number(hoursValue),
       location: timeLogForm.location.trim() || null,
       logged_date: timeLogForm.date || todayIsoDate(),
       notes: timeLogForm.notes.trim() || null,
       title: timeLogForm.title.trim() || null,
-    })
+    }
 
-    setTimeLogDialogOpen(false)
-    resetTimeLogForm()
+    try {
+      if (editingTimeLog) {
+        if (onTimeLogUpdate) {
+          await onTimeLogUpdate(editingTimeLog.id, payload)
+        }
+      } else {
+        await onTimeLogCreate(payload)
+      }
+      setTimeLogDialogOpen(false)
+      resetTimeLogForm()
+    } catch (caught) {
+      const message =
+        caught instanceof ApiError ? caught.message : 'Unable to save time log.'
+      setTimeLogFormErrors({ form: message })
+    }
   }
 
   const dialogAriaLabel = mode === 'create' ? 'New task' : 'Edit task'
@@ -212,16 +299,27 @@ export function TaskDialog({
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            resetTimeLogForm()
-            setTimeLogDialogOpen(true)
-          }}
-        >
-          + Add time log
-        </Button>
+        <div className="time-log-actions flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              resetTimeLogForm()
+              setTimeLogDialogOpen(true)
+            }}
+          >
+            + Add time log
+          </Button>
+          <button
+            className="text-sm underline decoration-dotted underline-offset-2"
+            type="button"
+            onClick={() => {
+              setManageActivityTypesOpen(true)
+            }}
+          >
+            Manage activity types
+          </button>
+        </div>
 
         {timeLogsError ? <p className="form-error">{timeLogsError}</p> : null}
         {timeLogsLoading ? <p className="muted-copy">Loading time logs…</p> : null}
@@ -230,7 +328,7 @@ export function TaskDialog({
           {timeLogs.map((timeLog) => {
             const body = getTimeLogBody(timeLog)
             const location = getTimeLogLocation(timeLog)
-            const title = getTimeLogTitle(timeLog)
+            const primaryLabel = getTimeLogListPrimaryLabel(timeLog)
             const formattedDate = formatTimeLogDate(timeLog.logged_date)
             const detailText = body?.trim() ? body : 'No notes'
             const hasNotesBody = Boolean(body?.trim())
@@ -257,7 +355,7 @@ export function TaskDialog({
                       className="time-log-row-primary-line"
                       data-testid="time-log-row-primary"
                     >
-                      <strong>{title}</strong>
+                      <strong>{primaryLabel}</strong>
                     </span>
                     <span
                       className="time-log-row-primary-line"
@@ -268,7 +366,18 @@ export function TaskDialog({
                     </span>
                   </button>
                   <button
-                    aria-label={`Delete time log ${title}`}
+                    aria-label={`Edit time log ${primaryLabel}`}
+                    className="time-log-edit text-sm underline"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      openTimeLogEditor(timeLog)
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    aria-label={`Delete time log ${primaryLabel}`}
                     className="time-log-delete"
                     type="button"
                     onClick={(event) => {
@@ -622,12 +731,88 @@ export function TaskDialog({
           }
         }}
       >
-        <DialogContent aria-describedby={undefined} aria-label="Add time log">
+        <DialogContent
+          aria-describedby={undefined}
+          aria-label={editingTimeLog ? 'Edit time log' : 'Add time log'}
+        >
           <DialogHeader>
-            <DialogTitle>Add time log</DialogTitle>
+            <DialogTitle>{editingTimeLog ? 'Edit time log' : 'Add time log'}</DialogTitle>
           </DialogHeader>
 
           <form className="project-form" noValidate onSubmit={(event) => void handleTimeLogSave(event)}>
+            <ActivityTypeCombobox
+              activityTypeError={activityTypeComboError}
+              activityTypes={activityTypesQuery.data}
+              disabled={timeLogMutationsSaving}
+              filterText={activityFilterText}
+              onClearError={() => {
+                setActivityTypeComboError(null)
+              }}
+              onCreateInline={handleInlineCreateActivity}
+              onFilterTextChange={(value) => {
+                setActivityFilterText(value)
+                setSelectedActivityTypeId(null)
+              }}
+              onPickActivityType={(type) => {
+                setSelectedActivityTypeId(type.id)
+                setActivityFilterText(formatActivityTypeLabel(type.name))
+                setActivityTypeComboError(null)
+              }}
+            />
+
+            <div className="field">
+              <button
+                className="text-sm underline decoration-dotted underline-offset-2"
+                type="button"
+                onClick={() => {
+                  setManageActivityTypesOpen(true)
+                }}
+              >
+                Manage activity types
+              </button>
+            </div>
+
+            <label className="field">
+              <span>Time</span>
+              <input
+                aria-label="Time"
+                min="0"
+                step="0.25"
+                type="number"
+                value={timeLogForm.hours}
+                onChange={(event) => {
+                  setTimeLogForm((current) => ({ ...current, hours: event.target.value }))
+                  setTimeLogFormErrors({})
+                }}
+              />
+              {timeLogFormErrors.hours ? (
+                <span className="field-error">{timeLogFormErrors.hours}</span>
+              ) : null}
+            </label>
+
+            <label className="field">
+              <span>Date</span>
+              <input
+                aria-label="Date"
+                type="date"
+                value={timeLogForm.date}
+                onChange={(event) =>
+                  setTimeLogForm((current) => ({ ...current, date: event.target.value }))
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Location</span>
+              <input
+                aria-label="Location"
+                value={timeLogForm.location}
+                onChange={(event) =>
+                  setTimeLogForm((current) => ({ ...current, location: event.target.value }))
+                }
+              />
+            </label>
+
             <label className="field">
               <span>Title</span>
               <input
@@ -651,46 +836,11 @@ export function TaskDialog({
               />
             </label>
 
-            <label className="field">
-              <span>Location</span>
-              <input
-                aria-label="Location"
-                value={timeLogForm.location}
-                onChange={(event) =>
-                  setTimeLogForm((current) => ({ ...current, location: event.target.value }))
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Date</span>
-              <input
-                aria-label="Date"
-                type="date"
-                value={timeLogForm.date}
-                onChange={(event) =>
-                  setTimeLogForm((current) => ({ ...current, date: event.target.value }))
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Time</span>
-              <input
-                aria-label="Time"
-                min="0"
-                step="0.25"
-                type="number"
-                value={timeLogForm.hours}
-                onChange={(event) => {
-                  setTimeLogForm((current) => ({ ...current, hours: event.target.value }))
-                  setTimeLogFormErrors({})
-                }}
-              />
-              {timeLogFormErrors.hours ? (
-                <span className="field-error">{timeLogFormErrors.hours}</span>
-              ) : null}
-            </label>
+            {timeLogFormErrors.form ? (
+              <p className="form-error" role="alert">
+                {timeLogFormErrors.form}
+              </p>
+            ) : null}
 
             <DialogFooter>
               <Button disabled={timeLogMutationsSaving} type="submit">
@@ -710,6 +860,11 @@ export function TaskDialog({
           </form>
         </DialogContent>
       </Dialog>
+
+      <ActivityTypesManageDialog
+        open={manageActivityTypesOpen}
+        onOpenChange={setManageActivityTypesOpen}
+      />
 
       {pendingTimeLogDeleteId ? (
         <div

@@ -353,6 +353,7 @@ DELETE /api/v1/activity-types/{id}          Delete unused activity type
 PATCH  /api/v1/activity-types/{id}/archive  Archive and clear matching time log FKs
 GET    /api/v1/tasks/{id}/time-logs         List time logs for task
 POST   /api/v1/tasks/{id}/time-logs         Add time log
+PATCH  /api/v1/tasks/{id}/time-logs/{time_log_id}  Update time log (partial body; recomputes task actual hours)
 ```
 
 ### Income

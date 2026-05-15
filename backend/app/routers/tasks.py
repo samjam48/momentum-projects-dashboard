@@ -13,6 +13,7 @@ from app.schemas.task import (
     TaskUpdate,
     TimeLogCreate,
     TimeLogRead,
+    TimeLogUpdate,
 )
 from app.services import tasks as task_services
 
@@ -75,6 +76,19 @@ def create_time_log(
     payload: TimeLogCreate,
 ) -> TimeLogRead:
     return task_services.create_time_log(session, task_id, payload)
+
+
+@router.patch(
+    "/{task_id}/time-logs/{time_log_id}",
+    response_model=TimeLogRead,
+)
+def update_time_log(
+    session: SessionDep,
+    task_id: str,
+    time_log_id: str,
+    payload: TimeLogUpdate,
+) -> TimeLogRead:
+    return task_services.update_time_log(session, task_id, time_log_id, payload)
 
 
 @router.delete(

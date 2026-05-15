@@ -1,4 +1,5 @@
 import type {
+  ActivityType,
   Project,
   Task,
   TaskPayload,
@@ -11,6 +12,7 @@ import type {
 } from '../api/types'
 
 import {
+  buildActivityType,
   buildProject,
   buildTask,
   buildTimeLog,
@@ -25,6 +27,7 @@ type MockResponseOptions = {
 }
 
 export type WorkspaceBackendOptions = {
+  activityTypes?: ActivityType[]
   projects?: Project[]
   tasks?: Task[]
   timeLogs?: Record<string, TimeLog[]>
@@ -73,6 +76,29 @@ export type WorkspaceBackendOptions = {
 export type ProjectBoardStatusRequestRecord = {
   payload: Record<string, unknown>
   projectId: string
+}
+
+function defaultActivityTypes(): ActivityType[] {
+  return [
+    buildActivityType({
+      id: 'at-seed-planning',
+      name: 'planning',
+      slug: 'planning',
+      sort_order: 0,
+    }),
+    buildActivityType({
+      id: 'at-seed-meeting',
+      name: 'meeting',
+      slug: 'meeting',
+      sort_order: 1,
+    }),
+    buildActivityType({
+      id: 'at-seed-admin',
+      name: 'admin',
+      slug: 'admin',
+      sort_order: 2,
+    }),
+  ]
 }
 
 function defaultVentureCategoryLabels(): VentureCategoryLabel[] {
@@ -213,6 +239,7 @@ export function installWorkspaceBackendMock(
   taskStatusRequests: TaskStatusRequest[]
 } {
   const projects = [...(options.projects ?? [])]
+  const activityTypes = [...(options.activityTypes ?? defaultActivityTypes())]
   const ventureLabels = [...(options.ventureCategoryLabels ?? defaultVentureCategoryLabels())]
   const ventures = [
     ...(options.ventures ?? [
@@ -249,6 +276,61 @@ export function installWorkspaceBackendMock(
         ? task.actual_hours
         : actualHoursForTask(task.id),
   })
+
+  const displayNameForActivityType = (name: string): string =>
+    name
+      .split(/\s+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+
+  const resolveActivityFieldsForTimeLog = (
+    activityTypeId: string | null | undefined,
+  ): Pick<TimeLog, 'activity_type_id' | 'activity_type_name' | 'activity_type_display_name'> => {
+    if (!activityTypeId) {
+      return {
+        activity_type_id: null,
+        activity_type_name: null,
+        activity_type_display_name: 'uncategorised',
+      }
+    }
+
+    const match = activityTypes.find(
+      (type) => type.id === activityTypeId && type.status === 'active',
+    )
+
+    if (!match) {
+      return {
+        activity_type_id: null,
+        activity_type_name: null,
+        activity_type_display_name: 'uncategorised',
+      }
+    }
+
+    return {
+      activity_type_id: match.id,
+      activity_type_name: match.name,
+      activity_type_display_name: displayNameForActivityType(match.name),
+    }
+  }
+
+  const scrubArchivedActivityFromTimeLogs = (archivedActivityTypeId: string): void => {
+    for (const taskId of [...timeLogsByTask.keys()]) {
+      const logs = timeLogsByTask.get(taskId) ?? []
+      timeLogsByTask.set(
+        taskId,
+        logs.map((timeLog) =>
+          timeLog.activity_type_id !== archivedActivityTypeId
+            ? timeLog
+            : {
+                ...timeLog,
+                activity_type_id: null,
+                activity_type_name: null,
+                activity_type_display_name: 'uncategorised',
+              },
+        ),
+      )
+    }
+  }
 
   const fetchMock = vi.fn<typeof fetch>(
     async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -292,6 +374,137 @@ export function installWorkspaceBackendMock(
         })
         ventureLabels.push(createdLabel)
         return jsonResponse({ body: createdLabel, status: 201 })
+      }
+
+      if (method === 'GET' && pathname === '/api/v1/activity-types') {
+        const statusParam = url.searchParams.get('status') ?? 'active'
+        const filtered = activityTypes.filter((type) => type.status === statusParam)
+        const items = [...filtered].sort((left, right) => {
+          const leftOrder = left.sort_order ?? 999
+          const rightOrder = right.sort_order ?? 999
+
+          if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder
+          }
+
+          return left.slug.localeCompare(right.slug)
+        })
+        return jsonResponse({ body: items })
+      }
+
+      if (method === 'POST' && pathname === '/api/v1/activity-types') {
+        const payload = body as { name?: string }
+        const trimmedName = typeof payload.name === 'string' ? payload.name.trim() : ''
+
+        if (!trimmedName) {
+          return jsonResponse({
+            body: { detail: [{ loc: ['body', 'name'], msg: 'Name is required' }] },
+            status: 422,
+          })
+        }
+
+        if (trimmedName.length > 25) {
+          return jsonResponse({
+            body: {
+              detail: [
+                {
+                  loc: ['body', 'name'],
+                  msg: 'Activity type name must be at most 25 characters',
+                },
+              ],
+            },
+            status: 422,
+          })
+        }
+
+        if (trimmedName.toLowerCase() === 'uncategorised') {
+          return jsonResponse({
+            body: {
+              detail: [
+                {
+                  loc: ['body', 'name'],
+                  msg: 'Reserved name "uncategorised" cannot be used for an activity type',
+                },
+              ],
+            },
+            status: 422,
+          })
+        }
+
+        const duplicate = activityTypes.some(
+          (type) => type.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+        )
+        if (duplicate) {
+          return jsonResponse({
+            body: {
+              detail: [
+                {
+                  loc: ['body', 'name'],
+                  msg: 'An activity type with this name already exists',
+                },
+              ],
+            },
+            status: 422,
+          })
+        }
+
+        const activeCount = activityTypes.filter((type) => type.status === 'active').length
+        const createdType = buildActivityType({
+          id: `at-created-${activityTypes.length + 1}`,
+          name: trimmedName,
+          slug: trimmedName.toLowerCase().replace(/\s+/g, '-'),
+          status: 'active',
+          sort_order: activeCount,
+        })
+        activityTypes.push(createdType)
+        return jsonResponse({ body: createdType, status: 201 })
+      }
+
+      const activityTypeArchiveMatch = pathname.match(
+        /^\/api\/v1\/activity-types\/([^/]+)\/archive$/,
+      )
+      if (activityTypeArchiveMatch && method === 'PATCH') {
+        const [, activityTypeId] = activityTypeArchiveMatch
+        const typeIndex = activityTypes.findIndex((type) => type.id === activityTypeId)
+
+        if (typeIndex < 0) {
+          return jsonResponse({ body: { detail: 'Activity type not found' }, status: 404 })
+        }
+
+        activityTypes[typeIndex] = {
+          ...activityTypes[typeIndex],
+          status: 'archived',
+          updated_at: '2026-05-13T12:00:00Z',
+        }
+        scrubArchivedActivityFromTimeLogs(activityTypeId)
+
+        return new Response(null, { status: 204 })
+      }
+
+      const activityTypeMatch = pathname.match(/^\/api\/v1\/activity-types\/([^/]+)$/)
+      if (activityTypeMatch && method === 'DELETE') {
+        const [, activityTypeId] = activityTypeMatch
+        const typeIndex = activityTypes.findIndex((type) => type.id === activityTypeId)
+
+        if (typeIndex < 0) {
+          return jsonResponse({ body: { detail: 'Activity type not found' }, status: 404 })
+        }
+
+        const referenced = [...timeLogsByTask.values()].some((logs) =>
+          logs.some((timeLog) => timeLog.activity_type_id === activityTypeId),
+        )
+
+        if (referenced) {
+          return jsonResponse({
+            body: {
+              detail: 'This activity type is referenced by time logs and cannot be deleted.',
+            },
+            status: 422,
+          })
+        }
+
+        activityTypes.splice(typeIndex, 1)
+        return new Response(null, { status: 204 })
       }
 
       if (method === 'GET' && pathname === '/api/v1/ventures') {
@@ -761,7 +974,7 @@ export function installWorkspaceBackendMock(
       const taskTimeLogEntryMatch = pathname.match(
         /^\/api\/v1\/tasks\/([^/]+)\/time-logs\/([^/]+)$/,
       )
-      if (taskTimeLogEntryMatch && method === 'DELETE') {
+      if (taskTimeLogEntryMatch) {
         const [, taskId, timeLogId] = taskTimeLogEntryMatch
         const task = tasks.find((candidate) => candidate.id === taskId)
 
@@ -770,22 +983,74 @@ export function installWorkspaceBackendMock(
         }
 
         const existingTimeLogs = timeLogsByTask.get(taskId) ?? []
-        const nextTimeLogs = existingTimeLogs.filter((timeLog) => timeLog.id !== timeLogId)
+        const logIndex = existingTimeLogs.findIndex((timeLog) => timeLog.id === timeLogId)
 
-        if (nextTimeLogs.length === existingTimeLogs.length) {
+        if (logIndex < 0) {
           return jsonResponse({ body: { detail: 'Time log not found' }, status: 404 })
         }
 
-        timeLogsByTask.set(taskId, nextTimeLogs)
-        const taskIndex = tasks.findIndex((candidate) => candidate.id === taskId)
-        if (taskIndex >= 0) {
-          tasks[taskIndex] = {
-            ...tasks[taskIndex],
-            actual_hours: actualHoursForTask(taskId),
+        if (method === 'DELETE') {
+          const nextTimeLogs = existingTimeLogs.filter((timeLog) => timeLog.id !== timeLogId)
+          timeLogsByTask.set(taskId, nextTimeLogs)
+          const taskIndex = tasks.findIndex((candidate) => candidate.id === taskId)
+          if (taskIndex >= 0) {
+            tasks[taskIndex] = {
+              ...tasks[taskIndex],
+              actual_hours: actualHoursForTask(taskId),
+            }
           }
+
+          return new Response(null, { status: 204 })
         }
 
-        return new Response(null, { status: 204 })
+        if (method === 'PATCH') {
+          const payload = body as Partial<TimeLogPayload>
+          const previousLog = existingTimeLogs[logIndex]
+          const nextHours =
+            typeof payload.hours === 'number' ? payload.hours : previousLog.hours
+          const nextLoggedDate =
+            typeof payload.logged_date === 'string'
+              ? payload.logged_date
+              : previousLog.logged_date
+          const nextNotes =
+            payload.notes !== undefined ? payload.notes : previousLog.notes
+          const nextTitle =
+            payload.title !== undefined ? payload.title : previousLog.title
+          const nextLocation =
+            payload.location !== undefined ? payload.location : previousLog.location
+
+          const activityKey =
+            payload.activity_type_id !== undefined
+              ? payload.activity_type_id
+              : previousLog.activity_type_id
+
+          const activityFields = resolveActivityFieldsForTimeLog(activityKey)
+
+          const updatedLog: TimeLog = {
+            ...previousLog,
+            hours: nextHours,
+            logged_date: nextLoggedDate,
+            notes: nextNotes,
+            title: nextTitle,
+            location: nextLocation,
+            updated_at: '2026-05-13T12:30:00Z',
+            ...activityFields,
+          }
+
+          const nextLogs = [...existingTimeLogs]
+          nextLogs[logIndex] = updatedLog
+          timeLogsByTask.set(taskId, nextLogs)
+
+          const taskIndex = tasks.findIndex((candidate) => candidate.id === taskId)
+          if (taskIndex >= 0) {
+            tasks[taskIndex] = {
+              ...tasks[taskIndex],
+              actual_hours: actualHoursForTask(taskId),
+            }
+          }
+
+          return jsonResponse({ body: updatedLog })
+        }
       }
 
       const taskTimeLogsMatch = pathname.match(/^\/api\/v1\/tasks\/([^/]+)\/time-logs$/)
@@ -821,6 +1086,7 @@ export function installWorkspaceBackendMock(
           }
 
           const existingTimeLogs = timeLogsByTask.get(taskId) ?? []
+          const activityFields = resolveActivityFieldsForTimeLog(payload.activity_type_id)
           const createdTimeLog = buildTimeLog({
             id: `log-${timeLogCreateCount}`,
             task_id: taskId,
@@ -832,6 +1098,7 @@ export function installWorkspaceBackendMock(
             location: payload.location ?? null,
             created_at: `2026-05-13T08:00:0${timeLogCreateCount}Z`,
             updated_at: `2026-05-13T08:00:0${timeLogCreateCount}Z`,
+            ...activityFields,
           })
 
           timeLogsByTask.set(taskId, [...existingTimeLogs, createdTimeLog])

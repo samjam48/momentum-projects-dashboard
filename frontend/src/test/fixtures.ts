@@ -1,4 +1,11 @@
-import type { Project, Task, TimeLog, Venture, VentureCategoryLabel } from '../api/types'
+import type {
+  ActivityType,
+  Project,
+  Task,
+  TimeLog,
+  Venture,
+  VentureCategoryLabel,
+} from '../api/types'
 import { PROJECT_PALETTE } from '../lib/projectPalette'
 import { SIDEBAR_PROJECT_FILTER_STORAGE_KEY } from '../stores/projectFilter'
 
@@ -55,6 +62,26 @@ export function buildProject(overrides: Partial<Project>): Project {
     kanban_order: overrides.kanban_order ?? null,
     finished: overrides.finished ?? false,
     archived_by_venture: overrides.archived_by_venture ?? false,
+    created_at: overrides.created_at ?? '2026-05-13T08:00:00Z',
+    updated_at: overrides.updated_at ?? '2026-05-13T08:00:00Z',
+  }
+}
+
+export function buildActivityType(overrides: Partial<ActivityType> = {}): ActivityType {
+  const name = overrides.name ?? 'planning'
+  const slug =
+    overrides.slug ??
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+
+  return {
+    id: overrides.id ?? 'at-default',
+    name,
+    slug,
+    status: overrides.status ?? 'active',
+    sort_order: overrides.sort_order ?? null,
     created_at: overrides.created_at ?? '2026-05-13T08:00:00Z',
     updated_at: overrides.updated_at ?? '2026-05-13T08:00:00Z',
   }

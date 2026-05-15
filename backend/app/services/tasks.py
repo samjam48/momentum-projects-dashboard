@@ -15,6 +15,7 @@ from app.schemas.task import (
     TaskUpdate,
     TimeLogCreate,
     TimeLogRead,
+    TimeLogUpdate,
 )
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -65,6 +66,16 @@ def _apply_completed_date(status_value: TaskStatus, completed_date: date | None)
     if status_value == "archived":
         return completed_date
     return None
+
+
+def _active_activity_type_name_or_422(session: Session, activity_type_id: str) -> str:
+    activity_type = session.get(ActivityType, activity_type_id)
+    if activity_type is None or activity_type.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="activity_type_id must reference an active activity type",
+        )
+    return activity_type.name
 
 
 def _recompute_actual_hours(session: Session, task: Task) -> None:
@@ -223,13 +234,10 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     task = _get_task_or_404(session, task_id)
     activity_type_name: str | None = None
     if payload.activity_type_id is not None:
-        activity_type = session.get(ActivityType, payload.activity_type_id)
-        if activity_type is None or activity_type.status != "active":
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="activity_type_id must reference an active activity type",
-            )
-        activity_type_name = activity_type.name
+        activity_type_name = _active_activity_type_name_or_422(
+            session,
+            payload.activity_type_id,
+        )
     time_log = TimeLog(
         task_id=task.id,
         project_id=task.project_id,
@@ -248,6 +256,59 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     session.refresh(time_log)
     session.refresh(task)
     return _to_time_log_read(time_log, activity_type_name)
+
+
+def update_time_log(
+    session: Session,
+    task_id: str,
+    time_log_id: str,
+    payload: TimeLogUpdate,
+) -> TimeLogRead:
+    task = _get_task_or_404(session, task_id)
+    time_log = session.get(TimeLog, time_log_id)
+    if time_log is None or time_log.task_id != task.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Time log not found.",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one field is required.",
+        )
+
+    if "activity_type_id" in update_data:
+        new_activity_id = update_data["activity_type_id"]
+        if new_activity_id is not None:
+            _active_activity_type_name_or_422(session, new_activity_id)
+        time_log.activity_type_id = new_activity_id
+
+    if "hours" in update_data and update_data["hours"] is not None:
+        time_log.hours = update_data["hours"]
+    if "logged_date" in update_data and update_data["logged_date"] is not None:
+        time_log.logged_date = update_data["logged_date"]
+    if "notes" in update_data:
+        time_log.notes = update_data["notes"]
+    if "title" in update_data:
+        time_log.title = update_data["title"]
+    if "location" in update_data:
+        time_log.location = update_data["location"]
+
+    session.add(time_log)
+    session.flush()
+    _recompute_actual_hours(session, task)
+    session.commit()
+    session.refresh(time_log)
+    session.refresh(task)
+
+    read_name: str | None = None
+    if time_log.activity_type_id is not None:
+        linked = session.get(ActivityType, time_log.activity_type_id)
+        read_name = linked.name if linked is not None else None
+
+    return _to_time_log_read(time_log, read_name)
 
 
 def delete_time_log(session: Session, task_id: str, time_log_id: str) -> None:

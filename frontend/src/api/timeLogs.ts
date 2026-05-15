@@ -53,6 +53,22 @@ export async function deleteTimeLog(taskId: string, timeLogId: string): Promise<
   })
 }
 
+export async function updateTimeLog(
+  taskId: string,
+  timeLogId: string,
+  payload: TimeLogPayload,
+): Promise<TimeLog> {
+  const body = {
+    ...payload,
+    activity_type_id: payload.activity_type_id ?? null,
+  }
+
+  return apiRequest<TimeLog>(`/api/v1/tasks/${taskId}/time-logs/${timeLogId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
 export function useTaskTimeLogs(taskId: string | null): QueryState<TimeLog[]> {
   const query = useQuery({
     queryKey: taskId ? timeLogQueryKeys.list(taskId) : ['time-logs', 'disabled'],
@@ -109,6 +125,7 @@ export function useTimeLogMutations(taskId: string | null): {
   isSaving: boolean
   remove: (timeLogId: string) => Promise<void>
   resetError: () => void
+  update: (timeLogId: string, payload: TimeLogPayload) => Promise<TimeLog>
 } {
   const queryClient = useQueryClient()
   const { error, isSaving, resetError, runMutation } = useTimeLogMutationErrorState()
@@ -139,9 +156,21 @@ export function useTimeLogMutations(taskId: string | null): {
     onSettled,
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ timeLogId, payload }: { timeLogId: string; payload: TimeLogPayload }) => {
+      if (!taskId) {
+        throw new ApiError('A task is required.', 400)
+      }
+      return updateTimeLog(taskId, timeLogId, payload)
+    },
+    onSettled,
+  })
+
   return {
     create: (payload) => runMutation(() => createMutation.mutateAsync(payload)),
     remove: (timeLogId) => runMutation(() => removeMutation.mutateAsync(timeLogId)),
+    update: (timeLogId, payload) =>
+      runMutation(() => updateMutation.mutateAsync({ timeLogId, payload })),
     error,
     isSaving,
     resetError,

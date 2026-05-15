@@ -221,9 +221,10 @@ PATCH  /api/v1/activity-types/{activity_type_id}/archive
 ```text
 GET  /api/v1/tasks/{task_id}/time-logs
 POST /api/v1/tasks/{task_id}/time-logs
+PATCH /api/v1/tasks/{task_id}/time-logs/{time_log_id}   Partial update (`TimeLogUpdate`); recomputes `Task.actual_hours`
 ```
 
-`TimeLogCreate` accepts optional `activity_type_id`. `TimeLogRead` returns:
+`TimeLogCreate` accepts optional `activity_type_id`. Partial updates use the same field set (all optional in `TimeLogUpdate`; at least one field required). `TimeLogRead` returns:
 
 ```text
 activity_type_id
@@ -293,7 +294,7 @@ The Planner should expect components around these boundaries after or during the
 - Venture archive/unarchive cascade rules live in `services/ventures.py`.
 - Project archive, unarchive, `finished`, and board-status drag logic live in `services/projects.py`.
 - Activity type creation/edit/archive/delete rules live in `services/activity_types.py`.
-- Time log creation continues to recompute `Task.actual_hours` in the task/time log service.
+- Time log create and update continue to recompute `Task.actual_hours` in the task/time log service.
 - No task-type validation is added.
 
 ---
@@ -356,7 +357,7 @@ Planner should require failing tests before implementation:
 - Project archive accepts or derives `finished`.
 - Existing projects are assigned to the `Unsorted` venture by migration.
 - Activity type create/list/edit/archive/delete tests, including case-insensitive uniqueness and 25-character max validation.
-- Time log creation accepts nullable `activity_type_id` and still recomputes `actual_hours`.
+- Time log create and patch accept nullable `activity_type_id` (validated when set) and recompute `actual_hours`.
 - Existing time logs display `uncategorised`.
 - Archiving an activity type clears affected time log FKs and preserves logs.
 - Frontend tests for sidebar venture tree, venture label selection/creation, board toggle, Project Kanban drag calls, project type filter, and time log activity combobox creation.
