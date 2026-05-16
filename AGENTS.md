@@ -35,6 +35,7 @@ npm run test -- --coverage  # ≥ 70%
 ---
 ## Current Sprint — Phase 1.6: Ventures, Project Types, Project Kanban, Activity Types
 **Goal:** Implement the signed-off Phase 1.6 domain migration: ventures and category labels, projects nested under ventures with `project_type`, a dedicated Project Kanban board, and time-log activity types.
+**Status (2026-05-16):** Tickets **1.6-9** through **1.6-12** are implemented on **`feat/phase-1.6`** with per-ticket commits and Reviewer **SIGNED OFF**. Owner: run `make lint` / `make test`, review diff vs `main`, then open PR (or delegate **PR Checker** per `agents/orchestrator.md`). Reviewer mapping: **`plans/phase-1.6-reviewer-checklist.md`**.
 **Ticket source:** Implement `plans/tickets-phase-1.6-2026-05-15.md` in dependency order (`1.6-1` through `1.6-12`) with per-ticket Reviewer sign-off.
 **Primary references:** `plans/PRD-phase-1.6-2026-05-15.md`, `plans/TRD-phase-1.6-2026-05-15.md`, `docs/V1-PRD.md`, and `docs/V1-TRD.md`.
 **Out of scope:** Task `type` / labels, time-log grouping/filter by activity type, income/goals/dashboard ship, Toggl sync, server-persisted preferences, and true hard-delete/purge UI.
