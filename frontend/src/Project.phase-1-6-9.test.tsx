@@ -387,8 +387,10 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
     const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
     await userEvent.click(within(archiveDialog).getByRole('tab', { name: /archived projects/i }))
 
-    const unarchiveButton = await within(archiveDialog).findByRole('button', { name: /unarchive/i })
-    await userEvent.click(unarchiveButton)
+    const restoreTrigger = await within(archiveDialog).findByRole('button', { name: /^restore$/i })
+    await userEvent.click(restoreTrigger)
+    const confirm = await screen.findByRole('alertdialog')
+    await userEvent.click(within(confirm).getByRole('button', { name: /^restore$/i }))
 
     await waitFor(() => {
       expect(within(getSidebar()).getByRole('button', { name: /^restorable$/i })).toBeInTheDocument()
@@ -414,8 +416,10 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
     const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
     await userEvent.click(within(archiveDialog).getByRole('tab', { name: /archived projects/i }))
 
-    const blockedUnarchive = await within(archiveDialog).findByRole('button', { name: /unarchive/i })
-    await userEvent.click(blockedUnarchive)
+    const restoreTrigger = await within(archiveDialog).findByRole('button', { name: /^restore$/i })
+    await userEvent.click(restoreTrigger)
+    const confirm = await screen.findByRole('alertdialog')
+    await userEvent.click(within(confirm).getByRole('button', { name: /^restore$/i }))
 
     expect(
       await screen.findByText(/unarchive the venture first/i),

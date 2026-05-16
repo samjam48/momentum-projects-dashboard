@@ -49,6 +49,10 @@ export type WorkspaceBackendOptions = {
     payload: Record<string, unknown>,
   ) => Response | Promise<Response> | null
   onProjectArchive?: (projectId: string) => Response | Promise<Response> | null
+  onProjectUnarchive?: (
+    projectId: string,
+    callCount: number,
+  ) => Response | Promise<Response> | null
   onTaskCreate?: (payload: TaskPayload, count: number) => Response | Promise<Response> | null
   onTaskStatusUpdate?: (
     taskId: string,
@@ -71,6 +75,10 @@ export type WorkspaceBackendOptions = {
   ) => Response | Promise<Response> | null
   ventures?: Venture[]
   ventureCategoryLabels?: VentureCategoryLabel[]
+  onVentureUnarchive?: (
+    ventureId: string,
+    callCount: number,
+  ) => Response | Promise<Response> | null
 }
 
 export type ProjectBoardStatusRequestRecord = {
@@ -263,6 +271,8 @@ export function installWorkspaceBackendMock(
   const taskStatusRequests: TaskStatusRequest[] = []
   let projectBoardStatusUpdateCount = 0
   const projectBoardStatusRequests: ProjectBoardStatusRequestRecord[] = []
+  let projectUnarchiveCount = 0
+  let ventureUnarchiveCount = 0
 
   const actualHoursForTask = (taskId: string): number => {
     const timeLogs = timeLogsByTask.get(taskId) ?? []
@@ -563,7 +573,16 @@ export function installWorkspaceBackendMock(
 
       const ventureArchiveMatch = pathname.match(/^\/api\/v1\/ventures\/([^/]+)\/unarchive$/)
       if (ventureArchiveMatch && method === 'PATCH') {
+        ventureUnarchiveCount += 1
         const [, ventureId] = ventureArchiveMatch
+        const handlerResponse = options.onVentureUnarchive
+          ? await options.onVentureUnarchive(ventureId, ventureUnarchiveCount)
+          : null
+
+        if (handlerResponse) {
+          return handlerResponse
+        }
+
         const ventureIndex = ventures.findIndex((candidate) => candidate.id === ventureId)
 
         if (ventureIndex < 0) {
@@ -839,7 +858,16 @@ export function installWorkspaceBackendMock(
 
       const projectUnarchiveMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/unarchive$/)
       if (projectUnarchiveMatch && method === 'PATCH') {
+        projectUnarchiveCount += 1
         const [, projectId] = projectUnarchiveMatch
+        const handlerResponse = options.onProjectUnarchive
+          ? await options.onProjectUnarchive(projectId, projectUnarchiveCount)
+          : null
+
+        if (handlerResponse) {
+          return handlerResponse
+        }
+
         const projectIndex = projects.findIndex((candidate) => candidate.id === projectId)
 
         if (projectIndex < 0) {
