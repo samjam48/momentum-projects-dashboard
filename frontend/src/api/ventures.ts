@@ -67,6 +67,7 @@ async function invalidateVentureAndProjectQueries(
     queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('active') }),
     queryClient.invalidateQueries({ queryKey: ventureQueryKeys.list('archived') }),
     queryClient.invalidateQueries({ queryKey: projectQueryKeys.lists() }),
+    queryClient.invalidateQueries({ queryKey: projectQueryKeys.board() }),
   ])
 }
 
