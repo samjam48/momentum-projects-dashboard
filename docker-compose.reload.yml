@@ -1,0 +1,16 @@
+# Optional: uvicorn --reload for backend when developing inside Docker.
+# Heavier file-watcher load on bind-mounted ./backend (see root README).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.reload.yml up backend
+services:
+  backend:
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]

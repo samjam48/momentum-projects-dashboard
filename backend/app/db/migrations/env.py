@@ -5,9 +5,12 @@ from logging.config import fileConfig
 from alembic import context
 from app.core.config import get_settings
 from app.db.database import _prepare_database_url
+from app.models.activity_type import ActivityType  # noqa: F401
 from app.models.project import Project  # noqa: F401
 from app.models.task import Task  # noqa: F401
 from app.models.time_log import TimeLog  # noqa: F401
+from app.models.venture import Venture  # noqa: F401
+from app.models.venture_category_label import VentureCategoryLabel  # noqa: F401
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 

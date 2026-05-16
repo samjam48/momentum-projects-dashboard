@@ -1,6 +1,8 @@
 import type { FormEvent } from 'react'
 import { X } from 'lucide-react'
 
+import type { Venture } from '../api/types'
+import type { ProjectBoardStatus, ProjectType } from '../api/types'
 import { ColourPicker } from './ColourPicker'
 import { Button } from './ui/button'
 import {
@@ -11,33 +13,56 @@ import {
   DialogTitle,
 } from './ui/dialog'
 
-type ProjectFormErrors = {
+const PROJECT_TYPE_OPTIONS: ProjectType[] = ['project', 'asset', 'gig', 'contract']
+
+const BOARD_STATUS_OPTIONS: ProjectBoardStatus[] = ['idea', 'active', 'paused', 'shipped']
+
+function projectTypeLabel(value: ProjectType): string {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function boardStatusLabel(value: ProjectBoardStatus): string {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+export type ProjectFormErrors = {
   colour?: string
   description?: string
   form?: string
   name?: string
+  venture_id?: string
 }
 
-type ProjectFormState = {
+export type ProjectFormState = {
+  board_status: ProjectBoardStatus
   colour: string
   description: string
+  icon: string
   name: string
+  project_type: ProjectType
+  shippedWhenArchiving: boolean
+  venture_id: string
 }
 
 type ProjectDialogProps = {
+  activeVentures: Venture[]
   editingProjectId: string | null
   formErrors: ProjectFormErrors
   formState: ProjectFormState
   isOpen: boolean
   isSaving: boolean
   mode: 'create' | 'edit'
-  onArchive?: () => void
+  onArchive?: () => void | Promise<void>
   onClose: () => void
-  onFieldChange: (field: keyof ProjectFormState, value: string) => void
+  onFieldChange: <K extends keyof ProjectFormState>(
+    field: K,
+    value: ProjectFormState[K],
+  ) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
 }
 
 export function ProjectDialog({
+  activeVentures,
   editingProjectId,
   formErrors,
   formState,
@@ -71,12 +96,31 @@ export function ProjectDialog({
           </div>
           <DialogDescription>
             {mode === 'create'
-              ? 'Add a project to the workspace.'
-              : 'Update project details or archive this project.'}
+              ? 'Choose a venture and fill in the project details.'
+              : 'Update details or archive this project.'}
           </DialogDescription>
         </DialogHeader>
 
         <form className="project-form" noValidate onSubmit={(event) => void onSubmit(event)}>
+          <label className="field">
+            <span>Venture</span>
+            <select
+              aria-label="Venture"
+              name="venture_id"
+              value={formState.venture_id}
+              onChange={(event) => onFieldChange('venture_id', event.target.value)}
+            >
+              {activeVentures.map((venture) => (
+                <option key={venture.id} value={venture.id}>
+                  {venture.name}
+                </option>
+              ))}
+            </select>
+            {formErrors.venture_id ? (
+              <span className="field-error">{formErrors.venture_id}</span>
+            ) : null}
+          </label>
+
           <label className="field">
             <span>Project name</span>
             <input
@@ -108,10 +152,70 @@ export function ProjectDialog({
           />
           {formErrors.colour ? <span className="field-error">{formErrors.colour}</span> : null}
 
+          <label className="field">
+            <span>Icon</span>
+            <input
+              aria-label="Icon"
+              name="icon"
+              value={formState.icon}
+              onChange={(event) => onFieldChange('icon', event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Project type</span>
+            <select
+              aria-label="Project type"
+              name="project_type"
+              value={formState.project_type}
+              onChange={(event) =>
+                onFieldChange('project_type', event.target.value as ProjectType)
+              }
+            >
+              {[...PROJECT_TYPE_OPTIONS].sort().map((value) => (
+                <option key={value} value={value}>
+                  {projectTypeLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Board status</span>
+            <select
+              aria-label="Board status"
+              name="board_status"
+              value={formState.board_status}
+              onChange={(event) =>
+                onFieldChange('board_status', event.target.value as ProjectBoardStatus)
+              }
+            >
+              {BOARD_STATUS_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {boardStatusLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {formErrors.form ? (
             <p className="form-error" role="alert">
               {formErrors.form}
             </p>
+          ) : null}
+
+          {mode === 'edit' ? (
+            <label className="field field-checkbox">
+              <input
+                aria-label="Shipped when archiving"
+                checked={formState.shippedWhenArchiving}
+                type="checkbox"
+                onChange={(event) =>
+                  onFieldChange('shippedWhenArchiving', event.target.checked)
+                }
+              />
+              <span>Shipped when archiving</span>
+            </label>
           ) : null}
 
           {mode === 'edit' && editingProjectId && onArchive ? (

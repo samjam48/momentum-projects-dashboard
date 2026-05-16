@@ -98,6 +98,7 @@ class TaskRead(SQLModel):
 
 
 class TimeLogCreate(SQLModel):
+    activity_type_id: str | None = None
     hours: float
     logged_date: date
     notes: str | None = None
@@ -110,10 +111,31 @@ class TimeLogCreate(SQLModel):
         return _validate_hours(value)
 
 
+class TimeLogUpdate(SQLModel):
+    """Partial update for an existing manual time log."""
+
+    activity_type_id: str | None = None
+    hours: float | None = None
+    logged_date: date | None = None
+    notes: str | None = None
+    title: str | None = None
+    location: str | None = None
+
+    @field_validator("hours")
+    @classmethod
+    def validate_hours(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        return _validate_hours(value)
+
+
 class TimeLogRead(SQLModel):
     id: str
     task_id: str
     project_id: str
+    activity_type_id: str | None
+    activity_type_name: str | None = None
+    activity_type_display_name: str | None = None
     hours: float
     logged_date: date
     source: str

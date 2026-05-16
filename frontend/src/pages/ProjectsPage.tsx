@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react'
 
-import type { Project } from '../api/types'
+import type { Project, ProjectType } from '../api/types'
 import { DEFAULT_PROJECT_FILTER } from '../stores/projectFilter'
 import { Button } from '../components/ui/button'
 
 type ProjectsPageProps = {
   activeProjects: Project[]
+  boardViewTab: 'projects' | 'tasks'
   kanbanSection: ReactNode
+  onBoardViewTabChange: (tab: 'projects' | 'tasks') => void
   onOpenCreateTask: () => void
+  onProjectKanbanTypeFilterChange: (value: 'all' | ProjectType) => void
   projectFilterLabel: string
+  projectKanbanTypeFilter: 'all' | ProjectType
   selectedProjectId: string
   setToolbarProjectFilter: (projectId: string) => void
   tableSection: ReactNode
@@ -17,9 +21,13 @@ type ProjectsPageProps = {
 
 export function ProjectsPage({
   activeProjects,
+  boardViewTab,
   kanbanSection,
+  onBoardViewTabChange,
   onOpenCreateTask,
+  onProjectKanbanTypeFilterChange,
   projectFilterLabel,
+  projectKanbanTypeFilter,
   selectedProjectId,
   setToolbarProjectFilter,
   tableSection,
@@ -30,24 +38,52 @@ export function ProjectsPage({
       <div aria-label="Projects page" className="projects-toolbar" role="toolbar">
         <div aria-label="Board view" className="board-toggle" role="tablist">
           <button
-            aria-selected
-            className="board-toggle-tab board-toggle-tab-active"
+            aria-selected={boardViewTab === 'tasks'}
+            className={`board-toggle-tab${boardViewTab === 'tasks' ? ' board-toggle-tab-active' : ''}`}
             role="tab"
             type="button"
+            onClick={() => onBoardViewTabChange('tasks')}
           >
             Tasks
           </button>
           <button
-            aria-selected={false}
-            className="board-toggle-tab"
-            disabled
+            aria-selected={boardViewTab === 'projects'}
+            className={`board-toggle-tab${boardViewTab === 'projects' ? ' board-toggle-tab-active' : ''}`}
             role="tab"
-            title="Project board ships in Phase 1.6"
             type="button"
+            onClick={() => onBoardViewTabChange('projects')}
           >
-            Projects (1.6)
+            Projects
           </button>
         </div>
+
+        {boardViewTab === 'projects' ? (
+          <label className="field field-inline toolbar-filter">
+            <span className="sr-only">Project type filter</span>
+            <select
+              aria-label="Project type filter"
+              value={projectKanbanTypeFilter}
+              onChange={(event) => {
+                const nextValue = event.target.value
+                if (
+                  nextValue === 'all' ||
+                  nextValue === 'project' ||
+                  nextValue === 'asset' ||
+                  nextValue === 'gig' ||
+                  nextValue === 'contract'
+                ) {
+                  onProjectKanbanTypeFilterChange(nextValue)
+                }
+              }}
+            >
+              <option value="all">All types</option>
+              <option value="project">Project</option>
+              <option value="asset">Asset</option>
+              <option value="gig">Gig</option>
+              <option value="contract">Contract</option>
+            </select>
+          </label>
+        ) : null}
 
         <label className="field field-inline toolbar-filter">
           <span className="sr-only">Project filter</span>

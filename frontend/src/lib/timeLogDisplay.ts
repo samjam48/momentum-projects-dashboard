@@ -6,7 +6,7 @@ type ParsedLegacyNotes = {
   title: string | null
 }
 
-function parseLegacyNotes(notes: string | null): ParsedLegacyNotes {
+export function parseLegacyNotes(notes: string | null): ParsedLegacyNotes {
   if (!notes) {
     return { body: null, location: null, title: null }
   }
@@ -78,6 +78,29 @@ export function getTimeLogBody(timeLog: TimeLog): string | null {
   }
 
   return timeLog.notes
+}
+
+export function getTimeLogListPrimaryLabel(timeLog: TimeLog): string {
+  if (timeLog.activity_type_id) {
+    return timeLog.activity_type_display_name
+  }
+
+  const fromTitleField = timeLog.title?.trim()
+  if (fromTitleField) {
+    return fromTitleField
+  }
+
+  const legacy = parseLegacyNotes(timeLog.notes)
+  const legacyTitle = legacy.title?.trim()
+  if (legacyTitle) {
+    return legacyTitle
+  }
+
+  if (timeLog.notes?.trim() && !timeLog.notes.includes('title:')) {
+    return timeLog.notes.split('\n')[0]?.trim() ?? 'Time log'
+  }
+
+  return timeLog.activity_type_display_name || 'uncategorised'
 }
 
 export function formatTimeLogDate(loggedDate: string): string {

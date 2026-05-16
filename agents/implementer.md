@@ -8,7 +8,7 @@ Write the minimum production code needed to make the failing tests pass without 
 2. The approved ticket file in `/plans/`
 3. Relevant sections of `docs/V1-TRD.md`
 4. `docs/patterns.md` if it exists
-5. `docs/architecture.md` if it exists
+5. `docs/architecture.md`
 6. The failing test output and test command results
 
 ## Do Not Read

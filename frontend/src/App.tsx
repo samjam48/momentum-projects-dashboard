@@ -1,12 +1,26 @@
 import type { DragEndEvent } from '@dnd-kit/core'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { ApiError } from './api/client'
-import { useProjects } from './api/projects'
+import {
+  projectQueryKeys,
+  updateProjectBoardStatus,
+  useProjects,
+  type UpdateProjectBoardStatusPayload,
+} from './api/projects'
 import { useTaskMutations, useTasks } from './api/tasks'
-import type { Project, Task, TaskPriority, TaskStatus } from './api/types'
+import type {
+  Project,
+  ProjectBoardStatus,
+  ProjectType,
+  Task,
+  TaskPriority,
+  TaskStatus,
+} from './api/types'
 import { AppShell } from './components/layout/AppShell'
+import { ProjectKanbanBoard } from './components/ProjectKanbanBoard'
 import { TaskKanbanBoard } from './components/TaskKanbanBoard'
 import { TaskSummaryTable, type TaskSortKey, type TaskSortState } from './components/TaskSummaryTable'
 import {
@@ -14,7 +28,12 @@ import {
   type TaskDialogMode,
 } from './components/WorkspaceDialogs'
 import { ProjectsPage } from './pages/ProjectsPage'
-import { sortTasksForKanban, taskOrderByStatus } from './lib/kanbanSort'
+import {
+  projectOrderByBoardStatus,
+  sortProjectsForKanbanBoard,
+  sortTasksForKanban,
+  taskOrderByStatus,
+} from './lib/kanbanSort'
 import {
   DEFAULT_PROJECT_FILTER,
   deriveToolbarProjectId,
@@ -323,6 +342,263 @@ function getKanbanDropDetailFromDragEvent(
   }
 }
 
+const KANBAN_PROJECT_COLUMN_ID_PREFIX = 'kanban-project-column:'
+const KANBAN_PROJECT_CARD_ID_PREFIX = 'kanban-project:'
+
+type ProjectKanbanDropDetail = {
+  board_status: ProjectBoardStatus
+  kanban_order: number | null
+  projectId: string
+}
+
+type ProjectKanbanDragColumnData = {
+  board_status: ProjectBoardStatus
+  type: 'column'
+}
+
+type ProjectKanbanDragProjectData = {
+  board_status: ProjectBoardStatus
+  projectId: string
+  type: 'project'
+}
+
+function readProjectIdFromKanbanCardId(value: string): string | null {
+  return value.startsWith(KANBAN_PROJECT_CARD_ID_PREFIX)
+    ? value.slice(KANBAN_PROJECT_CARD_ID_PREFIX.length)
+    : null
+}
+
+function readBoardStatusFromProjectKanbanColumnId(value: string): ProjectBoardStatus | null {
+  if (!value.startsWith(KANBAN_PROJECT_COLUMN_ID_PREFIX)) {
+    return null
+  }
+
+  const raw = value.slice(KANBAN_PROJECT_COLUMN_ID_PREFIX.length)
+  if (
+    raw === 'idea' ||
+    raw === 'active' ||
+    raw === 'paused' ||
+    raw === 'shipped'
+  ) {
+    return raw
+  }
+
+  return null
+}
+
+function isProjectKanbanDragProjectData(value: unknown): value is ProjectKanbanDragProjectData {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  return (
+    'type' in value &&
+    value.type === 'project' &&
+    'projectId' in value &&
+    typeof value.projectId === 'string' &&
+    'board_status' in value &&
+    typeof value.board_status === 'string'
+  )
+}
+
+function isProjectKanbanDragColumnData(value: unknown): value is ProjectKanbanDragColumnData {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  return (
+    'type' in value &&
+    value.type === 'column' &&
+    'board_status' in value &&
+    typeof value.board_status === 'string'
+  )
+}
+
+function isProjectKanbanDropDetail(value: unknown): value is ProjectKanbanDropDetail {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  return (
+    'projectId' in value &&
+    typeof value.projectId === 'string' &&
+    'board_status' in value &&
+    typeof value.board_status === 'string' &&
+    'kanban_order' in value &&
+    (typeof value.kanban_order === 'number' || value.kanban_order === null)
+  )
+}
+
+function reorderProjectsForKanban(
+  projects: Project[],
+  projectId: string,
+  nextBoardStatus: ProjectBoardStatus,
+  nextKanbanOrder: number | null,
+): Project[] {
+  const movedProject = projects.find((project) => project.id === projectId)
+  if (!movedProject) {
+    return projects
+  }
+
+  const sourceStatus = movedProject.board_status
+  const sourceColumn = sortProjectsForKanbanBoard(
+    projects.filter((project) => project.board_status === sourceStatus && project.id !== projectId),
+  )
+  const targetColumn = sortProjectsForKanbanBoard(
+    projects.filter(
+      (project) => project.board_status === nextBoardStatus && project.id !== projectId,
+    ),
+  )
+
+  const insertionIndex =
+    nextKanbanOrder === null
+      ? targetColumn.length
+      : Math.max(0, Math.min(nextKanbanOrder, targetColumn.length))
+
+  const nextFinished = nextBoardStatus === 'shipped' ? true : movedProject.finished
+
+  targetColumn.splice(insertionIndex, 0, {
+    ...movedProject,
+    board_status: nextBoardStatus,
+    kanban_order: insertionIndex,
+    finished: nextFinished,
+  })
+
+  const rebalanceColumn = (columnProjects: Project[]): Map<string, number> =>
+    new Map(columnProjects.map((project, index) => [project.id, index]))
+
+  const sourceOrders = rebalanceColumn(sourceColumn)
+  const targetOrders = rebalanceColumn(targetColumn)
+
+  return projects.map((project) => {
+    const targetOrder = targetOrders.get(project.id)
+    if (targetOrder !== undefined) {
+      const nextProject = targetColumn.find((candidate) => candidate.id === project.id) ?? project
+      return {
+        ...nextProject,
+        kanban_order: targetOrder,
+      }
+    }
+
+    const sourceOrder = sourceOrders.get(project.id)
+    if (sourceOrder !== undefined) {
+      return {
+        ...project,
+        kanban_order: sourceOrder,
+      }
+    }
+
+    return project
+  })
+}
+
+function projectKanbanComparableSnapshot(
+  projects: Project[],
+): Map<string, { board_status: ProjectBoardStatus; finished: boolean; kanban_order: number | null }> {
+  return new Map(
+    projects.map((project) => [
+      project.id,
+      {
+        board_status: project.board_status,
+        finished: project.finished,
+        kanban_order: project.kanban_order,
+      },
+    ]),
+  )
+}
+
+function hasProjectKanbanComparableChanged(previousProjects: Project[], nextProjects: Project[]): boolean {
+  const previousSnapshot = projectKanbanComparableSnapshot(previousProjects)
+  const nextSnapshot = projectKanbanComparableSnapshot(nextProjects)
+
+  if (previousSnapshot.size !== nextSnapshot.size) {
+    return true
+  }
+
+  for (const [projectId, nextValue] of nextSnapshot) {
+    const previousValue = previousSnapshot.get(projectId)
+    if (!previousValue) {
+      return true
+    }
+
+    if (
+      previousValue.board_status !== nextValue.board_status ||
+      previousValue.kanban_order !== nextValue.kanban_order ||
+      previousValue.finished !== nextValue.finished
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function getProjectKanbanDropDetailFromDragEvent(
+  projects: Project[],
+  event: DragEndEvent,
+): ProjectKanbanDropDetail | null {
+  if (!event.over) {
+    return null
+  }
+
+  const activeProjectId = readProjectIdFromKanbanCardId(String(event.active.id))
+  if (!activeProjectId) {
+    return null
+  }
+
+  const activeProject = projects.find((project) => project.id === activeProjectId)
+  if (!activeProject) {
+    return null
+  }
+
+  const overData = event.over.data.current
+  let nextBoardStatus: ProjectBoardStatus | null = null
+  let nextKanbanOrder: number | null = null
+
+  if (isProjectKanbanDragProjectData(overData)) {
+    nextBoardStatus = overData.board_status
+    const targetColumn = projectOrderByBoardStatus(projects, nextBoardStatus).filter(
+      (project) => project.id !== activeProjectId,
+    )
+    const insertionIndex = targetColumn.findIndex((project) => project.id === overData.projectId)
+    nextKanbanOrder = insertionIndex < 0 ? targetColumn.length : insertionIndex
+  } else if (isProjectKanbanDragColumnData(overData)) {
+    nextBoardStatus = overData.board_status
+    nextKanbanOrder = projectOrderByBoardStatus(projects, nextBoardStatus).filter(
+      (project) => project.id !== activeProjectId,
+    ).length
+  } else {
+    nextBoardStatus = readBoardStatusFromProjectKanbanColumnId(String(event.over.id))
+    nextKanbanOrder =
+      nextBoardStatus === null
+        ? null
+        : projectOrderByBoardStatus(projects, nextBoardStatus).filter(
+            (project) => project.id !== activeProjectId,
+          ).length
+  }
+
+  if (nextBoardStatus === null) {
+    return null
+  }
+
+  const nextProjects = reorderProjectsForKanban(
+    projects,
+    activeProjectId,
+    nextBoardStatus,
+    nextKanbanOrder,
+  )
+
+  if (!hasProjectKanbanComparableChanged(projects, nextProjects)) {
+    return null
+  }
+
+  return {
+    projectId: activeProjectId,
+    board_status: nextBoardStatus,
+    kanban_order: nextKanbanOrder,
+  }
+}
+
 
 
 function App() {
@@ -356,6 +632,27 @@ function App() {
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const [optimisticTasks, setOptimisticTasks] = useState<Task[] | null>(null)
   const [kanbanMutationError, setKanbanMutationError] = useState<string | null>(null)
+  const [boardViewTab, setBoardViewTab] = useState<'projects' | 'tasks'>('tasks')
+  const [projectKanbanTypeFilter, setProjectKanbanTypeFilter] = useState<
+    'all' | ProjectType
+  >('all')
+  const [optimisticProjects, setOptimisticProjects] = useState<Project[] | null>(null)
+  const [projectKanbanMutationError, setProjectKanbanMutationError] = useState<
+    string | null
+  >(null)
+  const queryClient = useQueryClient()
+  const updateProjectBoardStatusMutation = useMutation({
+    mutationFn: (vars: { payload: UpdateProjectBoardStatusPayload; projectId: string }) =>
+      updateProjectBoardStatus(vars.projectId, vars.payload),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: projectQueryKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: projectQueryKeys.board() }),
+      ])
+    },
+  })
+  const projectBoardQueueTailRef = useRef(Promise.resolve())
+  const [projectBoardLaneBusyCount, setProjectBoardLaneBusyCount] = useState(0)
   const boardDisplayOptions = useBoardDisplayOptionsStore(
     useShallow((state) => ({
       showActualHours: state.showActualHours,
@@ -381,6 +678,28 @@ function App() {
     projectMap[project.id] = project
     return projectMap
   }, {})
+  const sidebarScopedBoardProjects = useMemo(
+    () =>
+      activeProjects.filter(
+        (project) =>
+          sidebarSelectedProjectIds.includes(project.id) && !project.archived_by_venture,
+      ),
+    [activeProjects, sidebarSelectedProjectIds],
+  )
+  const typeFilteredBoardProjects = useMemo(() => {
+    if (projectKanbanTypeFilter === 'all') {
+      return sidebarScopedBoardProjects
+    }
+
+    return sidebarScopedBoardProjects.filter(
+      (project) => project.project_type === projectKanbanTypeFilter,
+    )
+  }, [projectKanbanTypeFilter, sidebarScopedBoardProjects])
+  const filterMatchedProjectKanban =
+    projectKanbanTypeFilter === 'all'
+      ? sidebarScopedBoardProjects.length > 0
+      : typeFilteredBoardProjects.length > 0
+  const displayProjectsForBoard = optimisticProjects ?? typeFilteredBoardProjects
   const taskWorkspaceEnabled = taskWorkspacePrimed || taskDialogMode !== null
   const tasksQuery = useTasks({}, taskWorkspaceEnabled)
   const visibleTasks = tasksQuery.data
@@ -388,25 +707,53 @@ function App() {
     .filter((task) => task.project_id in projectsById)
     .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
   const displayTasks = optimisticTasks ?? visibleTasks
+  const openTaskCountsByProjectId = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const task of tasksQuery.data) {
+      if (task.status === 'done' || task.status === 'archived') {
+        continue
+      }
+
+      counts[task.project_id] = (counts[task.project_id] ?? 0) + 1
+    }
+
+    return counts
+  }, [tasksQuery.data])
   const previousFilterKeyRef = useRef(storedProjectIdsKey)
   const previousTasksDataRef = useRef(tasksQuery.data)
+  const previousProjectsDataRef = useRef(projectsQuery.data)
 
-  if (previousFilterKeyRef.current !== storedProjectIdsKey) {
+  useEffect(() => {
+    if (previousFilterKeyRef.current === storedProjectIdsKey) {
+      return
+    }
     previousFilterKeyRef.current = storedProjectIdsKey
-    if (optimisticTasks !== null) {
-      setOptimisticTasks(null)
-    }
-    if (kanbanMutationError !== null) {
-      setKanbanMutationError(null)
-    }
-  }
+    setOptimisticTasks((current) => (current !== null ? null : current))
+    setKanbanMutationError((current) => (current !== null ? null : current))
+    setOptimisticProjects((current) => (current !== null ? null : current))
+    setProjectKanbanMutationError((current) => (current !== null ? null : current))
+  }, [storedProjectIdsKey])
 
-  if (previousTasksDataRef.current !== tasksQuery.data) {
-    previousTasksDataRef.current = tasksQuery.data
-    if (optimisticTasks !== null) {
-      setOptimisticTasks(null)
+  useEffect(() => {
+    if (previousTasksDataRef.current === tasksQuery.data) {
+      return
     }
-  }
+    previousTasksDataRef.current = tasksQuery.data
+    setOptimisticTasks((current) => (current !== null ? null : current))
+  }, [tasksQuery.data])
+
+  useEffect(() => {
+    if (previousProjectsDataRef.current === projectsQuery.data) {
+      return
+    }
+    previousProjectsDataRef.current = projectsQuery.data
+    setOptimisticProjects((current) => (current !== null ? null : current))
+  }, [projectsQuery.data])
+
+  useEffect(() => {
+    setOptimisticProjects((current) => (current !== null ? null : current))
+    setProjectKanbanMutationError((current) => (current !== null ? null : current))
+  }, [projectKanbanTypeFilter])
 
   const visibleDisambiguationTaskIds = tableTitleDisambiguationTaskIds.filter((taskId) =>
     displayTasks.some((task) => task.id === taskId),
@@ -451,6 +798,24 @@ function App() {
     taskMutations,
   })
   const boardInteractionDisabled = tasksQuery.isLoading || taskMutations.isSaving
+  const projectBoardInteractionDisabled =
+    projectsQuery.isLoading || projectBoardLaneBusyCount > 0
+
+  const enqueueProjectBoardLane = useCallback((task: () => Promise<void>) => {
+    setProjectBoardLaneBusyCount((count) => count + 1)
+
+    const wrapped = async (): Promise<void> => {
+      try {
+        await task()
+      } finally {
+        setProjectBoardLaneBusyCount((count) => count - 1)
+      }
+    }
+
+    const executed = projectBoardQueueTailRef.current.then(wrapped)
+    projectBoardQueueTailRef.current = executed.catch(() => undefined)
+    return executed
+  }, [])
 
   useEffect(() => {
     hydrateBoardDisplayOptionsFromStorage()
@@ -577,6 +942,69 @@ function App() {
     void handleKanbanDrop(detail)
   }
 
+  const handleProjectKanbanDrop = useCallback(
+    async (detail: ProjectKanbanDropDetail): Promise<void> => {
+      const nextProjects = reorderProjectsForKanban(
+        displayProjectsForBoard,
+        detail.projectId,
+        detail.board_status,
+        detail.kanban_order,
+      )
+
+      if (!hasProjectKanbanComparableChanged(displayProjectsForBoard, nextProjects)) {
+        return
+      }
+
+      setProjectKanbanMutationError(null)
+      setOptimisticProjects(nextProjects)
+
+      const payload: UpdateProjectBoardStatusPayload = {
+        board_status: detail.board_status,
+        kanban_order:
+          detail.kanban_order === null ? undefined : detail.kanban_order,
+      }
+
+      if (detail.board_status === 'shipped') {
+        payload.finished = true
+      }
+
+      await enqueueProjectBoardLane(async () => {
+        try {
+          await updateProjectBoardStatusMutation.mutateAsync({
+            payload,
+            projectId: detail.projectId,
+          })
+          setOptimisticProjects(null)
+        } catch (caughtError) {
+          setOptimisticProjects(null)
+
+          if (caughtError instanceof ApiError) {
+            setProjectKanbanMutationError(
+              caughtError.formError ?? caughtError.message,
+            )
+            return
+          }
+
+          setProjectKanbanMutationError('Unable to persist project board changes.')
+        }
+      })
+    },
+    [
+      displayProjectsForBoard,
+      enqueueProjectBoardLane,
+      updateProjectBoardStatusMutation,
+    ],
+  )
+
+  const handleProjectKanbanDragEnd = (event: DragEndEvent): void => {
+    const detail = getProjectKanbanDropDetailFromDragEvent(displayProjectsForBoard, event)
+    if (!detail) {
+      return
+    }
+
+    void handleProjectKanbanDrop(detail)
+  }
+
   useEffect(() => {
     const kanbanBoard = kanbanBoardRef.current
     if (!kanbanBoard) {
@@ -596,6 +1024,26 @@ function App() {
       kanbanBoard.removeEventListener('kanban:drop', handleTestDrop)
     }
   }, [handleKanbanDrop])
+
+  useEffect(() => {
+    const kanbanBoard = kanbanBoardRef.current
+    if (!kanbanBoard) {
+      return
+    }
+
+    const handleProjectKanbanTestDrop = (event: Event): void => {
+      if (!(event instanceof CustomEvent) || !isProjectKanbanDropDetail(event.detail)) {
+        return
+      }
+
+      void handleProjectKanbanDrop(event.detail)
+    }
+
+    kanbanBoard.addEventListener('project-kanban:drop', handleProjectKanbanTestDrop)
+    return () => {
+      kanbanBoard.removeEventListener('project-kanban:drop', handleProjectKanbanTestDrop)
+    }
+  }, [handleProjectKanbanDrop])
 
   const projectFilterLabel =
     sidebarSelectedProjectIds.length === 0
@@ -619,6 +1067,7 @@ function App() {
         onEditTask={() => undefined}
         projectsError={null}
         projectsLoading
+        reloadProjects={() => Promise.resolve([])}
       >
         <section className="workspace-panel">
           <p className="muted-copy">Loading workspace…</p>
@@ -627,22 +1076,37 @@ function App() {
     )
   }
 
-  const kanbanSection = (
-    <TaskKanbanBoard
-      boardDisplayOptions={boardDisplayOptions}
-      boardInteractionDisabled={boardInteractionDisabled}
-      boardRef={kanbanBoardRef}
-      displayTasks={displayTasks}
-      hasSidebarProjectSelection={hasSidebarProjectSelection}
-      kanbanMutationError={kanbanMutationError}
-      onDragEnd={handleKanbanDragEnd}
-      onOpenTask={openEditTaskDialog}
-      projectsById={projectsById}
-      showProjectNameOnCard={showProjectNameOnCard}
-      tasksError={tasksQuery.error}
-      tasksLoading={tasksQuery.isLoading}
-    />
-  )
+  const kanbanSection =
+    boardViewTab === 'tasks' ? (
+      <TaskKanbanBoard
+        boardDisplayOptions={boardDisplayOptions}
+        boardInteractionDisabled={boardInteractionDisabled}
+        boardRef={kanbanBoardRef}
+        displayTasks={displayTasks}
+        hasSidebarProjectSelection={hasSidebarProjectSelection}
+        kanbanMutationError={kanbanMutationError}
+        onDragEnd={handleKanbanDragEnd}
+        onOpenTask={openEditTaskDialog}
+        projectsById={projectsById}
+        showProjectNameOnCard={showProjectNameOnCard}
+        tasksError={tasksQuery.error}
+        tasksLoading={tasksQuery.isLoading}
+      />
+    ) : (
+      <ProjectKanbanBoard
+        boardInteractionDisabled={projectBoardInteractionDisabled}
+        boardRef={kanbanBoardRef}
+        displayProjects={displayProjectsForBoard}
+        filterMatchedProjects={filterMatchedProjectKanban}
+        hasSidebarProjectSelection={hasSidebarProjectSelection}
+        kanbanMutationError={projectKanbanMutationError}
+        onDragEnd={handleProjectKanbanDragEnd}
+        onOpenProject={handleProjectEdit}
+        openTaskCounts={openTaskCountsByProjectId}
+        projectsError={projectsQuery.error}
+        projectsLoading={projectsQuery.isLoading}
+      />
+    )
 
   const tableSection = (
     <TaskSummaryTable
@@ -664,17 +1128,22 @@ function App() {
   return (
     <AppShell
       activeProjects={activeProjects}
-      onCreateProject={openCreateProjectDialog}
+      onCreateProject={(ventureId) => openCreateProjectDialog(ventureId)}
       onEditProject={handleProjectEdit}
       onEditTask={openEditTaskDialog}
       projectsError={projectsQuery.error}
       projectsLoading={projectsQuery.isLoading}
+      reloadProjects={projectsQuery.reload}
     >
       <ProjectsPage
         activeProjects={activeProjects}
+        boardViewTab={boardViewTab}
         kanbanSection={kanbanSection}
+        onBoardViewTabChange={setBoardViewTab}
         onOpenCreateTask={openCreateTaskDialog}
+        onProjectKanbanTypeFilterChange={setProjectKanbanTypeFilter}
         projectFilterLabel={projectFilterLabel}
+        projectKanbanTypeFilter={projectKanbanTypeFilter}
         selectedProjectId={selectedProjectId}
         setToolbarProjectFilter={(projectId) => {
           setToolbarProjectFilter(projectId, activeProjectIds)

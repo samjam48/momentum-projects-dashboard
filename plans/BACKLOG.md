@@ -33,15 +33,17 @@ Future phases beyond the current sprint live here. Nothing in this file is in sc
 - **Cleanup tickets (1b-4+):** owner UX polish in `plans/phase-1.5-ux.md` §11
 - **Scope:** current Project → Task schema only (no venture migration)
 
-## Phase 1.6 — Ventures, Project Types, and Project Kanban
-- Alembic migration: `ventures` table; `projects.venture_id`, `project_type`, project status workflow
+## Phase 1.6 — Ventures, Project Types, Project Kanban, and Time Log Activity Types
+- Architect planning signed off: `plans/PRD-phase-1.6-2026-05-15.md`, `plans/TRD-phase-1.6-2026-05-15.md` — ready for Planner
+- Alembic migration: `venture_category_labels`, `ventures`, `activity_types`; `projects.venture_id`, `project_type`, project board status, `finished`, `archived_by_venture`; nullable `time_logs.activity_type_id`
 - **`project_type`** enum on projects: `project` (default) \| `asset` \| `gig` \| `contract` — replaces boolean `is_asset`; selectable in UI; **no behavioural difference between types in 1.6** (same fields, Kanban, tasks)
 - Project statuses: `idea` | `active` | `paused` | `shipped` + project Kanban board
-- Task `type` field with semantic colours (writing, research, code, meeting, admin)
-- Venture CRUD + archive; income stream `venture_id`; goals `venture_id`
+- **No task `type` in 1.6**; owner deferred task labels/repeatable-task semantics
+- User-defined time log activity types: seed `planning`, `meeting`, `admin`; max 25 chars; case-insensitive unique; editable; archivable; deletable when unused; null displays as `uncategorised`
+- Venture CRUD + archive cascade; category labels are user-defined Title Case strings with defaults including `Hobby`
 - Sidebar: expandable venture → project tree; venture edit modal
-- Projects page toggle: Tasks board | Projects board
-- Data migration: existing projects → default venture; `is_asset = true` → `project_type = asset`
+- Projects page toggle: Tasks board | Projects board; Project board shows all project types with type filter
+- Data migration: existing projects → `Unsorted` venture with `Hustle` category label; `is_asset = true` → `project_type = asset`; existing time logs → null activity type displayed as `uncategorised`
 
 ## Phase 2 — Income Tracking
 - **Architect pass required** before implementation: income streams linked to ventures and optionally to projects by **type** (project, asset, gig, contract); **payment cadence** (weekly, monthly, one-time) for recurring vs episodic revenue; how gigs/contracts differ from assets in rollup UX

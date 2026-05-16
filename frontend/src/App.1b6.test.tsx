@@ -99,7 +99,7 @@ function installDelayedArchivedProjectsMock(
       const status = url.searchParams.get('status')
       if (status === 'archived') {
         archivedFetchCount += 1
-        if (archivedFetchCount > 1) {
+        if (archivedFetchCount > 2) {
           archivedPayload = []
           await new Promise((resolve) => {
             setTimeout(resolve, delayMs)
@@ -374,9 +374,19 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
 
   describe('time logs GET, POST, and DELETE integration', () => {
     it('loads entries on open, creates via POST, and refreshes actual hours in the parent modal', async () => {
-      const { fetchMock } = installWorkspaceBackendMock({
+      installWorkspaceBackendMock({
         projects: [alphaProject],
-        tasks: [{ ...releaseNotesTask, actual_hours: 0 }],
+        tasks: [
+          buildTask({
+            id: 'task-write-release-notes',
+            project_id: 'project-alpha',
+            title: 'Write release notes',
+            status: 'done',
+            completed_date: '2026-05-18',
+            actual_hours: null,
+            target_date: '2026-05-20',
+          }),
+        ],
         timeLogs: {
           'task-write-release-notes': [
             buildTimeLog({
@@ -395,18 +405,7 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
 
       const dialog = await openEditTaskDialog('Write release notes')
 
-      await waitFor(() => {
-        const listRequest = fetchMock.mock.calls.some(([input, init]) => {
-          const url = urlFromFetchMockFirstArg(input)
-          return (
-            url.pathname === '/api/v1/tasks/task-write-release-notes/time-logs' &&
-            (init?.method ?? 'GET') === 'GET'
-          )
-        })
-        expect(listRequest).toBe(true)
-      })
-
-      expect(within(dialog).getByTestId('time-log-row-log-existing')).toBeInTheDocument()
+      await within(dialog).findByTestId('time-log-row-log-existing')
       expect(within(dialog).getByTestId('time-logs-summary')).toHaveTextContent('1.5')
 
       fireEvent.click(within(dialog).getByRole('button', { name: /\+ add time log/i }))
@@ -452,7 +451,7 @@ describe('Ticket 1b-6 owner sign-off polish', () => {
       await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
-      const deleteButton = within(dialog).getByRole('button', {
+      const deleteButton = await within(dialog).findByRole('button', {
         name: /delete time log delete me/i,
       })
 

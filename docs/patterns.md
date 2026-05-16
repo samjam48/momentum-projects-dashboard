@@ -20,3 +20,23 @@ User-visible text must read like product UI, not agent or developer commentary.
 - Duplicate section headers that add no information: drop `Task detail` when the fields below are self-explanatory
 
 When adding or editing strings in `frontend/`, ask: *Would a user who never saw the codebase expect this on a shipping product?* If not, rewrite or remove.
+
+## Naming conventions
+
+Test file = component/feature/behavior being tested
+Test case = expected user-observable behavior
+Ticket ID = branch, commit, PR, changelog, or test annotation/comment only when valuable
+
+Avoid
+```
+App.1b4.test.tsx
+it('APP-1B4 works')
+```
+
+Prefer
+
+```
+App.auth-redirect.test.tsx
+it('redirects signed-out users to the login page')
+```
+

@@ -208,30 +208,111 @@ textarea {
   font-size: 0.85rem;
 }
 
-.sidebar-hustle-stub,
-.sidebar-archive-link {
+.sidebar-hustle-stub {
   width: 100%;
 }
 
+/* Link-style archive trigger: overrides global button pill + ghost Tailwind hover fill */
 .sidebar-archive-link {
-  display: inline-block;
-  border-radius: 999px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   background: transparent;
+  background-color: transparent;
   color: #4d3729;
   cursor: pointer;
   font-weight: 600;
-  padding: 0.75rem 1.1rem;
-  text-align: center;
+  min-height: unset;
+  height: auto;
+  padding: 0.35rem 0;
+  text-align: left;
   text-decoration: none;
 }
 
 .sidebar-archive-link:hover {
-  background: #ead7c0;
-  transform: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3d2618;
+  text-decoration: underline;
+  transform: none !important;
 }
 
 .sidebar-project-list {
   gap: 0.35rem;
+}
+
+.sidebar-venture-shell {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.sidebar-venture-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+}
+
+.sidebar-venture-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1;
+  color: #6c4227;
+  transform: none;
+}
+
+.sidebar-venture-toggle:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3d2618;
+  transform: translateY(-1px);
+}
+
+.sidebar-venture-expanded {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1.25rem;
+}
+
+.sidebar-add-project-link {
+  justify-self: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0.1rem 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6c4227;
+  text-decoration: underline;
+  transform: none;
+}
+
+.sidebar-add-project-link:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  transform: translateY(-1px);
+  color: #3d2618;
 }
 
 .sidebar-project-row {
@@ -564,10 +645,38 @@ textarea {
   background: rgba(217, 112, 72, 0.08);
 }
 
-.sidebar-archive-link {
-  width: 100%;
-  justify-content: flex-start;
-  padding-left: 0;
+.archive-project-actions {
+  cursor: default;
+  justify-content: space-between;
+}
+
+.archive-project-actions > .archive-project-title {
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+button.archive-restore-link {
+  flex-shrink: 0;
+  margin-left: auto;
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  background: none !important;
+  background-color: transparent !important;
+  color: #8b5a3c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.25rem 0.35rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button.archive-restore-link:hover:not(:disabled) {
+  color: #5c3d2a;
+  background-color: transparent !important;
 }
 
 .kanban-grid-row {
@@ -807,6 +916,16 @@ textarea {
   cursor: grabbing;
 }
 
+.kanban-project-card {
+  cursor: grab;
+  touch-action: none;
+  padding: 16px;
+}
+
+.kanban-project-card:active {
+  cursor: grabbing;
+}
+
 .task-card-dragging {
   box-shadow: 0 18px 40px rgba(72, 45, 27, 0.16);
   opacity: 0.9;
@@ -850,7 +969,9 @@ textarea {
 
 .kanban-task-title {
   border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
   color: inherit;
   cursor: pointer;
   font: inherit;
@@ -860,9 +981,30 @@ textarea {
 }
 
 .kanban-task-title:hover {
-  background: transparent;
+  background-color: transparent !important;
+  background: transparent !important;
   text-decoration: underline;
-  transform: none;
+  transform: none !important;
+}
+
+.kanban-project-title {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+  box-shadow: none;
+}
+
+.kanban-project-title:hover {
+  background-color: transparent !important;
+  background: transparent !important;
+  text-decoration: underline;
+  transform: none !important;
 }
 
 .kanban-task-metrics {
@@ -952,6 +1094,27 @@ textarea {
 .status-review {
   background: #f8e2b5;
   color: #7a4c00;
+}
+
+/* Project Kanban column headers align with task-board status pill colours */
+.status-idea {
+  background: #f3e2ce;
+  color: #6c4227;
+}
+
+.status-active {
+  background: #dcebf7;
+  color: #245072;
+}
+
+.status-paused {
+  background: #f8e2b5;
+  color: #7a4c00;
+}
+
+.status-shipped {
+  background: #d9edd5;
+  color: #1f5d2f;
 }
 
 .kanban-column-over {

@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import type { TaskStatus } from '../api/types'
+import type { ProjectBoardStatus, TaskStatus } from '../api/types'
 
 import { flushAct } from './actUtils'
 
@@ -11,6 +11,12 @@ export type KanbanDropDetail = {
   kanban_order: number | null
   status: TaskStatus
   taskId: string
+}
+
+export type ProjectKanbanDropDetail = {
+  board_status: ProjectBoardStatus
+  kanban_order: number | null
+  projectId: string
 }
 
 export function getSidebar(): HTMLElement {
@@ -162,6 +168,79 @@ export async function dispatchKanbanDrop(detail: KanbanDropDetail): Promise<void
     )
   })
   await flushAct()
+}
+
+export async function dispatchProjectKanbanDrop(detail: ProjectKanbanDropDetail): Promise<void> {
+  const board = getKanbanBoard()
+  await waitFor(() => {
+    fireEvent(
+      board,
+      new CustomEvent('project-kanban:drop', {
+        bubbles: true,
+        detail,
+      }),
+    )
+  })
+  await flushAct()
+}
+
+export async function switchBoardViewTab(which: 'projects' | 'tasks'): Promise<void> {
+  const tablist = screen.getByRole('tablist', { name: /board view/i })
+  const tabName = which === 'tasks' ? /^tasks$/i : /^projects$/i
+  await waitFor(async () => {
+    await user.click(within(tablist).getByRole('tab', { name: tabName }))
+  })
+  await flushAct()
+}
+
+export function getKanbanBoardHeading(which: RegExp): HTMLElement {
+  return screen.getByRole('heading', { name: which })
+}
+
+export async function waitForProjectKanbanCard(
+  title: string,
+  columnLabel: RegExp = /active/i,
+  options: { timeout?: number } = {},
+): Promise<HTMLElement> {
+  const column = getKanbanColumn(columnLabel)
+  const needle = title.trim().toLowerCase()
+
+  await waitFor(
+    () => {
+      const titles = within(column).queryAllByTestId('kanban-project-title')
+      const match = titles.find(
+        (element) => element.textContent?.trim().toLowerCase() === needle,
+      )
+      expect(match).toBeTruthy()
+    },
+    { timeout: options.timeout ?? 5000 },
+  )
+
+  const titles = within(column).queryAllByTestId('kanban-project-title')
+  const cardTitle =
+    titles.find((element) => element.textContent?.trim().toLowerCase() === needle) ?? null
+  if (!cardTitle) {
+    throw new Error(`Expected project card titled "${title}" in column.`)
+  }
+
+  const card = cardTitle.closest('li')
+  if (!(card instanceof HTMLElement)) {
+    throw new Error(`Expected project ${title} inside a kanban card.`)
+  }
+  return card
+}
+
+export function expectProjectKanbanCardOrder(column: HTMLElement, titles: string[]): void {
+  const label =
+    column.querySelector('.task-card-header .status-pill')?.textContent?.trim() ?? ''
+  const freshColumn = getKanbanColumn(new RegExp(label, 'i'))
+  const items = freshColumn.querySelectorAll('ul.task-list > li')
+  const actualOrder = Array.from(items).map((item) => {
+    const name =
+      within(item as HTMLElement).getByTestId('kanban-project-title').textContent?.trim() ?? ''
+    return name
+  })
+  expect(actualOrder).toEqual(titles)
 }
 
 export async function clickBoardOptionsCheckbox(label: RegExp): Promise<void> {

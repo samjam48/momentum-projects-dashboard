@@ -9,6 +9,8 @@ services:
       - ./backend:/app
 
   frontend:
+    profiles:
+      - full-stack
     build:
       context: ./frontend
     container_name: momentum-frontend

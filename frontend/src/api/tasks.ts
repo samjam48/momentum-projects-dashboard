@@ -6,6 +6,7 @@ import type {
   TaskFilters,
   TaskPayload,
   TaskStatusPayload,
+  TaskUpdatePayload,
 } from './types'
 
 type QueryState<T> = {

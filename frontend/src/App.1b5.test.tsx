@@ -370,7 +370,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
       await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
-      const row = within(dialog).getByTestId('time-log-row-log-structured')
+      const row = await within(dialog).findByTestId('time-log-row-log-structured')
 
       const primary = within(row).getByTestId('time-log-row-primary')
       const secondary = within(row).getByTestId('time-log-row-secondary')
@@ -401,7 +401,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
       await renderApp()
 
       const dialog = await openEditTaskDialog('Write release notes')
-      fireEvent.click(within(dialog).getByTestId('time-log-row-log-detail'))
+      fireEvent.click(await within(dialog).findByTestId('time-log-row-log-detail'))
 
       expect(
         await within(dialog).findByText(/reviewed competitor sites/i),
@@ -409,7 +409,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
     })
   })
 
-  describe('task archive affordance and archived tasks tab', () => {
+  describe('task archive affordance and archive dialog (1.6-8)', () => {
     it('exposes Archive in the edit modal footer', async () => {
       installWorkspaceBackendMock({
         projects: [alphaProject],
@@ -422,7 +422,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
       expect(within(getTaskDialogFooter(dialog)).getByRole('button', { name: /^archive$/i })).toBeInTheDocument()
     })
 
-    it('fetches archived tasks for the Archived tasks tab and lists rows with project context', async () => {
+    it('archive dialog lists only ventures and projects tabs and does not fetch archived tasks', async () => {
       const { fetchMock } = installWorkspaceBackendMock({
         projects: [alphaProject],
         tasks: [releaseNotesTask, archivedTask],
@@ -433,49 +433,27 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
       fireEvent.click(getArchiveViewControl())
       const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
 
-      fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived tasks/i }))
+      expect(within(archiveDialog).getByRole('tab', { name: /archived ventures/i })).toBeInTheDocument()
+      expect(within(archiveDialog).getByRole('tab', { name: /archived projects/i })).toBeInTheDocument()
+      expect(within(archiveDialog).queryByRole('tab', { name: /archived tasks/i })).not.toBeInTheDocument()
+
+      fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived ventures/i }))
+      fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived projects/i }))
 
       await waitFor(() => {
-        const archivedTasksRequest = fetchMock.mock.calls.some(([input]) => {
-          const url = urlFromFetchMockFirstArg(input)
-          return (
-            url.pathname === '/api/v1/tasks' && url.searchParams.get('status') === 'archived'
-          )
-        })
-        expect(archivedTasksRequest).toBe(true)
+        expect(
+          fetchMock.mock.calls.some(([input]) => {
+            const url = urlFromFetchMockFirstArg(input)
+            return url.pathname === '/api/v1/ventures' && url.searchParams.get('status') === 'archived'
+          }),
+        ).toBe(true)
       })
 
-      expect(within(archiveDialog).getByText('Retired draft')).toBeInTheDocument()
-      expect(within(archiveDialog).getByText(/alpha client/i)).toBeInTheDocument()
-      expect(within(archiveDialog).getByTestId('archive-task-dot-project-alpha')).toBeInTheDocument()
-    })
-
-    it('opens the edit dialog when an archived task row is clicked', async () => {
-      installWorkspaceBackendMock({
-        projects: [alphaProject],
-        tasks: [releaseNotesTask, archivedTask],
+      const archivedTasksRequests = fetchMock.mock.calls.filter(([input]) => {
+        const url = urlFromFetchMockFirstArg(input)
+        return url.pathname === '/api/v1/tasks' && url.searchParams.get('status') === 'archived'
       })
-
-      await renderApp()
-
-      fireEvent.click(getArchiveViewControl())
-      const archiveDialog = await screen.findByRole('dialog', { name: /archive/i })
-
-      fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived tasks/i }))
-
-      const archivedTaskRow = await within(archiveDialog).findByRole('button', {
-        name: /retired draft/i,
-      })
-      fireEvent.click(archivedTaskRow)
-
-      const editDialog = await screen.findByRole('dialog')
-      expect(
-        within(editDialog).getByRole('heading', { level: 3, name: /retired draft/i }),
-      ).toBeInTheDocument()
-
-      await waitFor(() => {
-        expect(screen.getByRole('dialog')).toBeInTheDocument()
-      })
+      expect(archivedTasksRequests).toHaveLength(0)
     })
 
     it('removes an archived task from the active Kanban after Archive is confirmed', async () => {

@@ -33,20 +33,12 @@ npm run test -- --coverage  # ≥ 70%
 ```
 `make lint` and `make test` run these. Use them.
 ---
-## Current Sprint — Phase 1b: UX / IA Foundation
-**Goal:** Refactor the Phase 1 frontend onto the app shell, design tokens, and Projects page layout defined in `plans/phase-1.5-ux.md`, without changing backend schema.
-**Done when:**
-- App shell delivers top nav, sidebar scaffold, and Projects page with toolbar + full-width task Kanban + summary table below
-- shadcn/ui primitives and `tokens.css` are wired; terracotta palette tokens are in use
-- Project/task modal UX, sidebar filtering, and Linear-density Kanban cards ship per tickets `1b-2` and `1b-3`
-- Owner cleanup feedback in Phase 1.5 §11 ships per tickets `1b-4` and `1b-5` (Projects page polish; task modal, time logs, archive)
-- Owner sign-off fixes in ticket `1b-6` ship (checkbox/Kanban/modal polish, time-log E2E + delete, test hygiene, deferred cleanup)
-- Owner-reported fixes in ticket `1b-7` ship (Alembic upgrade on startup / stale SQLite time logs, checkbox transparency vs global CSS, Kanban due-date size `0.88rem`, title hover underline-only)
-- Owner polish in ticket `1b-8` ships (checkbox outline lighter when unchecked / stronger when checked; Kanban list layout for ≥5px card gap; due date at `0.78rem` to match project pill; time-log rows as bordered cards, `·` separators, plain X + confirm delete, expandable notes)
-- Phase 1 workflows (CRUD, filter, drag-and-drop, time logs) remain functional on the new layout
-- All quality gates pass for the Phase 1b implementation
-**In scope:** Tickets `1b-1` through `1b-8` in `plans/tickets-phase-1b-ux-2026-05-14.md` — shell, modals, Kanban, Phase 1.5 cleanup, owner sign-off polish, follow-up bugs (`1b-7`), and owner UI polish pass (`1b-8`).
-**Out of scope:** Venture entity, asset flag, project Kanban board, income/goals/dashboard pages, server-persisted preferences, settings purge, and schema migrations (Phase 1.6+).
+## Current Sprint — Phase 1.6: Ventures, Project Types, Project Kanban, Activity Types
+**Goal:** Implement the signed-off Phase 1.6 domain migration: ventures and category labels, projects nested under ventures with `project_type`, a dedicated Project Kanban board, and time-log activity types.
+**Status (2026-05-16):** Tickets **1.6-9** through **1.6-15** (including post–1.6-12 polish **1.6-13** / **1.6-14** and final polish **1.6-15**) are implemented on **`feat/phase-1.6`** with per-ticket commits and Reviewer **SIGNED OFF**. Owner: run `make lint` / `make test`, review diff vs `main`, then open PR (or delegate **PR Checker** per `agents/orchestrator.md`). Reviewer mapping: **`plans/phase-1.6-reviewer-checklist.md`**.
+**Ticket source:** Implement `plans/tickets-phase-1.6-2026-05-15.md` in dependency order (`1.6-1` through `1.6-15`) with per-ticket Reviewer sign-off.
+**Primary references:** `plans/PRD-phase-1.6-2026-05-15.md`, `plans/TRD-phase-1.6-2026-05-15.md`, `docs/V1-PRD.md`, and `docs/V1-TRD.md`.
+**Out of scope:** Task `type` / labels, time-log grouping/filter by activity type, income/goals/dashboard ship, Toggl sync, server-persisted preferences, and true hard-delete/purge UI.
 ---
 ## Definition of Done
 1. All acceptance criteria tests pass

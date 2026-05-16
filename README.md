@@ -19,21 +19,54 @@ Momentum is a self-hosted personal dashboard for running multiple projects in on
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Docker and Docker Compose (optional but recommended for the API on macOS)
+- Node.js 20+ and npm (for the frontend when running Vite on the host)
+- Python 3.12+ and a virtualenv if you run the backend without Docker
 - Make (for lint and test targets)
 
-### First-time setup
+### Recommended macOS workflow (stable)
 
-From the repository root:
+Full `docker compose` with **both** backend and Vite in containers plus bind-mounted source and `--reload` has caused heavy file-watcher CPU and Docker Desktop instability for some setups. The default here is **API in Docker only** and **Vite on the host** proxying to `localhost:8000`.
 
-```bash
-cp .env.example .env
-docker compose up --build
-```
+1. From the repo root, configure env and start **only** the backend:
 
-The frontend uses a named Docker volume for `node_modules` so dependencies stay inside the container. Source code is bind-mounted for hot reload on both services.
+   ```bash
+   cp .env.example .env
+   docker compose up --build backend
+   ```
+
+   The backend image runs **without** `uvicorn --reload` by default to reduce watcher load. For code auto-reload inside the container (higher watcher cost on the mounted `./backend` tree), use:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.reload.yml up backend
+   ```
+
+2. In another terminal, install and run the frontend on the host:
+
+   ```bash
+   cd frontend
+   npm ci
+   VITE_PROXY_TARGET=http://localhost:8000 npm run dev
+   ```
+
+   Open the app at the URL Vite prints (typically `http://localhost:5173`). API requests go through the dev proxy to the container on port 8000.
 
 Local endpoints:
+
+- Frontend (host Vite): see terminal output from `npm run dev`
+- Backend health check: `http://localhost:8000/api/v1/health`
+
+### Optional: full Compose (smoke / parity only)
+
+To run frontend and backend **both** in containers (useful for quick smoke checks), activate the Compose profile:
+
+```bash
+docker compose --profile full-stack up --build
+```
+
+Expect **two** bind-mounted trees (`./backend`, `./frontend`) and container-side watchers (Vite HMR; the backend container still runs **without** `--reload` unless you add `docker-compose.reload.yml`). That pairing can stress Docker Desktop on macOS; prefer the recommended workflow above for daily Phase 1.6 UI work.
+
+Endpoints:
 
 - Frontend: `http://localhost:3000`
 - Backend health check: `http://localhost:8000/api/v1/health`
@@ -43,9 +76,9 @@ Local endpoints:
 If `package.json` or backend requirements change, or the frontend container behaves oddly, tear down and rebuild with a fresh `node_modules` volume:
 
 ```bash
-docker compose down
+docker compose --profile full-stack down
 docker volume rm momentum-projects-dashboard_frontend_node_modules
-docker compose up --build
+docker compose --profile full-stack up --build
 ```
 
 If the volume name differs on your machine, list volumes with `docker volume ls` and remove the one ending in `_frontend_node_modules`.

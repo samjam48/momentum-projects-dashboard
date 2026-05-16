@@ -48,18 +48,22 @@ momentum/
 │   │   │   ├── database.py           # Engine + session factory
 │   │   │   └── migrations/           # Alembic env + version files
 │   │   ├── models/                   # SQLModel table definitions (DB + schema)
+│   │   │   ├── venture_category_label.py
 │   │   │   ├── venture.py
 │   │   │   ├── project.py
 │   │   │   ├── task.py
+│   │   │   ├── activity_type.py
 │   │   │   ├── time_log.py
 │   │   │   ├── income_stream.py
 │   │   │   ├── income_entry.py
 │   │   │   ├── goal.py
 │   │   │   └── goal_period.py
 │   │   ├── routers/                  # FastAPI APIRouter per resource
+│   │   │   ├── venture_category_labels.py
 │   │   │   ├── ventures.py
 │   │   │   ├── projects.py
 │   │   │   ├── tasks.py
+│   │   │   ├── activity_types.py
 │   │   │   ├── time_logs.py
 │   │   │   ├── income.py
 │   │   │   ├── goals.py
@@ -85,9 +89,12 @@ momentum/
 │   │   ├── App.tsx
 │   │   ├── api/                      # axios client + TanStack Query hooks
 │   │   │   ├── client.ts
+│   │   │   ├── ventureCategoryLabels.ts
 │   │   │   ├── ventures.ts
 │   │   │   ├── projects.ts
 │   │   │   ├── tasks.ts
+│   │   │   ├── activityTypes.ts
+│   │   │   ├── timeLogs.ts
 │   │   │   ├── income.ts
 │   │   │   └── goals.ts
 │   │   ├── components/
@@ -135,7 +142,18 @@ momentum/
 
 All primary keys are UUID strings. All timestamps are UTC ISO 8601.
 
-**Implementation status:** Phase 1 shipped `projects` and `tasks` without ventures. Phase 1.6 adds `ventures` and extends existing tables per below. UX spec: `plans/phase-1.5-ux.md`.
+**Implementation status:** Phase 1 shipped `projects` and `tasks` without ventures. Phase 1.6 adds `ventures`, user-defined venture category labels, Project Kanban fields, project completion state, and time log activity types. UX spec: `plans/phase-1.5-ux.md`; phase-scoped technical plan: `plans/TRD-phase-1.6-2026-05-15.md`.
+
+### `venture_category_labels` *(Phase 1.6)*
+```sql
+id           TEXT PRIMARY KEY        -- uuid4
+name         TEXT NOT NULL           -- displayed Title Case
+slug         TEXT NOT NULL UNIQUE    -- case-insensitive unique label key
+created_at   DATETIME NOT NULL
+updated_at   DATETIME NOT NULL
+```
+
+Seed defaults: `Hustle`, `Business`, `Investment`, `Property`, `Education`, `Hobby`. Labels can be renamed and deleted when unused.
 
 ### `ventures` *(Phase 1.6)*
 ```sql
@@ -143,12 +161,14 @@ id           TEXT PRIMARY KEY        -- uuid4
 name         TEXT NOT NULL
 description  TEXT
 colour       TEXT                    -- one of 12 palette hex values
-category     TEXT DEFAULT 'hustle'   -- hustle | business | investment | property | education
+category_label_id TEXT NOT NULL REFERENCES venture_category_labels(id)
 icon         TEXT                    -- optional icon key or URL
 status       TEXT DEFAULT 'active'   -- active | archived
 created_at   DATETIME NOT NULL
 updated_at   DATETIME NOT NULL
 ```
+
+Default category label is `Hustle`. Archiving a venture cascades archive state to child projects; unarchive restores only child projects marked `archived_by_venture = true`.
 
 ### `projects`
 ```sql
@@ -160,11 +180,15 @@ colour       TEXT                    -- one of 12 palette hex values
 icon         TEXT                    -- optional (Phase 1.6)
 project_type TEXT DEFAULT 'project'   -- project | asset | gig | contract (Phase 1.6); replaces is_asset
 status       TEXT DEFAULT 'active'   -- active | archived (Phase 1)
-             -- Phase 1.6 project Kanban: idea | active | paused | shipped
+board_status TEXT DEFAULT 'active'   -- idea | active | paused | shipped (Phase 1.6 project Kanban)
 kanban_order INTEGER                 -- sort within project-board column (Phase 1.6)
+finished     BOOLEAN DEFAULT FALSE   -- completed vs unfinished archived/history state
+archived_by_venture BOOLEAN DEFAULT FALSE -- project archived by parent venture cascade
 created_at   DATETIME NOT NULL
 updated_at   DATETIME NOT NULL
 ```
+
+`status`, `board_status`, and `finished` are separate. Moving a project to `shipped` defaults `finished = true`; archiving a project can also set `finished`.
 
 ### `tasks`
 ```sql
@@ -172,7 +196,6 @@ id               TEXT PRIMARY KEY
 project_id       TEXT NOT NULL REFERENCES projects(id)
 title            TEXT NOT NULL
 description      TEXT
-task_type        TEXT DEFAULT 'admin'     -- writing | research | code | meeting | admin (Phase 1.6)
 status           TEXT DEFAULT 'backlog'   -- backlog | in_progress | review | done
 priority         TEXT DEFAULT 'medium'    -- low | medium | high | urgent
 estimated_hours  REAL
@@ -184,18 +207,37 @@ created_at       DATETIME NOT NULL
 updated_at       DATETIME NOT NULL
 ```
 
+No task `type` or task label field is added in Phase 1.6.
+
+### `activity_types` *(Phase 1.6)*
+```sql
+id           TEXT PRIMARY KEY
+name         TEXT NOT NULL            -- max 25 chars
+slug         TEXT NOT NULL UNIQUE     -- case-insensitive unique activity key
+status       TEXT DEFAULT 'active'    -- active | archived
+sort_order   INTEGER
+created_at   DATETIME NOT NULL
+updated_at   DATETIME NOT NULL
+```
+
+Seed defaults: `planning`, `meeting`, `admin`. Activity types are editable, archivable, and hard-deletable only when unused.
+
 ### `time_logs`
 ```sql
 id           TEXT PRIMARY KEY
 task_id      TEXT REFERENCES tasks(id)
 project_id   TEXT NOT NULL REFERENCES projects(id)
+activity_type_id TEXT REFERENCES activity_types(id)
 hours        REAL NOT NULL
 logged_date  DATE NOT NULL
+location     TEXT
 source       TEXT DEFAULT 'manual'        -- manual | toggl | clockify
 external_id  TEXT                         -- toggl entry ID for dedup
 notes        TEXT
 created_at   DATETIME NOT NULL
 ```
+
+`activity_type_id` is nullable. Null activity type displays as `uncategorised`; existing time logs migrate to null. Archiving an activity type clears affected time log FKs and preserves the time logs.
 
 ### `income_streams`
 ```sql
@@ -271,21 +313,27 @@ All routes: `GET /api/v1/...` — JSON only. Auth: `X-API-Key` header (v1). Fast
 
 ### Ventures *(Phase 1.6)*
 ```
-GET    /api/v1/ventures                     List (filter: status, category)
+GET    /api/v1/venture-category-labels      List category labels
+POST   /api/v1/venture-category-labels      Create category label
+PATCH  /api/v1/venture-category-labels/{id} Update category label
+DELETE /api/v1/venture-category-labels/{id} Delete unused category label
+GET    /api/v1/ventures                     List (filter: status, category_label_id)
 POST   /api/v1/ventures                     Create
 GET    /api/v1/ventures/{id}                Detail
 PATCH  /api/v1/ventures/{id}                Update
 DELETE /api/v1/ventures/{id}                Archive (soft delete)
+PATCH  /api/v1/ventures/{id}/unarchive      Restore venture and projects archived by cascade
 GET    /api/v1/ventures/{id}/summary        Aggregated stats (Phase 3)
 ```
 
 ### Projects
 ```
-GET    /api/v1/projects                     List (filter: status, venture_id)
+GET    /api/v1/projects                     List (filter: status, venture_id, board_status, project_type, finished)
 POST   /api/v1/projects                     Create (requires venture_id after 1.6)
 GET    /api/v1/projects/{id}                Detail
 PATCH  /api/v1/projects/{id}                Update
 DELETE /api/v1/projects/{id}                Archive (soft delete)
+PATCH  /api/v1/projects/{id}/unarchive      Restore archived project
 GET    /api/v1/projects/{id}/summary        Aggregated stats
 ```
 
@@ -297,9 +345,15 @@ GET    /api/v1/tasks/{id}                   Detail
 PATCH  /api/v1/tasks/{id}                   Update
 DELETE /api/v1/tasks/{id}                   Delete
 PATCH  /api/v1/tasks/{id}/status            Quick status update (task Kanban drag)
-PATCH  /api/v1/projects/{id}/status         Project Kanban drag (Phase 1.6)
+PATCH  /api/v1/projects/{id}/board-status   Project Kanban drag (Phase 1.6)
+GET    /api/v1/activity-types               List activity types (filter: status)
+POST   /api/v1/activity-types               Create activity type
+PATCH  /api/v1/activity-types/{id}          Update activity type
+DELETE /api/v1/activity-types/{id}          Delete unused activity type
+PATCH  /api/v1/activity-types/{id}/archive  Archive and clear matching time log FKs
 GET    /api/v1/tasks/{id}/time-logs         List time logs for task
 POST   /api/v1/tasks/{id}/time-logs         Add time log
+PATCH  /api/v1/tasks/{id}/time-logs/{time_log_id}  Update time log (partial body; recomputes task actual hours)
 ```
 
 ### Income

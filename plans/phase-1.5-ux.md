@@ -20,7 +20,7 @@ A larger domain change — **Venture → Project/Asset → Task** — is designe
 ### Hierarchy
 
 ```text
-Venture (UI label: hustle | business | investment | property | education — default "hustle")
+Venture (category label: user-defined Title Case; defaults include Hustle, Business, Investment, Property, Education, Hobby)
   └── Project (same table; `project_type`: project | asset | gig | contract — default "project")
         └── Task
 ```
@@ -227,19 +227,9 @@ Stored as `#RRGGBB` in DB; chosen from swatch picker only (no free-text hex in U
 
 Ventures and projects each pick one swatch. In task cards, **project dot** uses project colour; **title underline** uses venture colour.
 
-### Task type colours (Phase 1.6+)
+### Task and activity colour note
 
-Task `type` is a DB field. Colour is semantic, not user-picked:
-
-| Type | Draft colour |
-| --- | --- |
-| `writing` | `#7B5EA7` |
-| `research` | `#5B7C99` |
-| `code` | `#6B8E6B` |
-| `meeting` | `#D97048` |
-| `admin` | `#8B7355` |
-
-Shown as a small type chip when Board options include task type.
+Phase 1.6 does not add task `type` or semantic task colours. Task cards continue to use project and venture colours for hierarchy. Time log activity types are text labels for log rows, not card colour drivers.
 
 ---
 
@@ -293,7 +283,7 @@ Shown as a small type chip when Board options include task type.
 Phase 1     ✅  Projects + tasks + Kanban (functional baseline)
 Phase 1.5   ✅  This document
 Phase 1b    →   UX overhaul on current schema (shell, modals, task board, table)
-Phase 1.6   →   Ventures, assets, project Kanban, schema migration
+Phase 1.6   →   Ventures, project types, project Kanban, schema migration
 Phase 2     →   Income (venture-first streams)
 Phase 3     →   Goals + Dashboard
 Phase 4     →   Reports + polish (dark mode, responsive, empty states)
@@ -335,7 +325,7 @@ Phase 5+    →   Unchanged from BACKLOG
 | Owner sign-off on draft hex tokens (§5) | Before 1b-1 |
 | Low-fi Canvas wireframes | `plans/wireframes/phase-1b-wireframes.canvas.tsx` |
 | Venture sidebar expand/collapse UI detail | 1.6 ticket writing |
-| `task_type` enum final list | 1.6 (admin listed once) |
+| Time log activity type polish | 1.6 ticket writing |
 | Settings + hidden-delete purge | Future backlog |
 | Dashboard chart catalogue | Phase 3.5 — cross-app data viz pass |
 
@@ -391,6 +381,7 @@ Owner review after 1b-1 / 1b-2 / 1b-3 — implement as **one or two cleanup tick
 | **Time logs section** | Restructure | Title: **Time logs** only. **Actual hours** and **completed date** at **top**. Listed entries below; **+ Add time log** directly under title or list (no inline date/hours/notes form). |
 | **Add time log** | Sub-modal | Opens Dialog: **title**, **notes**, **location**, **date**, **time** (hours). Only **time** required; rest nullable. Save / Cancel. |
 | **Time log list item** | Compact row | **Title bold** (primary line). Date and location below in smaller, lighter text. **Click row** to view notes (expand or secondary modal). |
+| **Activity type tags** | Phase 1.6 signed off | Replace the time log row **title** with a user-defined activity type. Defaults: `planning`, `meeting`, `admin`; users can add values such as `coding`, `researching`, `outreach`, and `writing`. Activity type is the primary label, notes carry specifics, `location` remains, and null/cleared activity type displays as `uncategorised`. |
 | **Create task copy** | Minimal | Remove “New task” / “Edit task” instructional subtitles. |
 
 ### 11.5 Still deferred (unchanged)
@@ -422,10 +413,10 @@ Owner review after **1b-4** / **1b-5** (see `plans/to-do-list.md` §1b review no
 
 | # | Decision |
 | --- | --- |
-| Q1 | Code name **venture**; UI category labels user-selectable; default label **hustle** |
+| Q1 | Code name **venture**; category labels are user-defined Title Case strings; defaults include **Hustle**, **Business**, **Investment**, **Property**, **Education**, **Hobby** |
 | Q2 | Strict venture → project → task ownership |
 | Q3 | Venture fields: name, description, colour, status, icon, category |
-| Q4 | Both venture and project have colours; task colour from type |
+| Q4 | Both venture and project have colours; Phase 1.6 has no task type colours |
 | Q5 | Project statuses: idea, active, paused, shipped |
 | Q6 | One Projects page; toggle Tasks / Projects boards |
 | Q7 | Sidebar: ventures with expandable project lists |
