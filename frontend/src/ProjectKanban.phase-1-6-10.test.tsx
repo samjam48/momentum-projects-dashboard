@@ -117,7 +117,7 @@ describe('Ticket 1.6-10 — Project Kanban Board and Project Type Filter', () =>
     expect(getKanbanBoardHeading(/tasks$/i)).toBeInTheDocument()
   })
 
-  it('renders colour dot, name, archive visibility badge, type label for non-project types, and default open-task metric', async () => {
+  it('renders colour dot, name, type label for non-project types, and numeric open-task count', async () => {
     const plain = buildProject({
       id: 'p-plain',
       name: 'Plain project',
@@ -172,12 +172,13 @@ describe('Ticket 1.6-10 — Project Kanban Board and Project Type Filter', () =>
     })
 
     await waitFor(() => {
-      expect(
-        within(gigCard).getByText(/\b2\b.*\bopen\b.*\btasks?\b|\bopen tasks?\b.*\b2\b/i),
-      ).toBeInTheDocument()
+      const numericOnly = [...gigCard.querySelectorAll('.kanban-project-meta-row .task-meta')].find(
+        (node) => /^\d+$/.test(node.textContent?.trim() ?? ''),
+      )
+      expect(numericOnly?.textContent?.trim()).toBe('2')
     })
 
-    expect(within(gigCard).getByText(/^active$/i)).toBeInTheDocument()
+    expect(gigCard.querySelector('.kanban-project-meta-row .status-pill')).toBeNull()
 
     const plainCard = await waitForProjectKanbanCard('Plain project', /active/i, PK_WAIT)
     expect(within(plainCard).queryByText(/^gig$/i)).not.toBeInTheDocument()

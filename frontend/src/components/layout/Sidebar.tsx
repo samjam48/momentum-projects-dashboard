@@ -186,18 +186,31 @@ export function Sidebar({
             {dedupedVentures.map((venture) => {
               const childProjects = projectsByVentureId[venture.id] ?? []
               const expanded = isVentureExpanded(venture.id)
+              const stripeColour = venture.colour ?? '#9c5d35'
 
               return (
-                <div key={venture.id}>
+                <div
+                  key={venture.id}
+                  className="sidebar-venture-shell"
+                  style={{
+                    borderLeftWidth: '4px',
+                    borderLeftStyle: 'solid',
+                    borderLeftColor: stripeColour,
+                  }}
+                >
                   <div
                     className="sidebar-venture-row"
                     data-testid={`sidebar-venture-${venture.id}`}
                   >
-                    <span
-                      aria-hidden
-                      className="project-colour-dot"
-                      style={{ backgroundColor: venture.colour ?? undefined }}
-                    />
+                    <button
+                      aria-expanded={expanded}
+                      aria-label={expanded ? 'Collapse venture' : 'Expand venture'}
+                      className="sidebar-venture-toggle"
+                      type="button"
+                      onClick={() => toggleVentureExpanded(venture.id)}
+                    >
+                      {expanded ? '<' : '>'}
+                    </button>
 
                     <button
                       className="sidebar-project-title"
@@ -215,81 +228,67 @@ export function Sidebar({
                         : null}
                     </span>
 
-                    <button
-                      aria-expanded={expanded}
-                      aria-label={expanded ? 'Collapse venture' : 'Expand venture'}
-                      type="button"
-                      onClick={() => toggleVentureExpanded(venture.id)}
-                    >
-                      {expanded ? 'Collapse' : 'Expand'}
-                    </button>
-
-                    <span>
+                    <span className="sidebar-venture-project-count muted-copy text-xs">
                       {childProjects.length}{' '}
                       {childProjects.length === 1 ? 'project' : 'projects'}
                     </span>
-
-                    {childProjects.length > 0 ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => onCreateProject(venture.id)}
-                      >
-                        Add project
-                      </Button>
-                    ) : null}
                   </div>
 
                   {expanded ? (
-                    childProjects.length === 0 ? (
-                      <div className="ml-6 space-y-2">
+                    <div className="sidebar-venture-expanded">
+                      {childProjects.length === 0 ? (
                         <p className="muted-copy text-sm">No projects yet.</p>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => onCreateProject(venture.id)}
-                        >
-                          Add project
-                        </Button>
-                      </div>
-                    ) : (
-                      <ul className="project-list sidebar-project-list">
-                        {childProjects.map((project) => {
-                          const checked = isSidebarProjectSelected(project.id, activeProjectIds)
+                      ) : (
+                        <ul className="project-list sidebar-project-list">
+                          {childProjects.map((project) => {
+                            const checked = isSidebarProjectSelected(project.id, activeProjectIds)
 
-                          return (
-                            <li
-                              key={project.id}
-                              className="sidebar-project-row"
-                              data-testid={`sidebar-project-${project.id}`}
-                            >
-                              <span
-                                aria-hidden
-                                className="project-colour-dot"
-                                data-testid="project-colour-dot"
-                                style={{ backgroundColor: project.colour ?? undefined }}
-                              />
-
-                              <button
-                                className="sidebar-project-title"
-                                type="button"
-                                onClick={() => onEditProject(project)}
+                            return (
+                              <li
+                                key={project.id}
+                                className="sidebar-project-row"
+                                data-testid={`sidebar-project-${project.id}`}
                               >
-                                {project.name}
-                              </button>
+                                <span
+                                  aria-hidden
+                                  className="project-colour-dot"
+                                  data-testid="project-colour-dot"
+                                  style={{ backgroundColor: project.colour ?? undefined }}
+                                />
 
-                              <Checkbox
-                                aria-label={`Show ${project.name} in workspace`}
-                                checked={checked}
-                                onCheckedChange={() => {
-                                  toggleSidebarProject(project.id, activeProjectIds)
-                                }}
-                              />
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )
+                                <button
+                                  className="sidebar-project-title"
+                                  type="button"
+                                  onClick={() => onEditProject(project)}
+                                >
+                                  {project.name}
+                                </button>
+
+                                <Checkbox
+                                  aria-label={`Show ${project.name} in workspace`}
+                                  checked={checked}
+                                  onCheckedChange={() => {
+                                    toggleSidebarProject(project.id, activeProjectIds)
+                                  }}
+                                />
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+
+                      <a
+                        className="sidebar-add-project-link"
+                        href="#"
+                        rel="noopener noreferrer"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          onCreateProject(venture.id)
+                        }}
+                      >
+                        + project
+                      </a>
+                    </div>
                   ) : null}
                 </div>
               )

@@ -559,7 +559,7 @@ describe('Ticket 3 project management and shared data layer', () => {
     await screen.findByTestId('sidebar-project-project-podcast')
 
     const sidebar = screen.getByRole('complementary', { name: /projects sidebar/i })
-    fireEvent.click(within(sidebar).getByRole('button', { name: /add project/i }))
+    fireEvent.click(within(sidebar).getByRole('link', { name: /^\+ project$/i }))
     const createDialog = await screen.findByRole('dialog', { name: /new project/i })
 
     fireEvent.change(within(createDialog).getByLabelText(/project name/i), {
@@ -623,7 +623,7 @@ describe('Ticket 3 project management and shared data layer', () => {
     await screen.findByTestId('sidebar-project-project-seed')
 
     const sidebar = screen.getByRole('complementary', { name: /projects sidebar/i })
-    fireEvent.click(within(sidebar).getByRole('button', { name: /add project/i }))
+    fireEvent.click(within(sidebar).getByRole('link', { name: /^\+ project$/i }))
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
     fireEvent.change(within(dialog).getByLabelText(/project name/i), {

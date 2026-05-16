@@ -112,7 +112,9 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
 
     const sidebar = getSidebar()
     const ventureRow = within(sidebar).getByTestId(`sidebar-venture-${ventureAlpha.id}`)
-    const addProject = within(ventureRow).getByRole('button', { name: /add project/i })
+    const shell = ventureRow.parentElement
+    expect(shell).toBeTruthy()
+    const addProject = within(shell!).getByRole('link', { name: /^\+ project$/i })
     await userEvent.click(addProject)
 
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
@@ -131,7 +133,7 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
     const sidebar = getSidebar()
     expect(within(sidebar).getByText(/no projects yet/i)).toBeInTheDocument()
 
-    await userEvent.click(within(sidebar).getByRole('button', { name: /add project/i }))
+    await userEvent.click(within(sidebar).getByRole('link', { name: /^\+ project$/i }))
 
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
     expect(within(dialog).getByRole('combobox', { name: /^venture$/i })).toHaveValue(ventureAlpha.id)
@@ -146,7 +148,7 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
     await renderApp()
 
     const sidebar = getSidebar()
-    await userEvent.click(within(sidebar).getByRole('button', { name: /add project/i }))
+    await userEvent.click(within(sidebar).getByRole('link', { name: /^\+ project$/i }))
 
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
     expect(within(dialog).getByRole('combobox', { name: /^venture$/i })).toBeInTheDocument()
@@ -167,7 +169,7 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
     await renderApp()
 
     await userEvent.click(
-      within(getSidebar()).getByRole('button', { name: /add project/i }),
+      within(getSidebar()).getByRole('link', { name: /^\+ project$/i }),
     )
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
     const typeField = within(dialog).getByRole('combobox', { name: /project type/i })
@@ -215,7 +217,7 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
 
     const sidebar = getSidebar()
     expect(within(sidebar).getByText(/create a venture to get started/i)).toBeInTheDocument()
-    expect(within(sidebar).queryByRole('button', { name: /add project/i })).not.toBeInTheDocument()
+    expect(within(sidebar).queryByRole('link', { name: /^\+ project$/i })).not.toBeInTheDocument()
 
     expect(within(getProjectsToolbar()).queryByRole('button', { name: /^new project$/i })).not.toBeInTheDocument()
   })
@@ -428,7 +430,7 @@ describe('Ticket 1.6-9 — Project create, edit, archive, and type UX', () => {
 
     await renderApp()
 
-    await userEvent.click(within(getSidebar()).getByRole('button', { name: /add project/i }))
+    await userEvent.click(within(getSidebar()).getByRole('link', { name: /^\+ project$/i }))
     const dialog = await screen.findByRole('dialog', { name: /new project/i })
 
     const copy = dialog.textContent ?? ''

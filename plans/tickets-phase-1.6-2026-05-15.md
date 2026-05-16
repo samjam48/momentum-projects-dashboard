@@ -35,6 +35,8 @@
 14. **1.6-10** activates the Project Kanban board and project type filter after project lifecycle APIs and project dialogs are in place.
 15. **1.6-11** updates time-log UI for activity types after backend contracts and shared frontend API hooks exist.
 16. **1.6-12** performs phase-level regression, migration, and scope-guard hardening after the implementation tickets are complete.
+17. **1.6-13** (post–1.6-12 polish) aligns Task Kanban title hover, Project Kanban card/column visuals and drag affordance, and venture sidebar chrome with the signed-off shell aesthetic.
+18. **1.6-14** (post–1.6-12 polish) unifies Archived ventures vs Archived projects UI, restore affordances, confirmation, detail views, and dismiss behaviour.
 
 ---
 
@@ -681,3 +683,106 @@ Phase 1.6 Integration, Regression, and Scope Guards
 - Activity type archive during an open task dialog refreshes the dialog without losing unsaved unrelated edits.
 - `localStorage` containing stale Phase 1b board/filter state cannot crash the app after the venture tree is introduced.
 - Owner quality-gate runs may reveal unrelated pre-existing failures; record them separately and do not hide Phase 1.6 regressions.
+
+---
+
+## Ticket 1.6-13
+
+### Title
+
+Post–Phase 1.6 UX Polish — Task Board Title Hover, Project Kanban Cards, and Venture Sidebar
+
+### Type
+
+Polish (no new domain features). Implement after **1.6-12** is signed off on `main` or as a follow-on branch from **`feat/phase-1.6`**. Does not change API contracts unless a bug fix is strictly required for interaction wiring.
+
+### Background
+
+Owner review surfaced small visual and interaction inconsistencies relative to the task board and archive patterns already in the app. Reference screenshots (workspace assets): task card title hover, project kanban column/cards, ventures sidebar.
+
+### Acceptance Criteria
+
+#### Task Kanban — title hover (Image 1)
+
+- On hover, the task card **title** shows **underline only** (link-style emphasis). Remove the solid **pill / background fill** behind the title on hover so behaviour matches “clickable bold text,” not a button.
+
+#### Project Kanban — cards and columns (Image 2)
+
+- **Card title** matches the task card title pattern: **bold, clickable text** with **underline on hover**; no pill-shaped button fill or faux-button background for the title.
+- Remove the per-card **lifecycle pill** (e.g. “Active”) and the **dedicated drag-handle control** from the card chrome.
+- The **entire project card** is the drag surface (same interaction model as task cards): appropriate **grab / grabbing** cursor while dragging is possible; title click still opens project edit **without** starting a drag (activation distance / pointer separation as on task cards).
+- Below the title, show **only the numeric count** of **active** (non-archived / in-scope) open tasks for that project — **no** trailing label such as “open tasks” / “open task” unless product copy elsewhere already requires it; default to **number only** per owner direction.
+- **Column headers** (`Idea`, `Active`, `Paused`, `Shipped`) use the **same coloured pill treatment** as task Kanban column/status headers (reuse tokens / components where practical for consistency).
+
+#### Ventures sidebar — venture row chrome (Image 3)
+
+- **Expand / collapse** control is **compact**: primary affordance is a **bold chevron** — **`>`** to expand, **`<`** when expanded (or equivalent single-glyph chevron per design system), **not** a large “Collapse” pill. Preserve existing **hover** behaviour where practical: **darker colour** and **slight upward motion** on hover (match current animation feel; duration/easing may stay as today).
+- **Add project** moves to the **bottom of that venture’s project list** (after listed projects). Present as **small clickable text** **`+ project`** (casing per `docs/patterns.md`), not a full-width brown oblong button.
+- The **vertical colour accent** beside the venture name extends the **full vertical extent** of that venture block: venture header row **and** the nested project list **and** the **`+ project`** row, so the stripe reads as one continuous venture region.
+
+### Edge Cases
+
+- Keyboard and screen-reader users: collapse control remains focusable and has an accessible name (e.g. “Expand venture” / “Collapse venture”) even if the visible control is only a chevron.
+- Drag-from-whole-card must not regress **click-to-edit** on the title; keep existing pointer-sensor activation distance or equivalent.
+- Very long venture or project names must not break the extended colour stripe layout (truncate or wrap consistently with sidebar rules).
+
+### Out of Scope
+
+- New archive flows, new board columns, project type semantics, or server-persisted preferences.
+- Rewriting unrelated sidebar filters or venture CRUD dialogs beyond what is listed above.
+
+### Verification
+
+- Visual spot-check against the three reference images after implementation.
+- RTL or smoke tests updated if existing tests assert on removed class names, roles, or copy (“Collapse”, “Add project”, drag handle test ids).
+
+---
+
+## Ticket 1.6-14
+
+### Title
+
+Post–Phase 1.6 UX Polish — Archive Ventures and Archive Projects Consistency
+
+### Type
+
+Polish (no new domain features). Implement after **1.6-12** (may ship with or after **1.6-13** depending on branch strategy).
+
+### Background
+
+**Archived ventures** and **Archived projects** tabs should read as one archive experience: same tab chrome, list row layout, restore affordance, and detail/dismiss behaviour. Reference screenshots: archived ventures list vs archived projects list.
+
+### Acceptance Criteria
+
+#### Visual parity between tabs
+
+- **Archived projects** tab label styling matches **Archived ventures**: **no** extra pill / brown background on the selected tab that the ventures tab does not use; both tabs share the **same** selected and unselected styles.
+- List rows use a **consistent** layout pattern across both tabs (typography, spacing, hover row treatment).
+
+#### Restore affordance and confirmation
+
+- Replace primary-row **Unarchive** pill buttons with **right-aligned** plain text control **`restore`** (clickable link / text-button styling consistent with app patterns, not a filled oblong).
+- Activating **`restore`** opens a **confirmation** step (modal or alert dialog) asking the user to confirm before calling the unarchive API — copy is product-facing, not implementation jargon.
+- **Archived ventures** rows expose the same **`restore`** text affordance (right-aligned) where restoration is allowed by business rules.
+
+#### Detail views and navigation stack
+
+- Clicking an **archived venture** row opens a **detail** view for that venture (same level of inspection as archived projects already support — fields the product considers useful for read-only review).
+- **Dismiss detail**: **Cancel**, **backdrop click**, or equivalent **returns to the archive list** on the **same tab** the user was viewing (**Archived ventures** or **Archived projects**), **not** to the main project board or another top-level route. Match or improve the behaviour already expected for archived **projects** so both entity types behave the same.
+
+### Edge Cases
+
+- If restore is **not allowed** (e.g. parent venture still archived for a project), surface inline error after confirm per existing API errors; do not leave the confirmation dialog in an indeterminate state.
+- Loading and error states during restore remain accessible (focus return, `aria-busy` or live region if already used elsewhere).
+
+### Out of Scope
+
+- Hard-delete / purge UI, bulk restore, or new archive reasons.
+- Backend rule changes beyond what existing unarchive endpoints already enforce.
+
+### Verification
+
+- Manual walkthrough: both archive tabs, restore confirm + cancel, open venture detail and dismiss via cancel and backdrop.
+- Update or add RTL tests if `ArchiveDialog` structure, roles, or copy assertions changed.
+
+---

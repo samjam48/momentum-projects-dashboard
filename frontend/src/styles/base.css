@@ -234,6 +234,76 @@ textarea {
   gap: 0.35rem;
 }
 
+.sidebar-venture-shell {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.sidebar-venture-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+}
+
+.sidebar-venture-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1;
+  color: #6c4227;
+  transform: none;
+}
+
+.sidebar-venture-toggle:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3d2618;
+  transform: translateY(-1px);
+}
+
+.sidebar-venture-expanded {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1.25rem;
+}
+
+.sidebar-add-project-link {
+  justify-self: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0.1rem 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6c4227;
+  text-decoration: underline;
+  transform: none;
+}
+
+.sidebar-add-project-link:hover:not(:disabled) {
+  background: transparent !important;
+  background-color: transparent !important;
+  transform: translateY(-1px);
+  color: #3d2618;
+}
+
 .sidebar-project-row {
   display: flex;
   align-items: center;
@@ -807,6 +877,16 @@ textarea {
   cursor: grabbing;
 }
 
+.kanban-project-card {
+  cursor: grab;
+  touch-action: none;
+  padding: 16px;
+}
+
+.kanban-project-card:active {
+  cursor: grabbing;
+}
+
 .task-card-dragging {
   box-shadow: 0 18px 40px rgba(72, 45, 27, 0.16);
   opacity: 0.9;
@@ -860,6 +940,25 @@ textarea {
 }
 
 .kanban-task-title:hover {
+  background-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+  transform: none;
+}
+
+.kanban-project-title {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.kanban-project-title:hover {
+  background-color: transparent;
   background: transparent;
   text-decoration: underline;
   transform: none;
@@ -952,6 +1051,27 @@ textarea {
 .status-review {
   background: #f8e2b5;
   color: #7a4c00;
+}
+
+/* Project Kanban column headers align with task-board status pill colours */
+.status-idea {
+  background: #f3e2ce;
+  color: #6c4227;
+}
+
+.status-active {
+  background: #dcebf7;
+  color: #245072;
+}
+
+.status-paused {
+  background: #f8e2b5;
+  color: #7a4c00;
+}
+
+.status-shipped {
+  background: #d9edd5;
+  color: #1f5d2f;
 }
 
 .kanban-column-over {

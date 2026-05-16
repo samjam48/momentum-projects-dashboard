@@ -1,15 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical } from 'lucide-react'
 
 import type { Project } from '../../api/types'
 
 function countOpenTasksForProject(openTaskCounts: Record<string, number>, projectId: string): number {
   return openTaskCounts[projectId] ?? 0
-}
-
-function archiveVisibilityLabel(status: Project['status']): string {
-  return status === 'active' ? 'Active' : 'Archived'
 }
 
 type KanbanProjectCardProps = {
@@ -49,6 +44,8 @@ export function KanbanProjectCard({
       className={`task-card kanban-project-card${isDragging ? ' task-card-dragging' : ''}`}
       data-dragging-suppressed-for-mutation={draggingDisabled ? '' : undefined}
       style={{ ...style, padding: '16px' }}
+      {...attributes}
+      {...listeners}
     >
       <div className="kanban-task-linear">
         <div className="kanban-task-title-row">
@@ -69,31 +66,11 @@ export function KanbanProjectCard({
         </div>
 
         <div className="kanban-project-meta-row">
-          <button
-            aria-disabled={draggingDisabled ? true : undefined}
-            aria-label="Drag project"
-            className="kanban-project-drag-handle"
-            data-dnd-drag=""
-            data-dnd-drag-disabled={draggingDisabled ? '' : undefined}
-            data-testid="kanban-project-drag-handle"
-            type="button"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical aria-hidden size={16} />
-          </button>
-
-          <span className={`status-pill status-${project.status}`}>
-            {archiveVisibilityLabel(project.status)}
-          </span>
-
           {showType ? (
             <span className="task-meta kanban-project-type">{project.project_type}</span>
           ) : null}
 
-          <span className="task-meta muted-copy">
-            {openCount} open task{openCount === 1 ? '' : 's'}
-          </span>
+          <span className="task-meta muted-copy">{String(openCount)}</span>
 
           {project.board_status === 'shipped' && project.finished ? (
             <span className="task-meta">Finished</span>
