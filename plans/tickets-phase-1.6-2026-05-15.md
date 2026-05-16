@@ -37,6 +37,7 @@
 16. **1.6-12** performs phase-level regression, migration, and scope-guard hardening after the implementation tickets are complete.
 17. **1.6-13** (post–1.6-12 polish) aligns Task Kanban title hover, Project Kanban card/column visuals and drag affordance, and venture sidebar chrome with the signed-off shell aesthetic.
 18. **1.6-14** (post–1.6-12 polish) unifies Archived ventures vs Archived projects UI, restore affordances, confirmation, detail views, and dismiss behaviour.
+19. **1.6-15** (final polish pass) fixes remaining hover/filled-button chrome on Kanban titles and View archive, read-only archive project summary parity with ventures, and project-card task count labelling.
 
 ---
 
@@ -784,5 +785,60 @@ Polish (no new domain features). Implement after **1.6-12** (may ship with or af
 
 - Manual walkthrough: both archive tabs, restore confirm + cancel, open venture detail and dismiss via cancel and backdrop.
 - Update or add RTL tests if `ArchiveDialog` structure, roles, or copy assertions changed.
+
+---
+
+## Ticket 1.6-15
+
+### Title
+
+Final Phase 1.6 Polish — Kanban Title Hover, View Archive Control, Archive Project Read-Only Summary, Project Card Task Label
+
+### Type
+
+Polish (no new domain features). Implement after **1.6-14** on the Phase 1.6 branch. Supersedes or tightens any conflicting display wording from **1.6-13** only where explicitly stated below (project card open-task line).
+
+### Background
+
+Owner acceptance testing: Kanban card titles still show a **large brown / pill-shaped filled background on hover** (see workspace reference images: default vs hover on task title). The intended pattern is **clickable bold text** with **underline on hover only** — no filled hover background on **either** Task Kanban or Project Kanban. The same filled-button hover treatment appears on **View archive**; that control should become **plain clickable text** with a subtle hover treatment (e.g. underline, colour shift, or slight motion) — **not** a brown oblong button. In **Archive**, opening an **archived venture** already shows a **read-only summary** detail; opening an **archived project** must **match** that pattern (summary / read-only inspection) and **must not** open the full **edit project** modal. On **Project Kanban** cards, the open-task count line should read **`Tasks {n}`** (e.g. `Tasks 0`, `Tasks 5`) so the number is immediately legible; this replaces the digits-only line from **1.6-13** for that row.
+
+### Acceptance Criteria
+
+#### Task and Project Kanban — title hover (no filled hover chrome)
+
+- For **task** and **project** Kanban card titles, **hover** state shows **underline (and optional colour emphasis)** only.
+- **No** large brown / pill / filled background appears behind the title on hover in real browsers (verify against global `button` / component styles — use specificity, reset, or structural change so titles are not styled as primary filled buttons).
+- Default and hover states remain **keyboard-focusable** and accessible; focus ring may remain where it aids a11y, but **must not** replicate the unwanted filled pill hover.
+
+#### Shell — View archive
+
+- **View archive** is presented as **text-style / link-style** control (same interaction family as Kanban titles), **not** a filled brown button.
+- Hover uses **subtle animation** (underline, colour, or slight transform) consistent with other text actions — **not** a solid filled hover background.
+
+#### Archive — archived project opens read-only summary only
+
+- Clicking an **archived project** row opens the **same class of UI** as an **archived venture**: a **read-only summary / detail** surface with the fields useful for inspection (name, venture, type, colour, description, etc. as appropriate), **not** the full **Edit project** dialog used in the active workspace.
+- **Restore** and dismiss behaviour remain consistent with **1.6-14** (return to archive list on the active tab).
+
+#### Project Kanban — open task count copy
+
+- On each project card, the line showing open active tasks is prefixed with the literal word **`Tasks`** and a space before the integer, e.g. **`Tasks 0`**, **`Tasks 5`**.
+
+### Edge Cases
+
+- Drag-vs-click on project cards must remain correct after any title or wrapper markup/CSS changes.
+- RTL / Vitest: update **`phase-1-6-13-ux-polish`** (or successor) assertions that required digits-only task counts to expect the **`Tasks {n}`** format.
+- If **View archive** lives in `Sidebar` or `App` shell, ensure archive entry from empty states remains discoverable without looking like a primary CTA button.
+
+### Out of Scope
+
+- New archive APIs, bulk actions, or changing restore confirmation copy unless required by the read-only project summary split.
+- Task Kanban behaviour beyond title/archive chrome listed here.
+
+### Verification
+
+- Manual: hover task title, project title, and View archive in Chrome/Safari/Firefox — confirm **no** brown filled hover plate behind text.
+- Manual: archive → open venture (summary) vs open project (summary only, not edit modal).
+- `make lint` / `make test` for touched files.
 
 ---

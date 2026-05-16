@@ -42,7 +42,7 @@ describe('ArchiveDialog — Chore 1.6-C1 archived query laziness', () => {
     const { fetchMock } = installWorkspaceBackendMock({ projects: [] })
     render(
       <QueryProvider>
-        <ArchiveDialog onEditProject={vi.fn()} />
+        <ArchiveDialog />
       </QueryProvider>,
     )
     return fetchMock

@@ -217,7 +217,7 @@ describe('Ticket 1.6-13 — Project Kanban cards and columns', () => {
     expect(await screen.findByRole('dialog', { name: /edit project/i })).toBeInTheDocument()
   })
 
-  it('shows only the numeric active open-task count under the title (no “open task(s)” copy)', async () => {
+  it('shows open active tasks as “Tasks {n}” on the project card (superseded by 1.6-15)', async () => {
     const target = buildProject({
       id: 'p-count',
       name: 'Metric copy',
@@ -240,9 +240,11 @@ describe('Ticket 1.6-13 — Project Kanban cards and columns', () => {
     await switchBoardViewTab('projects')
 
     const card = await waitForProjectKanbanCard('Metric copy', /active/i)
-    const metricSpans = [...card.querySelectorAll('.kanban-project-meta-row .task-meta')]
-    const numericOnly = metricSpans.find((node) => /^\d+$/.test(node.textContent?.trim() ?? ''))
-    expect(numericOnly?.textContent?.trim()).toBe('2')
+    expect(card).toHaveTextContent(/tasks\s+2\b/i)
+    const taskCountLine = [...card.querySelectorAll('.kanban-project-meta-row .task-meta')].find((node) =>
+      /tasks/i.test(node.textContent ?? ''),
+    )
+    expect(taskCountLine?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Tasks 2')
     expect(card.textContent?.toLowerCase() ?? '').not.toMatch(/open task/)
   })
 

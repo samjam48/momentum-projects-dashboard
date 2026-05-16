@@ -31,7 +31,7 @@ describe('Ticket 1.6-12 — archive UI scope and patterns', () => {
     installWorkspaceBackendMock({ projects: [] })
     render(
       <QueryProvider>
-        <ArchiveDialog onEditProject={vi.fn()} />
+        <ArchiveDialog />
       </QueryProvider>,
     )
 

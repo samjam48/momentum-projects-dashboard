@@ -70,7 +70,7 @@ export function KanbanProjectCard({
             <span className="task-meta kanban-project-type">{project.project_type}</span>
           ) : null}
 
-          <span className="task-meta muted-copy">{String(openCount)}</span>
+          <span className="task-meta">{`Tasks ${openCount}`}</span>
 
           {project.board_status === 'shipped' && project.finished ? (
             <span className="task-meta">Finished</span>

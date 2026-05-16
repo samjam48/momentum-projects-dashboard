@@ -32,10 +32,6 @@ function stableProjectFilters(filters: ProjectFilters): ProjectFilters {
 const ARCHIVED_PROJECT_FILTERS: ProjectFilters = stableProjectFilters({ status: 'archived' })
 const ACTIVE_PROJECT_FILTERS: ProjectFilters = stableProjectFilters({ status: 'active' })
 
-type ArchiveDialogProps = {
-  onEditProject: (project: Project) => void
-}
-
 type RestoreIntent = {
   displayName: string
   id: string
@@ -50,7 +46,21 @@ function titleCaseLabel(name: string): string {
     .join(' ')
 }
 
-export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Element {
+function resolveVentureLabel(
+  project: Project,
+  archivedVenturesList: Venture[],
+  activeVentures: Venture[] | undefined,
+): string {
+  const id = project.venture_id
+  const activeName = (activeVentures ?? []).find((venture) => venture.id === id)?.name
+  if (activeName) {
+    return activeName
+  }
+  const archivedName = archivedVenturesList.find((venture) => venture.id === id)?.name
+  return archivedName ?? '—'
+}
+
+export function ArchiveDialog(): JSX.Element {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
@@ -60,8 +70,10 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
   const [restorePending, setRestorePending] = useState(false)
   const [restoreIntent, setRestoreIntent] = useState<RestoreIntent | null>(null)
   const [ventureDetail, setVentureDetail] = useState<Venture | null>(null)
+  const [projectDetail, setProjectDetail] = useState<Project | null>(null)
 
   const archivedVenturesQuery = useVentures('archived', { enabled: open })
+  const activeVenturesQuery = useVentures('active', { enabled: open })
   const archivedProjectsQuery = useProjects(ARCHIVED_PROJECT_FILTERS, { enabled: open })
 
   useEffect(() => {
@@ -184,6 +196,7 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
             setActionError(null)
             setRestoreIntent(null)
             setVentureDetail(null)
+            setProjectDetail(null)
             queryClient.removeQueries({ queryKey: projectQueryKeys.list(ARCHIVED_PROJECT_FILTERS) })
             queryClient.removeQueries({ queryKey: ventureQueryKeys.list('archived') })
           }
@@ -318,7 +331,7 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
                         className="archive-project-title"
                         type="button"
                         onClick={() => {
-                          onEditProject(project)
+                          setProjectDetail(project)
                         }}
                       >
                         <span
@@ -352,6 +365,44 @@ export function ArchiveDialog({ onEditProject }: ArchiveDialogProps): JSX.Elemen
             ) : null}
           </ArchiveTabPanel>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(projectDetail)} onOpenChange={(next) => !next && setProjectDetail(null)}>
+        {projectDetail ? (
+          <DialogContent className="z-[60]" onBackdropClick={() => setProjectDetail(null)}>
+            <DialogHeader>
+              <DialogTitle>{projectDetail.name}</DialogTitle>
+              <DialogDescription>Review archived project details.</DialogDescription>
+            </DialogHeader>
+            <div className="venture-archive-detail-fields">
+              <div className="field">
+                <span>Venture</span>
+                <p className="muted-copy">{resolveVentureLabel(projectDetail, archivedVentures, activeVenturesQuery.data)}</p>
+              </div>
+              <div className="field">
+                <span>Type</span>
+                <p className="muted-copy">{projectDetail.project_type}</p>
+              </div>
+              <div className="field">
+                <span>Board status</span>
+                <p className="muted-copy">{projectDetail.board_status}</p>
+              </div>
+              <div className="field">
+                <span>Colour</span>
+                <p className="muted-copy">{(projectDetail.colour ?? '').trim() || '—'}</p>
+              </div>
+              <div className="field">
+                <span>Description</span>
+                <p className="muted-copy">{projectDetail.description?.trim() ? projectDetail.description : '—'}</p>
+              </div>
+            </div>
+            <DialogFooter className="sm:justify-start">
+              <Button type="button" variant="outline" onClick={() => setProjectDetail(null)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        ) : null}
       </Dialog>
 
       <Dialog open={Boolean(ventureDetail)} onOpenChange={(next) => !next && setVentureDetail(null)}>

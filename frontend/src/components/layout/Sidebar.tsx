@@ -324,7 +324,7 @@ export function Sidebar({
         />
       ) : null}
 
-      <ArchiveDialog onEditProject={onEditProject} />
+      <ArchiveDialog />
     </aside>
   )
 }

@@ -172,10 +172,10 @@ describe('Ticket 1.6-10 — Project Kanban Board and Project Type Filter', () =>
     })
 
     await waitFor(() => {
-      const numericOnly = [...gigCard.querySelectorAll('.kanban-project-meta-row .task-meta')].find(
-        (node) => /^\d+$/.test(node.textContent?.trim() ?? ''),
+      const tasksLine = [...gigCard.querySelectorAll('.kanban-project-meta-row .task-meta')].find(
+        (node) => /^tasks\s+\d+$/i.test((node.textContent ?? '').replace(/\s+/g, ' ').trim()),
       )
-      expect(numericOnly?.textContent?.trim()).toBe('2')
+      expect(tasksLine?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Tasks 2')
     })
 
     expect(gigCard.querySelector('.kanban-project-meta-row .status-pill')).toBeNull()

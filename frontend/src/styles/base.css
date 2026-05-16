@@ -208,26 +208,37 @@ textarea {
   font-size: 0.85rem;
 }
 
-.sidebar-hustle-stub,
-.sidebar-archive-link {
+.sidebar-hustle-stub {
   width: 100%;
 }
 
+/* Link-style archive trigger: overrides global button pill + ghost Tailwind hover fill */
 .sidebar-archive-link {
-  display: inline-block;
-  border-radius: 999px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   background: transparent;
+  background-color: transparent;
   color: #4d3729;
   cursor: pointer;
   font-weight: 600;
-  padding: 0.75rem 1.1rem;
-  text-align: center;
+  min-height: unset;
+  height: auto;
+  padding: 0.35rem 0;
+  text-align: left;
   text-decoration: none;
 }
 
 .sidebar-archive-link:hover {
-  background: #ead7c0;
-  transform: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #3d2618;
+  text-decoration: underline;
+  transform: none !important;
 }
 
 .sidebar-project-list {
@@ -668,12 +679,6 @@ button.archive-restore-link:hover:not(:disabled) {
   background-color: transparent !important;
 }
 
-.sidebar-archive-link {
-  width: 100%;
-  justify-content: flex-start;
-  padding-left: 0;
-}
-
 .kanban-grid-row {
   display: flex;
   gap: 1rem;
@@ -964,7 +969,9 @@ button.archive-restore-link:hover:not(:disabled) {
 
 .kanban-task-title {
   border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
   color: inherit;
   cursor: pointer;
   font: inherit;
@@ -974,14 +981,15 @@ button.archive-restore-link:hover:not(:disabled) {
 }
 
 .kanban-task-title:hover {
-  background-color: transparent;
-  background: transparent;
+  background-color: transparent !important;
+  background: transparent !important;
   text-decoration: underline;
-  transform: none;
+  transform: none !important;
 }
 
 .kanban-project-title {
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -989,13 +997,14 @@ button.archive-restore-link:hover:not(:disabled) {
   font-weight: 700;
   padding: 0;
   text-align: left;
+  box-shadow: none;
 }
 
 .kanban-project-title:hover {
-  background-color: transparent;
-  background: transparent;
+  background-color: transparent !important;
+  background: transparent !important;
   text-decoration: underline;
-  transform: none;
+  transform: none !important;
 }
 
 .kanban-task-metrics {
