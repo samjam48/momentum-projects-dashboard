@@ -11,13 +11,7 @@ import {
   type UpdateProjectBoardStatusPayload,
 } from './api/projects'
 import { useTaskMutations, useTasks } from './api/tasks'
-import type {
-  Project,
-  ProjectBoardStatus,
-  ProjectType,
-  Task,
-  TaskStatus,
-} from './api/types'
+import type { Project, ProjectBoardStatus, ProjectType } from './api/types'
 import { AppShell } from './components/layout/AppShell'
 import { ProjectKanbanBoard } from './components/ProjectKanbanBoard'
 import { TaskKanbanBoard } from './components/TaskKanbanBoard'
@@ -27,6 +21,7 @@ import {
   type TaskDialogMode,
 } from './components/WorkspaceDialogs'
 import { deriveOpenTaskCountsByProjectId } from './features/projects/openTaskCounts'
+import { useTaskKanbanController } from './features/tasks/useTaskKanbanController'
 import {
   sortTasks,
   type TaskSortKey,
@@ -40,7 +35,7 @@ import {
   type DropDetail,
   type KanbanDndConfig,
 } from './lib/kanbanDnd'
-import { sortProjectsForKanbanBoard, sortTasksForKanban } from './lib/kanbanSort'
+import { sortProjectsForKanbanBoard } from './lib/kanbanSort'
 import {
   DEFAULT_PROJECT_FILTER,
   deriveToolbarProjectId,
@@ -49,27 +44,6 @@ import {
 } from './stores/projectFilter'
 import type { ProjectFilterState } from './stores/projectFilter'
 import { useBoardDisplayOptionsStore, hydrateBoardDisplayOptionsFromStorage } from './stores/boardDisplayOptions'
-
-type KanbanDropDetail = {
-  kanban_order: number | null
-  status: TaskStatus
-  taskId: string
-}
-
-function isKanbanDropDetail(value: unknown): value is KanbanDropDetail {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  return (
-    'taskId' in value &&
-    typeof value.taskId === 'string' &&
-    'status' in value &&
-    typeof value.status === 'string' &&
-    'kanban_order' in value &&
-    (typeof value.kanban_order === 'number' || value.kanban_order === null)
-  )
-}
 
 type ProjectKanbanDropDetail = {
   board_status: ProjectBoardStatus
@@ -91,21 +65,6 @@ function isProjectKanbanDropDetail(value: unknown): value is ProjectKanbanDropDe
     (typeof value.kanban_order === 'number' || value.kanban_order === null)
   )
 }
-const taskKanbanDndConfig: KanbanDndConfig<Task, TaskStatus> = {
-  columnIdPrefix: 'kanban-column:',
-  cardIdPrefix: 'kanban-task:',
-  getColumnKey: (task) => task.status,
-  getOrder: (task) => task.kanban_order,
-  setColumnAndOrder: (task, column, order) => ({
-    ...task,
-    status: column,
-    kanban_order: order,
-    completed_date: column === 'done' ? task.completed_date : null,
-  }),
-  orderItemsInColumn: (items, column) =>
-    sortTasksForKanban(items.filter((task) => task.status === column)),
-}
-
 const projectKanbanDndConfig: KanbanDndConfig<Project, ProjectBoardStatus> = {
   columnIdPrefix: 'kanban-project-column:',
   cardIdPrefix: 'kanban-project:',
@@ -123,14 +82,6 @@ const projectKanbanDndConfig: KanbanDndConfig<Project, ProjectBoardStatus> = {
     ),
 }
 
-function toTaskKanbanDropDetail(detail: DropDetail<TaskStatus>): KanbanDropDetail {
-  return {
-    taskId: detail.itemId,
-    status: detail.columnKey,
-    kanban_order: detail.kanban_order,
-  }
-}
-
 function toProjectKanbanDropDetail(
   detail: DropDetail<ProjectBoardStatus>,
 ): ProjectKanbanDropDetail {
@@ -138,18 +89,6 @@ function toProjectKanbanDropDetail(
     projectId: detail.itemId,
     board_status: detail.columnKey,
     kanban_order: detail.kanban_order,
-  }
-}
-
-function taskKanbanComparable(task: Task): {
-  completed_date: string | null
-  kanban_order: number | null
-  status: TaskStatus
-} {
-  return {
-    status: task.status,
-    kanban_order: task.kanban_order,
-    completed_date: task.completed_date,
   }
 }
 
@@ -195,8 +134,6 @@ function App() {
   const [hasEvaluatedTaskWorkspaceBootstrap, setHasEvaluatedTaskWorkspaceBootstrap] =
     useState(false)
   const [workspaceReady, setWorkspaceReady] = useState(false)
-  const [optimisticTasks, setOptimisticTasks] = useState<Task[] | null>(null)
-  const [kanbanMutationError, setKanbanMutationError] = useState<string | null>(null)
   const [boardViewTab, setBoardViewTab] = useState<'projects' | 'tasks'>('tasks')
   const [projectKanbanTypeFilter, setProjectKanbanTypeFilter] = useState<
     'all' | ProjectType
@@ -271,13 +208,11 @@ function App() {
     .filter((task) => task.status !== 'archived')
     .filter((task) => task.project_id in projectsById)
     .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
-  const displayTasks = optimisticTasks ?? visibleTasks
   const openTaskCountsByProjectId = useMemo(
     () => deriveOpenTaskCountsByProjectId(activeProjects, tasksQuery.data),
     [activeProjects, tasksQuery.data],
   )
   const previousFilterKeyRef = useRef(storedProjectIdsKey)
-  const previousTasksDataRef = useRef(tasksQuery.data)
   const previousProjectsDataRef = useRef(projectsQuery.data)
 
   useEffect(() => {
@@ -285,19 +220,9 @@ function App() {
       return
     }
     previousFilterKeyRef.current = storedProjectIdsKey
-    setOptimisticTasks((current) => (current !== null ? null : current))
-    setKanbanMutationError((current) => (current !== null ? null : current))
     setOptimisticProjects((current) => (current !== null ? null : current))
     setProjectKanbanMutationError((current) => (current !== null ? null : current))
   }, [storedProjectIdsKey])
-
-  useEffect(() => {
-    if (previousTasksDataRef.current === tasksQuery.data) {
-      return
-    }
-    previousTasksDataRef.current = tasksQuery.data
-    setOptimisticTasks((current) => (current !== null ? null : current))
-  }, [tasksQuery.data])
 
   useEffect(() => {
     if (previousProjectsDataRef.current === projectsQuery.data) {
@@ -312,10 +237,6 @@ function App() {
     setProjectKanbanMutationError((current) => (current !== null ? null : current))
   }, [projectKanbanTypeFilter])
 
-  const visibleDisambiguationTaskIds = tableTitleDisambiguationTaskIds.filter((taskId) =>
-    displayTasks.some((task) => task.id === taskId),
-  )
-  const sortedTasks = sortTasks(displayTasks, projectsById, taskSort)
   const selectedTask = tasksQuery.data.find((task) => task.id === activeTaskId) ?? null
   const taskMutations = useTaskMutations(async () => {
     await tasksQuery.reload()
@@ -357,6 +278,24 @@ function App() {
   const boardInteractionDisabled = tasksQuery.isLoading || taskMutations.isSaving
   const projectBoardInteractionDisabled =
     projectsQuery.isLoading || projectBoardLaneBusyCount > 0
+
+  const {
+    displayTasks,
+    handleKanbanDragEnd,
+    kanbanMutationError,
+  } = useTaskKanbanController({
+    boardInteractionDisabled,
+    boardRef: kanbanBoardRef,
+    storedProjectIdsKey,
+    taskMutations,
+    tasksData: tasksQuery.data,
+    visibleTasks,
+  })
+
+  const visibleDisambiguationTaskIds = tableTitleDisambiguationTaskIds.filter((taskId) =>
+    displayTasks.some((task) => task.id === taskId),
+  )
+  const sortedTasks = sortTasks(displayTasks, projectsById, taskSort)
 
   const enqueueProjectBoardLane = useCallback((task: () => Promise<void>) => {
     setProjectBoardLaneBusyCount((count) => count + 1)
@@ -450,56 +389,6 @@ function App() {
     })
   }
 
-  const handleKanbanDrop = useCallback(
-    async (detail: KanbanDropDetail): Promise<void> => {
-      if (boardInteractionDisabled) {
-        return
-      }
-
-      const nextTasks = reorderKanbanItems(
-        displayTasks,
-        detail.taskId,
-        detail.status,
-        detail.kanban_order,
-        taskKanbanDndConfig,
-      )
-      if (!hasKanbanComparableChanged(displayTasks, nextTasks, taskKanbanComparable)) {
-        return
-      }
-
-      setKanbanMutationError(null)
-      taskMutations.resetError()
-      setOptimisticTasks(nextTasks)
-
-      try {
-        await taskMutations.updateStatus(detail.taskId, {
-          status: detail.status,
-          kanban_order: detail.kanban_order,
-        })
-        setOptimisticTasks(null)
-      } catch (caughtError) {
-        setOptimisticTasks(null)
-
-        if (caughtError instanceof ApiError) {
-          setKanbanMutationError(caughtError.formError ?? caughtError.message)
-          return
-        }
-
-        setKanbanMutationError('Unable to update task status.')
-      }
-    },
-    [boardInteractionDisabled, displayTasks, taskMutations],
-  )
-
-  const handleKanbanDragEnd = (event: DragEndEvent): void => {
-    const detail = getDropDetailFromDragEvent(displayTasks, event, taskKanbanDndConfig)
-    if (!detail) {
-      return
-    }
-
-    void handleKanbanDrop(toTaskKanbanDropDetail(detail))
-  }
-
   const handleProjectKanbanDrop = useCallback(
     async (detail: ProjectKanbanDropDetail): Promise<void> => {
       const nextProjects = reorderKanbanItems(
@@ -573,26 +462,6 @@ function App() {
 
     void handleProjectKanbanDrop(toProjectKanbanDropDetail(detail))
   }
-
-  useEffect(() => {
-    const kanbanBoard = kanbanBoardRef.current
-    if (!kanbanBoard) {
-      return
-    }
-
-    const handleTestDrop = (event: Event): void => {
-      if (!(event instanceof CustomEvent) || !isKanbanDropDetail(event.detail)) {
-        return
-      }
-
-      void handleKanbanDrop(event.detail)
-    }
-
-    kanbanBoard.addEventListener('kanban:drop', handleTestDrop)
-    return () => {
-      kanbanBoard.removeEventListener('kanban:drop', handleTestDrop)
-    }
-  }, [handleKanbanDrop])
 
   useEffect(() => {
     const kanbanBoard = kanbanBoardRef.current
