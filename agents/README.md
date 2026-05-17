@@ -4,6 +4,7 @@ Project-specific agent prompts live in this directory.
 
 Start with `AGENTS.md` for repo-wide rules.
 Shared skill discovery lives in `docs/ai/skills/index.md`.
+Shared hooks and rules live in `docs/ai/rules.md`.
 
 For a **major feature or full phase build**, use `orchestrator.md` as the single entry point. It delegates to the specialized agents below one at a time and does not parallelize work.
 

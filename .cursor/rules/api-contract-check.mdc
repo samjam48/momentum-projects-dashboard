@@ -1,0 +1,25 @@
+---
+description: Use before API changes to enforce explicit contract reasoning and api-map updates.
+alwaysApply: false
+---
+# API Contract Check Rule
+
+Canonical reference:
+[rules.md](./mdc:docs/ai/rules.md)
+
+Use this rule when:
+- you add or change endpoints,
+- you change params, request bodies, or response shapes,
+- or you add filtering, sorting, pagination, or domain actions.
+
+Required behavior:
+1. Use `docs/ai/skills/api-contract-decision.md`.
+2. Confirm whether approval is required.
+3. Check whether an existing route already fits before adding a new one.
+4. Update `docs/api-map.md` when the contract actually changed.
+5. Run `scripts/docs-sync-check.sh --staged` before commit if API-sensitive files changed.
+
+Do not:
+- overload a route without checking the shared API contract skill,
+- skip `docs/api-map.md` when the route shape or payload changed,
+- rely on memory instead of the canonical contract docs.

@@ -7,6 +7,7 @@ Project-specific role prompts live in `/agents/`. For a major feature or phase b
 AI guidance lives in:
 - `agents/README.md` — role prompts and when to use them
 - `docs/ai/README.md` — shared AI workflow notes
+- `docs/ai/rules.md` — shared hooks and rules
 - `docs/ai/skills/index.md` — shared skills catalog and routing guide
 ---
 ## Hard Constraints

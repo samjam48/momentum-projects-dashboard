@@ -2,6 +2,8 @@
 
 Shared canonical skills live in this directory. Use them from any tool instead of copying rules into multiple places.
 
+For shared trigger points and workflow checks, see `docs/ai/rules.md`.
+
 ## How To Use This Index
 
 1. Start with `AGENTS.md`.

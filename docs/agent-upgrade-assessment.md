@@ -163,6 +163,13 @@ Recommended strategy:
 
 These do not need to be heavyweight automation first. A named rule set is enough, and later it can be mapped to Cursor rules, Claude skills, or CI checks.
 
+Implementation note (2026-05-17):
+- Canonical shared hooks and rules now live in `docs/ai/rules.md`.
+- This repo now treats `rule` as the named policy or checklist, and `hook` as the trigger point that invokes one or more rules.
+- First-pass tool mapping is intentionally soft: shared doc plus thin adapters in `.claude/skills/*` and `.cursor/rules/*`.
+- `docs-sync-check` is scoped to `docs/api-map.md` and `docs/database-schema.md`.
+- `pre-commit-verification` follows the agreed ticket flow: failing tests first, targeted tests passing before per-ticket commit, full `make lint` and `make test` before end-of-batch handoff.
+
 | Name | Purpose | Suggested trigger | Required checks | Scope / tools |
 | --- | --- | --- | --- | --- |
 | `start-work-context` | Ensure agents start from repo rules and the right docs | Before any non-trivial task | Read `AGENTS.md`, locate role prompt if applicable, check skills index, identify impacted docs/tests | Global |
@@ -171,7 +178,7 @@ These do not need to be heavyweight automation first. A named rule set is enough
 | `backend-boundary-check` | Keep routers/services responsibilities clean | Before adding business rules or new backend modules | Confirm logic lives in `services/`, not routers; verify no accidental repository pattern drift | Global |
 | `frontend-boundary-check` | Avoid state/component/data-flow sprawl | Before introducing shared state, extracting components, or reshaping server data | Use `frontend-state-decision`, `frontend-data-flow-check`, or `component-boundary-decision` as appropriate | Global |
 | `test-strategy-check` | Match verification strength to risk | Before writing tests and before implementation of behavior changes | Use `test-strategy-decision`; identify lowest effective layer and remaining manual checks | Global |
-| `docs-sync-check` | Keep architecture/API/schema docs accurate | After approved code changes affecting those areas | Update `docs/api-map.md`, `docs/database-schema.md`, and `docs/architecture.md` when their source-of-truth area changed | Global |
+| `docs-sync-check` | Keep API and schema docs accurate | After approved API or schema changes | Update `docs/api-map.md` and `docs/database-schema.md` when their source-of-truth area changed | Global |
 | `pre-commit-verification` | Resolve commit-quality ambiguity | Before any commit | Enforce the relevant test and gate policy from `AGENTS.md`; define clearly whether ticket commits require full or scoped verification | Global, likely backed by automation later |
 | `critical-area-escalation` | Slow down risky changes | When touching auth, billing, permissions, database schema, migrations, or production-critical flows | Require explicit owner confirmation and non-author review | Global |
 
@@ -291,6 +298,7 @@ docs/
 ## Suggested new files
 
 - `docs/ai/README.md`
+- `docs/ai/rules.md`
 - `docs/ai/skills/index.md`
 
 Optional later:
