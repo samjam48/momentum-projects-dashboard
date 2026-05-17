@@ -280,6 +280,7 @@ function App() {
   return (
     <AppShell
       activeProjects={activeProjects}
+      onArchivedTaskRestored={tasksQuery.reload}
       onCreateProject={(ventureId) => openCreateProjectDialog(ventureId)}
       onEditProject={handleProjectEdit}
       onEditTask={openEditTaskDialog}

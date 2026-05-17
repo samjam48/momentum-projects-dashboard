@@ -91,11 +91,20 @@ export async function updateTaskStatus(
   })
 }
 
-export function useTasks(filters: TaskFilters = {}, enabled = true): QueryState<Task[]> {
+export type UseTasksOptions = {
+  resetDataOnReload?: boolean
+}
+
+export function useTasks(
+  filters: TaskFilters = {},
+  enabled = true,
+  taskOptions: UseTasksOptions = {},
+): QueryState<Task[]> {
   const [data, setData] = useState<Task[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(enabled)
   const { priority, projectId, status } = filters
+  const resetDataOnReload = taskOptions.resetDataOnReload ?? false
 
   const reload = useCallback(async () => {
     if (!enabled) {
@@ -107,6 +116,9 @@ export function useTasks(filters: TaskFilters = {}, enabled = true): QueryState<
 
     setIsLoading(true)
     setError(null)
+    if (resetDataOnReload) {
+      setData([])
+    }
 
     try {
       setData(await listTasks({ priority, projectId, status }))
@@ -119,7 +131,7 @@ export function useTasks(filters: TaskFilters = {}, enabled = true): QueryState<
     } finally {
       setIsLoading(false)
     }
-  }, [enabled, priority, projectId, status])
+  }, [enabled, priority, projectId, resetDataOnReload, status])
 
   useEffect(() => {
     void reload()

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { ApiError } from '../api/client'
 import {
@@ -9,8 +9,12 @@ import {
   useProjects,
   type ProjectFilters,
 } from '../api/projects'
-import type { Project, Venture } from '../api/types'
+import type { Project, Task, TaskFilters, Venture } from '../api/types'
 import { listVentures, unarchiveVenture, useVentures, ventureQueryKeys } from '../api/ventures'
+import {
+  updateTaskStatus,
+  useTasks,
+} from '../api/tasks'
 import { ArchiveList } from '../features/archives/ArchiveList'
 import { EmptyState } from './feedback/EmptyState'
 import { ErrorBanner } from './feedback/ErrorBanner'
@@ -26,8 +30,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './ui/dialog'
+import { Select } from './ui/Select'
 
-type ArchiveTab = 'ventures' | 'projects'
+type ArchiveTab = 'ventures' | 'projects' | 'tasks'
 
 function stableProjectFilters(filters: ProjectFilters): ProjectFilters {
   const { status, venture_id, board_status, project_type, finished } = filters
@@ -37,10 +42,14 @@ function stableProjectFilters(filters: ProjectFilters): ProjectFilters {
 const ARCHIVED_PROJECT_FILTERS: ProjectFilters = stableProjectFilters({ status: 'archived' })
 const ACTIVE_PROJECT_FILTERS: ProjectFilters = stableProjectFilters({ status: 'active' })
 
+export type ArchiveDialogProps = {
+  onWorkspaceTasksReload?: () => void | Promise<void>
+}
+
 type RestoreIntent = {
   displayName: string
   id: string
-  kind: 'project' | 'venture'
+  kind: 'project' | 'task' | 'venture'
 }
 
 function titleCaseLabel(name: string): string {
@@ -49,6 +58,42 @@ function titleCaseLabel(name: string): string {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
+}
+
+function archivedTaskParentsAllowRestore(
+  task: Task,
+  projectById: Map<string, Project>,
+  ventureById: Map<string, Venture>,
+): boolean {
+  const project = projectById.get(task.project_id)
+  if (!project || project.status !== 'active') {
+    return false
+  }
+  const ventureId = project.venture_id
+  if (!ventureId) {
+    return true
+  }
+  const venture = ventureById.get(ventureId)
+  return venture !== undefined && venture.status !== 'archived'
+}
+
+function restoreConfirmationContent(intent: RestoreIntent): {
+  description: ReactNode
+  title: ReactNode
+} {
+  if (intent.kind === 'task') {
+    return { description: intent.displayName, title: 'Restore task?' }
+  }
+  if (intent.kind === 'project') {
+    return {
+      description: 'This project will appear in your active projects again.',
+      title: `Restore ${intent.displayName}?`,
+    }
+  }
+  return {
+    description: 'This venture and its projects will appear with your active items again.',
+    title: `Restore ${intent.displayName}?`,
+  }
 }
 
 function resolveVentureLabel(
@@ -65,7 +110,9 @@ function resolveVentureLabel(
   return archivedName ?? '—'
 }
 
-export function ArchiveDialog(): JSX.Element {
+export function ArchiveDialog({
+  onWorkspaceTasksReload,
+}: ArchiveDialogProps): JSX.Element {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ArchiveTab>('projects')
@@ -76,10 +123,59 @@ export function ArchiveDialog(): JSX.Element {
   const [restoreIntent, setRestoreIntent] = useState<RestoreIntent | null>(null)
   const [ventureDetail, setVentureDetail] = useState<Venture | null>(null)
   const [projectDetail, setProjectDetail] = useState<Project | null>(null)
+  const [archivedTasksProjectFilter, setArchivedTasksProjectFilter] = useState('')
 
   const archivedVenturesQuery = useVentures('archived', { enabled: open })
   const activeVenturesQuery = useVentures('active', { enabled: open })
   const archivedProjectsQuery = useProjects(ARCHIVED_PROJECT_FILTERS, { enabled: open })
+  const activeProjectsQuery = useProjects(ACTIVE_PROJECT_FILTERS, { enabled: open })
+
+  const archivedTasksFilters: TaskFilters =
+    archivedTasksProjectFilter.trim() === ''
+      ? { status: 'archived' }
+      : { status: 'archived', projectId: archivedTasksProjectFilter.trim() }
+
+  const archivedTasksListing = useTasks(archivedTasksFilters, open && activeTab === 'tasks', {
+    resetDataOnReload: true,
+  })
+
+  const mergedProjectById = useMemo(() => {
+    const nextMap = new Map<string, Project>()
+    for (const project of activeProjectsQuery.data ?? []) {
+      nextMap.set(project.id, project)
+    }
+    for (const project of archivedProjectsQuery.data ?? []) {
+      nextMap.set(project.id, project)
+    }
+    return nextMap
+  }, [activeProjectsQuery.data, archivedProjectsQuery.data])
+
+  const ventureById = useMemo(() => {
+    const nextMap = new Map<string, Venture>()
+    for (const venture of activeVenturesQuery.data ?? []) {
+      nextMap.set(venture.id, venture)
+    }
+    for (const venture of archivedVenturesQuery.data ?? []) {
+      nextMap.set(venture.id, venture)
+    }
+    return nextMap
+  }, [activeVenturesQuery.data, archivedVenturesQuery.data])
+
+  const visibleArchivedTasks = useMemo(
+    () =>
+      archivedTasksListing.data.filter((task) =>
+        archivedTaskParentsAllowRestore(task, mergedProjectById, ventureById),
+      ),
+    [archivedTasksListing.data, mergedProjectById, ventureById],
+  )
+
+  const sortedActiveProjectsForArchivedTaskFilter = useMemo(
+    () =>
+      [...(activeProjectsQuery.data ?? [])].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+    [activeProjectsQuery.data],
+  )
 
   useEffect(() => {
     if (!open) {
@@ -175,11 +271,36 @@ export function ArchiveDialog(): JSX.Element {
     }
   }
 
+  const performRestoreArchivedTask = async (taskId: string): Promise<boolean> => {
+    setActionError(null)
+    setRestorePending(true)
+    try {
+      await updateTaskStatus(taskId, { status: 'backlog', kanban_order: null })
+      await archivedTasksListing.reload()
+      await onWorkspaceTasksReload?.()
+      return true
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setActionError(caughtError.formError ?? caughtError.message)
+        return false
+      }
+      setActionError('Unable to restore archived task.')
+      return false
+    } finally {
+      setRestorePending(false)
+    }
+  }
+
   const handleConfirmRestore = async (): Promise<void> => {
     if (!restoreIntent || restorePending) {
       return
     }
     const { id, kind } = restoreIntent
+    if (kind === 'task') {
+      await performRestoreArchivedTask(id)
+      setRestoreIntent(null)
+      return
+    }
     await (kind === 'project' ? performUnarchiveProject(id) : performUnarchiveVenture(id))
     setRestoreIntent(null)
   }
@@ -193,6 +314,8 @@ export function ArchiveDialog(): JSX.Element {
     }
   }
 
+  const restoreDialogCopy = restoreIntent ? restoreConfirmationContent(restoreIntent) : null
+
   return (
     <>
       <Dialog
@@ -201,6 +324,7 @@ export function ArchiveDialog(): JSX.Element {
           setOpen(nextOpen)
           if (nextOpen) {
             setActionError(null)
+            setArchivedTasksProjectFilter('')
           }
 
           if (!nextOpen) {
@@ -208,6 +332,7 @@ export function ArchiveDialog(): JSX.Element {
             setArchivedVentures([])
             setArchivedProjects([])
             setActionError(null)
+            setArchivedTasksProjectFilter('')
             setRestoreIntent(null)
             setVentureDetail(null)
             setProjectDetail(null)
@@ -226,7 +351,7 @@ export function ArchiveDialog(): JSX.Element {
           <DialogHeader>
             <DialogTitle>Archive</DialogTitle>
             <DialogDescription className="sr-only">
-              View archived ventures and archived projects.
+              View archived ventures, archived projects, and archived tasks.
             </DialogDescription>
           </DialogHeader>
 
@@ -258,6 +383,20 @@ export function ArchiveDialog(): JSX.Element {
               }}
             >
               Archived projects
+            </button>
+            <button
+              aria-controls="archive-panel-tasks"
+              aria-selected={activeTab === 'tasks'}
+              className={`archive-dialog-tab${activeTab === 'tasks' ? ' archive-dialog-tab-active' : ''}`}
+              id="archive-tab-tasks"
+              role="tab"
+              type="button"
+              onClick={() => {
+                setActiveTab('tasks')
+                setActionError(null)
+              }}
+            >
+              Archived tasks
             </button>
           </div>
 
@@ -348,6 +487,62 @@ export function ArchiveDialog(): JSX.Element {
               />
             ) : null}
           </ArchiveTabPanel>
+
+          <ArchiveTabPanel
+            ariaLabelledBy="archive-tab-tasks"
+            hidden={activeTab !== 'tasks'}
+            id="archive-panel-tasks"
+          >
+            <Select
+              aria-label="Archived tasks project filter"
+              fieldClassName="archive-tasks-project-filter-field"
+              id="archive-tasks-project-filter"
+              value={archivedTasksProjectFilter}
+              onChange={(event) => {
+                setArchivedTasksProjectFilter(event.target.value)
+              }}
+            >
+              <option value="">All projects</option>
+              {sortedActiveProjectsForArchivedTaskFilter.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </Select>
+
+            {archivedTasksListing.isLoading ? (
+              <LoadingState message="Loading archived tasks…" />
+            ) : null}
+            {!archivedTasksListing.isLoading && archivedTasksListing.error ? (
+              <ErrorBanner message={archivedTasksListing.error} />
+            ) : null}
+            {!archivedTasksListing.isLoading &&
+            !archivedTasksListing.error &&
+            visibleArchivedTasks.length === 0 ? (
+              <EmptyState
+                description="Adjust the filter or archive a task to populate this list."
+                title="No archived tasks"
+              />
+            ) : null}
+            {!archivedTasksListing.isLoading && visibleArchivedTasks.length > 0 ? (
+              <ArchiveList
+                getKey={(task) => task.id}
+                getLabel={(task) => task.title}
+                items={visibleArchivedTasks}
+                restoreDisabled={restorePending}
+                onRestore={(task) => {
+                  setRestoreIntent({
+                    displayName: task.title,
+                    id: task.id,
+                    kind: 'task',
+                  })
+                }}
+                onSelect={(task) => {
+                  void task.id
+                }}
+              />
+            ) : null}
+          </ArchiveTabPanel>
         </DialogContent>
       </Dialog>
 
@@ -417,14 +612,10 @@ export function ArchiveDialog(): JSX.Element {
 
       <ConfirmDialog
         confirmLabel="Restore"
-        description={
-          restoreIntent?.kind === 'project'
-            ? 'This project will appear in your active projects again.'
-            : 'This venture and its projects will appear with your active items again.'
-        }
+        description={restoreDialogCopy?.description ?? ''}
         open={Boolean(restoreIntent)}
         pending={restorePending}
-        title={restoreIntent ? `Restore ${restoreIntent.displayName}?` : 'Restore item?'}
+        title={restoreDialogCopy?.title ?? 'Restore item?'}
         onConfirm={handleConfirmRestore}
         onOpenChange={handleRestoreDialogOpenChange}
       />
