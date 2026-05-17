@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useProjects } from './api/projects'
-import { useTaskMutations, useTasks } from './api/tasks'
-import type { Project, ProjectType } from './api/types'
+import { useTaskMutations } from './api/tasks'
+import type { Project } from './api/types'
 import { AppShell } from './components/layout/AppShell'
 import { ProjectKanbanBoard } from './components/ProjectKanbanBoard'
 import { TaskKanbanBoard } from './components/TaskKanbanBoard'
@@ -23,16 +22,27 @@ import {
 import { ProjectsPage } from './pages/ProjectsPage'
 import {
   DEFAULT_PROJECT_FILTER,
-  deriveToolbarProjectId,
   getSidebarSelectedProjectIds,
   useProjectFilterStore,
 } from './stores/projectFilter'
 import type { ProjectFilterState } from './stores/projectFilter'
 import { useBoardDisplayOptionsStore, hydrateBoardDisplayOptionsFromStorage } from './stores/boardDisplayOptions'
+import { useBoardViewTab } from './features/workspace/useBoardViewTab'
+import { useProjectFilterSync } from './features/workspace/useProjectFilterSync'
+import { useWorkspaceBootstrap } from './features/workspace/useWorkspaceBootstrap'
 
 function App() {
   const kanbanBoardRef = useRef<HTMLDivElement | null>(null)
-  const projectsQuery = useProjects()
+  const [taskDialogMode, setTaskDialogMode] = useState<TaskDialogMode>(null)
+  const { projectsQuery, tasksQuery, workspaceReady } = useWorkspaceBootstrap({
+    taskDialogMode,
+  })
+  const {
+    boardViewTab,
+    projectKanbanTypeFilter,
+    setBoardViewTab,
+    setProjectKanbanTypeFilter,
+  } = useBoardViewTab()
   const selectedProjectId = useProjectFilterStore(
     (state: ProjectFilterState): string => state.selectedProjectId,
   )
@@ -49,20 +59,11 @@ function App() {
       state.resetSidebarToAllProjects,
   )
   const [locallyArchivedProjectIds, setLocallyArchivedProjectIds] = useState<string[]>([])
-  const [taskDialogMode, setTaskDialogMode] = useState<TaskDialogMode>(null)
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
   const [taskSort, setTaskSort] = useState<TaskSortState>(null)
   const [tableTitleDisambiguationTaskIds, setTableTitleDisambiguationTaskIds] = useState<
     string[]
   >([])
-  const [taskWorkspacePrimed, setTaskWorkspacePrimed] = useState(false)
-  const [hasEvaluatedTaskWorkspaceBootstrap, setHasEvaluatedTaskWorkspaceBootstrap] =
-    useState(false)
-  const [workspaceReady, setWorkspaceReady] = useState(false)
-  const [boardViewTab, setBoardViewTab] = useState<'projects' | 'tasks'>('tasks')
-  const [projectKanbanTypeFilter, setProjectKanbanTypeFilter] = useState<
-    'all' | ProjectType
-  >('all')
   const boardDisplayOptions = useBoardDisplayOptionsStore(
     useShallow((state) => ({
       showActualHours: state.showActualHours,
@@ -77,7 +78,7 @@ function App() {
       project.status === 'active' && !locallyArchivedProjectIds.includes(project.id),
   )
   const activeProjectIds = activeProjects.map((project) => project.id)
-  const activeProjectIdsKey = activeProjectIds.join('|')
+  useProjectFilterSync({ activeProjectIds })
   const storedProjectIdsKey = selectedProjectIds?.join('|') ?? ''
   const sidebarSelectedProjectIds = getSidebarSelectedProjectIds(
     selectedProjectIds,
@@ -109,8 +110,6 @@ function App() {
     sidebarScopedBoardProjects,
     storedProjectIdsKey,
   })
-  const taskWorkspaceEnabled = taskWorkspacePrimed || taskDialogMode !== null
-  const tasksQuery = useTasks({}, taskWorkspaceEnabled)
   const visibleTasks = tasksQuery.data
     .filter((task) => task.status !== 'archived')
     .filter((task) => task.project_id in projectsById)
@@ -181,62 +180,6 @@ function App() {
   useEffect(() => {
     hydrateBoardDisplayOptionsFromStorage()
   }, [])
-
-  useEffect(() => {
-    const projectIds =
-      activeProjectIdsKey.length > 0 ? activeProjectIdsKey.split('|') : []
-    if (projectIds.length === 0) {
-      return
-    }
-
-    const sidebarIds = getSidebarSelectedProjectIds(selectedProjectIds, projectIds)
-    const toolbarProjectId = deriveToolbarProjectId(sidebarIds, projectIds)
-
-    if (selectedProjectId !== toolbarProjectId) {
-      useProjectFilterStore.setState({ selectedProjectId: toolbarProjectId })
-    }
-  }, [activeProjectIdsKey, selectedProjectId, storedProjectIdsKey, selectedProjectIds])
-
-  useEffect(() => {
-    const projectIds =
-      activeProjectIdsKey.length > 0 ? activeProjectIdsKey.split('|') : []
-    if (projectIds.length === 0) {
-      return
-    }
-
-    if (
-      selectedProjectId !== DEFAULT_PROJECT_FILTER &&
-      !projectIds.includes(selectedProjectId)
-    ) {
-      setToolbarProjectFilter(DEFAULT_PROJECT_FILTER, projectIds)
-    }
-  }, [activeProjectIdsKey, selectedProjectId, setToolbarProjectFilter])
-
-  useEffect(() => {
-    if (!hasEvaluatedTaskWorkspaceBootstrap && !projectsQuery.isLoading) {
-      setTaskWorkspacePrimed(projectsQuery.data.length > 0)
-      setHasEvaluatedTaskWorkspaceBootstrap(true)
-    }
-  }, [
-    hasEvaluatedTaskWorkspaceBootstrap,
-    projectsQuery.data.length,
-    projectsQuery.isLoading,
-  ])
-
-  useEffect(() => {
-    if (
-      !workspaceReady &&
-      hasEvaluatedTaskWorkspaceBootstrap &&
-      (!taskWorkspacePrimed || !tasksQuery.isLoading)
-    ) {
-      setWorkspaceReady(true)
-    }
-  }, [
-    hasEvaluatedTaskWorkspaceBootstrap,
-    taskWorkspacePrimed,
-    tasksQuery.isLoading,
-    workspaceReady,
-  ])
 
   const handleTaskSort = (key: TaskSortKey): void => {
     setTaskSort((currentSort) => {
