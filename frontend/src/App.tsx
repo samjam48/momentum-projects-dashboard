@@ -34,11 +34,13 @@ import {
 } from './features/tasks/taskTableSort'
 import { ProjectsPage } from './pages/ProjectsPage'
 import {
-  projectOrderByBoardStatus,
-  sortProjectsForKanbanBoard,
-  sortTasksForKanban,
-  taskOrderByStatus,
-} from './lib/kanbanSort'
+  getDropDetailFromDragEvent,
+  hasKanbanComparableChanged,
+  reorderKanbanItems,
+  type DropDetail,
+  type KanbanDndConfig,
+} from './lib/kanbanDnd'
+import { sortProjectsForKanbanBoard, sortTasksForKanban } from './lib/kanbanSort'
 import {
   DEFAULT_PROJECT_FILTER,
   deriveToolbarProjectId,
@@ -52,134 +54,6 @@ type KanbanDropDetail = {
   kanban_order: number | null
   status: TaskStatus
   taskId: string
-}
-
-type KanbanDragColumnData = {
-  status: TaskStatus
-  type: 'column'
-}
-
-type KanbanDragTaskData = {
-  status: TaskStatus
-  taskId: string
-  type: 'task'
-}
-
-const KANBAN_COLUMN_ID_PREFIX = 'kanban-column:'
-const KANBAN_TASK_ID_PREFIX = 'kanban-task:'
-
-function reorderTasksForKanban(
-  tasks: Task[],
-  taskId: string,
-  nextStatus: TaskStatus,
-  nextKanbanOrder: number | null,
-): Task[] {
-  const movedTask = tasks.find((task) => task.id === taskId)
-  if (!movedTask) {
-    return tasks
-  }
-
-  const sourceStatus = movedTask.status
-  const sourceColumn = sortTasksForKanban(
-    tasks.filter((task) => task.status === sourceStatus && task.id !== taskId),
-  )
-  const targetColumn = sortTasksForKanban(
-    tasks.filter((task) => task.status === nextStatus && task.id !== taskId),
-  )
-  const insertionIndex =
-    nextKanbanOrder === null
-      ? targetColumn.length
-      : Math.max(0, Math.min(nextKanbanOrder, targetColumn.length))
-
-  targetColumn.splice(insertionIndex, 0, {
-    ...movedTask,
-    status: nextStatus,
-    kanban_order: insertionIndex,
-    completed_date: nextStatus === 'done' ? movedTask.completed_date : null,
-  })
-
-  const rebalanceColumn = (columnTasks: Task[]): Map<string, number> =>
-    new Map(columnTasks.map((task, index) => [task.id, index]))
-
-  const sourceOrders = rebalanceColumn(sourceColumn)
-  const targetOrders = rebalanceColumn(targetColumn)
-
-  return tasks.map((task) => {
-    const targetOrder = targetOrders.get(task.id)
-    if (targetOrder !== undefined) {
-      const nextTask = targetColumn.find((candidate) => candidate.id === task.id) ?? task
-      return {
-        ...nextTask,
-        kanban_order: targetOrder,
-      }
-    }
-
-    const sourceOrder = sourceOrders.get(task.id)
-    if (sourceOrder !== undefined) {
-      return {
-        ...task,
-        kanban_order: sourceOrder,
-      }
-    }
-
-    return task
-  })
-}
-
-function hasKanbanStateChanged(previousTasks: Task[], nextTasks: Task[]): boolean {
-  if (previousTasks.length !== nextTasks.length) {
-    return true
-  }
-
-  return previousTasks.some((task, index) => {
-    const nextTask = nextTasks[index]
-    return (
-      task.id !== nextTask.id ||
-      task.status !== nextTask.status ||
-      task.kanban_order !== nextTask.kanban_order ||
-      task.completed_date !== nextTask.completed_date
-    )
-  })
-}
-
-function readTaskIdFromKanbanId(value: string): string | null {
-  return value.startsWith(KANBAN_TASK_ID_PREFIX)
-    ? value.slice(KANBAN_TASK_ID_PREFIX.length)
-    : null
-}
-
-function readStatusFromKanbanId(value: string): TaskStatus | null {
-  return value.startsWith(KANBAN_COLUMN_ID_PREFIX)
-    ? (value.slice(KANBAN_COLUMN_ID_PREFIX.length) as TaskStatus)
-    : null
-}
-
-function isKanbanDragTaskData(value: unknown): value is KanbanDragTaskData {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  return (
-    'type' in value &&
-    value.type === 'task' &&
-    'taskId' in value &&
-    typeof value.taskId === 'string' &&
-    'status' in value &&
-    typeof value.status === 'string'
-  )
-}
-
-function isKanbanDragColumnData(value: unknown): value is KanbanDragColumnData {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  return (
-    'type' in value &&
-    value.type === 'column' &&
-    'status' in value &&
-    typeof value.status === 'string'
-  )
 }
 
 function isKanbanDropDetail(value: unknown): value is KanbanDropDetail {
@@ -197,135 +71,10 @@ function isKanbanDropDetail(value: unknown): value is KanbanDropDetail {
   )
 }
 
-function getKanbanDropDetailFromDragEvent(
-  tasks: Task[],
-  event: DragEndEvent,
-): KanbanDropDetail | null {
-  if (!event.over) {
-    return null
-  }
-
-  const activeTaskId = readTaskIdFromKanbanId(String(event.active.id))
-  if (!activeTaskId) {
-    return null
-  }
-
-  const activeTask = tasks.find((task) => task.id === activeTaskId)
-  if (!activeTask) {
-    return null
-  }
-
-  const overData = event.over.data.current
-  let nextStatus: TaskStatus | null = null
-  let nextKanbanOrder: number | null = null
-
-  if (isKanbanDragTaskData(overData)) {
-    nextStatus = overData.status
-    const targetColumn = taskOrderByStatus(tasks, nextStatus).filter(
-      (task) => task.id !== activeTaskId,
-    )
-    const insertionIndex = targetColumn.findIndex((task) => task.id === overData.taskId)
-    nextKanbanOrder = insertionIndex < 0 ? targetColumn.length : insertionIndex
-  } else if (isKanbanDragColumnData(overData)) {
-    nextStatus = overData.status
-    nextKanbanOrder = taskOrderByStatus(tasks, nextStatus).filter(
-      (task) => task.id !== activeTaskId,
-    ).length
-  } else {
-    nextStatus = readStatusFromKanbanId(String(event.over.id))
-    nextKanbanOrder =
-      nextStatus === null
-        ? null
-        : taskOrderByStatus(tasks, nextStatus).filter((task) => task.id !== activeTaskId)
-            .length
-  }
-
-  if (nextStatus === null) {
-    return null
-  }
-
-  const nextTasks = reorderTasksForKanban(tasks, activeTaskId, nextStatus, nextKanbanOrder)
-  if (!hasKanbanStateChanged(tasks, nextTasks)) {
-    return null
-  }
-
-  return {
-    taskId: activeTaskId,
-    status: nextStatus,
-    kanban_order: nextKanbanOrder,
-  }
-}
-
-const KANBAN_PROJECT_COLUMN_ID_PREFIX = 'kanban-project-column:'
-const KANBAN_PROJECT_CARD_ID_PREFIX = 'kanban-project:'
-
 type ProjectKanbanDropDetail = {
   board_status: ProjectBoardStatus
   kanban_order: number | null
   projectId: string
-}
-
-type ProjectKanbanDragColumnData = {
-  board_status: ProjectBoardStatus
-  type: 'column'
-}
-
-type ProjectKanbanDragProjectData = {
-  board_status: ProjectBoardStatus
-  projectId: string
-  type: 'project'
-}
-
-function readProjectIdFromKanbanCardId(value: string): string | null {
-  return value.startsWith(KANBAN_PROJECT_CARD_ID_PREFIX)
-    ? value.slice(KANBAN_PROJECT_CARD_ID_PREFIX.length)
-    : null
-}
-
-function readBoardStatusFromProjectKanbanColumnId(value: string): ProjectBoardStatus | null {
-  if (!value.startsWith(KANBAN_PROJECT_COLUMN_ID_PREFIX)) {
-    return null
-  }
-
-  const raw = value.slice(KANBAN_PROJECT_COLUMN_ID_PREFIX.length)
-  if (
-    raw === 'idea' ||
-    raw === 'active' ||
-    raw === 'paused' ||
-    raw === 'shipped'
-  ) {
-    return raw
-  }
-
-  return null
-}
-
-function isProjectKanbanDragProjectData(value: unknown): value is ProjectKanbanDragProjectData {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  return (
-    'type' in value &&
-    value.type === 'project' &&
-    'projectId' in value &&
-    typeof value.projectId === 'string' &&
-    'board_status' in value &&
-    typeof value.board_status === 'string'
-  )
-}
-
-function isProjectKanbanDragColumnData(value: unknown): value is ProjectKanbanDragColumnData {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  return (
-    'type' in value &&
-    value.type === 'column' &&
-    'board_status' in value &&
-    typeof value.board_status === 'string'
-  )
 }
 
 function isProjectKanbanDropDetail(value: unknown): value is ProjectKanbanDropDetail {
@@ -342,177 +91,79 @@ function isProjectKanbanDropDetail(value: unknown): value is ProjectKanbanDropDe
     (typeof value.kanban_order === 'number' || value.kanban_order === null)
   )
 }
+const taskKanbanDndConfig: KanbanDndConfig<Task, TaskStatus> = {
+  columnIdPrefix: 'kanban-column:',
+  cardIdPrefix: 'kanban-task:',
+  getColumnKey: (task) => task.status,
+  getOrder: (task) => task.kanban_order,
+  setColumnAndOrder: (task, column, order) => ({
+    ...task,
+    status: column,
+    kanban_order: order,
+    completed_date: column === 'done' ? task.completed_date : null,
+  }),
+  orderItemsInColumn: (items, column) =>
+    sortTasksForKanban(items.filter((task) => task.status === column)),
+}
 
-function reorderProjectsForKanban(
-  projects: Project[],
-  projectId: string,
-  nextBoardStatus: ProjectBoardStatus,
-  nextKanbanOrder: number | null,
-): Project[] {
-  const movedProject = projects.find((project) => project.id === projectId)
-  if (!movedProject) {
-    return projects
-  }
-
-  const sourceStatus = movedProject.board_status
-  const sourceColumn = sortProjectsForKanbanBoard(
-    projects.filter((project) => project.board_status === sourceStatus && project.id !== projectId),
-  )
-  const targetColumn = sortProjectsForKanbanBoard(
-    projects.filter(
-      (project) => project.board_status === nextBoardStatus && project.id !== projectId,
+const projectKanbanDndConfig: KanbanDndConfig<Project, ProjectBoardStatus> = {
+  columnIdPrefix: 'kanban-project-column:',
+  cardIdPrefix: 'kanban-project:',
+  getColumnKey: (project) => project.board_status,
+  getOrder: (project) => project.kanban_order,
+  setColumnAndOrder: (project, column, order) => ({
+    ...project,
+    board_status: column,
+    kanban_order: order,
+    finished: column === 'shipped' ? true : project.finished,
+  }),
+  orderItemsInColumn: (items, column) =>
+    sortProjectsForKanbanBoard(
+      items.filter((project) => project.board_status === column),
     ),
-  )
-
-  const insertionIndex =
-    nextKanbanOrder === null
-      ? targetColumn.length
-      : Math.max(0, Math.min(nextKanbanOrder, targetColumn.length))
-
-  const nextFinished = nextBoardStatus === 'shipped' ? true : movedProject.finished
-
-  targetColumn.splice(insertionIndex, 0, {
-    ...movedProject,
-    board_status: nextBoardStatus,
-    kanban_order: insertionIndex,
-    finished: nextFinished,
-  })
-
-  const rebalanceColumn = (columnProjects: Project[]): Map<string, number> =>
-    new Map(columnProjects.map((project, index) => [project.id, index]))
-
-  const sourceOrders = rebalanceColumn(sourceColumn)
-  const targetOrders = rebalanceColumn(targetColumn)
-
-  return projects.map((project) => {
-    const targetOrder = targetOrders.get(project.id)
-    if (targetOrder !== undefined) {
-      const nextProject = targetColumn.find((candidate) => candidate.id === project.id) ?? project
-      return {
-        ...nextProject,
-        kanban_order: targetOrder,
-      }
-    }
-
-    const sourceOrder = sourceOrders.get(project.id)
-    if (sourceOrder !== undefined) {
-      return {
-        ...project,
-        kanban_order: sourceOrder,
-      }
-    }
-
-    return project
-  })
 }
 
-function projectKanbanComparableSnapshot(
-  projects: Project[],
-): Map<string, { board_status: ProjectBoardStatus; finished: boolean; kanban_order: number | null }> {
-  return new Map(
-    projects.map((project) => [
-      project.id,
-      {
-        board_status: project.board_status,
-        finished: project.finished,
-        kanban_order: project.kanban_order,
-      },
-    ]),
-  )
-}
-
-function hasProjectKanbanComparableChanged(previousProjects: Project[], nextProjects: Project[]): boolean {
-  const previousSnapshot = projectKanbanComparableSnapshot(previousProjects)
-  const nextSnapshot = projectKanbanComparableSnapshot(nextProjects)
-
-  if (previousSnapshot.size !== nextSnapshot.size) {
-    return true
-  }
-
-  for (const [projectId, nextValue] of nextSnapshot) {
-    const previousValue = previousSnapshot.get(projectId)
-    if (!previousValue) {
-      return true
-    }
-
-    if (
-      previousValue.board_status !== nextValue.board_status ||
-      previousValue.kanban_order !== nextValue.kanban_order ||
-      previousValue.finished !== nextValue.finished
-    ) {
-      return true
-    }
-  }
-
-  return false
-}
-
-function getProjectKanbanDropDetailFromDragEvent(
-  projects: Project[],
-  event: DragEndEvent,
-): ProjectKanbanDropDetail | null {
-  if (!event.over) {
-    return null
-  }
-
-  const activeProjectId = readProjectIdFromKanbanCardId(String(event.active.id))
-  if (!activeProjectId) {
-    return null
-  }
-
-  const activeProject = projects.find((project) => project.id === activeProjectId)
-  if (!activeProject) {
-    return null
-  }
-
-  const overData = event.over.data.current
-  let nextBoardStatus: ProjectBoardStatus | null = null
-  let nextKanbanOrder: number | null = null
-
-  if (isProjectKanbanDragProjectData(overData)) {
-    nextBoardStatus = overData.board_status
-    const targetColumn = projectOrderByBoardStatus(projects, nextBoardStatus).filter(
-      (project) => project.id !== activeProjectId,
-    )
-    const insertionIndex = targetColumn.findIndex((project) => project.id === overData.projectId)
-    nextKanbanOrder = insertionIndex < 0 ? targetColumn.length : insertionIndex
-  } else if (isProjectKanbanDragColumnData(overData)) {
-    nextBoardStatus = overData.board_status
-    nextKanbanOrder = projectOrderByBoardStatus(projects, nextBoardStatus).filter(
-      (project) => project.id !== activeProjectId,
-    ).length
-  } else {
-    nextBoardStatus = readBoardStatusFromProjectKanbanColumnId(String(event.over.id))
-    nextKanbanOrder =
-      nextBoardStatus === null
-        ? null
-        : projectOrderByBoardStatus(projects, nextBoardStatus).filter(
-            (project) => project.id !== activeProjectId,
-          ).length
-  }
-
-  if (nextBoardStatus === null) {
-    return null
-  }
-
-  const nextProjects = reorderProjectsForKanban(
-    projects,
-    activeProjectId,
-    nextBoardStatus,
-    nextKanbanOrder,
-  )
-
-  if (!hasProjectKanbanComparableChanged(projects, nextProjects)) {
-    return null
-  }
-
+function toTaskKanbanDropDetail(detail: DropDetail<TaskStatus>): KanbanDropDetail {
   return {
-    projectId: activeProjectId,
-    board_status: nextBoardStatus,
-    kanban_order: nextKanbanOrder,
+    taskId: detail.itemId,
+    status: detail.columnKey,
+    kanban_order: detail.kanban_order,
   }
 }
 
+function toProjectKanbanDropDetail(
+  detail: DropDetail<ProjectBoardStatus>,
+): ProjectKanbanDropDetail {
+  return {
+    projectId: detail.itemId,
+    board_status: detail.columnKey,
+    kanban_order: detail.kanban_order,
+  }
+}
+
+function taskKanbanComparable(task: Task): {
+  completed_date: string | null
+  kanban_order: number | null
+  status: TaskStatus
+} {
+  return {
+    status: task.status,
+    kanban_order: task.kanban_order,
+    completed_date: task.completed_date,
+  }
+}
+
+function projectKanbanComparable(project: Project): {
+  board_status: ProjectBoardStatus
+  finished: boolean
+  kanban_order: number | null
+} {
+  return {
+    board_status: project.board_status,
+    kanban_order: project.kanban_order,
+    finished: project.finished,
+  }
+}
 
 
 function App() {
@@ -805,13 +456,14 @@ function App() {
         return
       }
 
-      const nextTasks = reorderTasksForKanban(
+      const nextTasks = reorderKanbanItems(
         displayTasks,
         detail.taskId,
         detail.status,
         detail.kanban_order,
+        taskKanbanDndConfig,
       )
-      if (!hasKanbanStateChanged(displayTasks, nextTasks)) {
+      if (!hasKanbanComparableChanged(displayTasks, nextTasks, taskKanbanComparable)) {
         return
       }
 
@@ -840,24 +492,31 @@ function App() {
   )
 
   const handleKanbanDragEnd = (event: DragEndEvent): void => {
-    const detail = getKanbanDropDetailFromDragEvent(displayTasks, event)
+    const detail = getDropDetailFromDragEvent(displayTasks, event, taskKanbanDndConfig)
     if (!detail) {
       return
     }
 
-    void handleKanbanDrop(detail)
+    void handleKanbanDrop(toTaskKanbanDropDetail(detail))
   }
 
   const handleProjectKanbanDrop = useCallback(
     async (detail: ProjectKanbanDropDetail): Promise<void> => {
-      const nextProjects = reorderProjectsForKanban(
+      const nextProjects = reorderKanbanItems(
         displayProjectsForBoard,
         detail.projectId,
         detail.board_status,
         detail.kanban_order,
+        projectKanbanDndConfig,
       )
 
-      if (!hasProjectKanbanComparableChanged(displayProjectsForBoard, nextProjects)) {
+      if (
+        !hasKanbanComparableChanged(
+          displayProjectsForBoard,
+          nextProjects,
+          projectKanbanComparable,
+        )
+      ) {
         return
       }
 
@@ -903,12 +562,16 @@ function App() {
   )
 
   const handleProjectKanbanDragEnd = (event: DragEndEvent): void => {
-    const detail = getProjectKanbanDropDetailFromDragEvent(displayProjectsForBoard, event)
+    const detail = getDropDetailFromDragEvent(
+      displayProjectsForBoard,
+      event,
+      projectKanbanDndConfig,
+    )
     if (!detail) {
       return
     }
 
-    void handleProjectKanbanDrop(detail)
+    void handleProjectKanbanDrop(toProjectKanbanDropDetail(detail))
   }
 
   useEffect(() => {
