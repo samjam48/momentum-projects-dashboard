@@ -23,8 +23,8 @@ function useTaskDialogContractHarness() {
   })
 }
 
-describe('FR-11 useTaskDialog contract', () => {
-  it('renders hook without throwing after WorkspaceDialogs task split lands', () => {
+describe('useTaskDialog hook contract', () => {
+  it('renders hook without throwing when composed from WorkspaceDialogs', () => {
     expect(() =>
       renderHook(useTaskDialogContractHarness, { wrapper: QueryProvider }),
     ).not.toThrow()

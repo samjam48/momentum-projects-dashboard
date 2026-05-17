@@ -73,7 +73,7 @@ function getTaskDialogFooter(dialog: HTMLElement): HTMLElement {
   return within(dialog).getByRole('contentinfo', { name: /task actions/i })
 }
 
-describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
+describe('Task modal: time logs, chrome, and archive affordance', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetTestStorage()
@@ -409,7 +409,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
     })
   })
 
-  describe('task archive affordance and archive dialog (1.6-8)', () => {
+  describe('task archive affordance and archive dialog', () => {
     it('exposes Archive in the edit modal footer', async () => {
       installWorkspaceBackendMock({
         projects: [alphaProject],

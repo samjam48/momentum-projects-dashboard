@@ -8,8 +8,8 @@ const taskKanbanControllerPath = resolve(
   './features/tasks/useTaskKanbanController.ts',
 )
 
-describe('App — Chore 1.6-C1 optimistic reset (no synchronous render-phase state sync)', () => {
-  it('does not compare filter/task refs with inequality in render (reset lives in effects)', () => {
+describe('Task kanban optimistic reset guard', () => {
+  it('does not compare filter/task refs with inequality in App render (reset lives in effects)', () => {
     const appSourcePath = resolve(__dirname, './App.tsx')
     const appSource = readFileSync(appSourcePath, 'utf8')
     expect(appSource).not.toContain('previousFilterKeyRef.current !== storedProjectIdsKey')
@@ -27,7 +27,7 @@ describe('App — Chore 1.6-C1 optimistic reset (no synchronous render-phase sta
   })
 })
 
-/** Guard for Chore 1.6-C1 §3: reset must happen in effects, not next to Kanban task derivation in render. */
+/** Guard: optimistic reset must run in effects, not adjacent to display derivation in render. */
 function assertNoAdjacentRenderSync(
   lines: string[],
   anchor: string,

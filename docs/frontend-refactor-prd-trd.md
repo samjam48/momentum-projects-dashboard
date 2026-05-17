@@ -80,15 +80,15 @@ The Momentum dashboard frontend works and is well-tested for its size, but **cor
 ### 2.3 Inconsistent component APIs
 
 - **`Button`:** `components/ui/button.tsx` defines `default | ghost | secondary` only; `ArchiveDialog.tsx` uses `variant="outline"` (L400, L426, L452) which is **not** in `buttonVariants` — styling falls through unpredictably.
-- **Cancel / destructive actions:** `TaskDialog` uses `Button` + `secondary-button` + `danger-button` classes in different footers (e.g. L586, L708–714, L894–901).
+- **Cancel / destructive actions:** `TaskDialog` now uses shared `Button` variants (`secondary`, `destructive`) for aligned footers; legacy `secondary-button` / raw `<button>` remain only where Radix popovers or layout still depend on semantic CSS classes (tracked for follow-up epic D).
 - **Dialogs:** Radix wrapper in `ui/dialog.tsx`; feature dialogs repeat header/close/footer layouts (`ProjectDialog`, `TaskDialog`, `VentureDialog`).
 - **Native `<select>`:** Repeated in `ProjectsPage.tsx`, `ProjectDialog.tsx`, `TaskDialog.tsx`, `VentureDialog.tsx` with `className="field"` but no shared `Select` component.
 
 ### 2.4 Inconsistent styling
 
-- **Design tokens** in `styles/tokens.css`; **most layout** in `styles/base.css` (~1,408 lines) with semantic classes (`.kanban-column`, `.task-card`, `.danger-button`).
+- **Design tokens** in `styles/tokens.css`; **most layout** in `styles/base.css` (~1,408 lines) with semantic classes (`.kanban-column`, `.task-card`, `.secondary-button`). Destructive emphasis for **new** work uses `Button` `variant="destructive"` (`.danger-button` removed from `base.css` after migration).
 - **Tailwind** used sporadically (e.g. `ActivityTypeCombobox` list uses `bg-white`, `border-slate-300`; app shell uses CSS variables).
-- **Duplicate CSS blocks** for `.danger-button` in `base.css` (reported in code review grep ~L694 and ~L802).
+- **Duplicate CSS blocks** for `.danger-button` in `base.css` — **removed** (FR-12); use `Button` destructive variant.
 
 ### 2.5 Risky state / data coupling
 
@@ -1014,4 +1014,17 @@ Per `docs/V1-TRD.md`: frontend continues to call REST via `api/*`; no business l
 
 ---
 
+## FR-12 — Post-refactor file-size exceptions (implementation)
+
+| File | Approx. lines (order of magnitude) | Why it stays large for now |
+|------|-----------------------------------|----------------------------|
+| `frontend/src/components/TaskDialog.tsx` | ~930+ | **Deferred to follow-up epic D** (see Owner decision Q4): controller wiring and shared primitives are in place; full UI decomposition into feature-local subcomponents is intentionally **not** bundled into the thin-`App.tsx` refactor track. |
+
+`frontend/src/App.tsx` and `frontend/src/components/WorkspaceDialogs.tsx` are kept as thin composers per FR-9/FR-11; complexity lives in `features/*` hooks and `WorkspaceExperience.tsx`.
+
+Test files touched in this refactor use **behaviour-based** names (see `docs/patterns.md`); ticket-style filenames (e.g. `*.frN.*`) were renamed incrementally in FR-12.
+
+---
+
 **Final status:** `SIGNED OFF`
+

@@ -8,8 +8,9 @@ const WORKSPACE_EXPERIENCE_PATH = resolve(
 )
 
 /**
- * Repo integration tests historically asserted wiring against `App.tsx`. FR-11+
- * keeps `App.tsx` as a thin shell and moves the composer into `WorkspaceExperience`.
+ * Repo integration tests historically asserted wiring against `App.tsx`. The thin
+ * `App.tsx` shell composes workspace UI from `WorkspaceExperience`; tests that
+ * scan source concatenate both files when present.
  */
 export function readWorkspaceComposerSource(): string {
   let combined = readFileSync(APP_PATH, 'utf8')

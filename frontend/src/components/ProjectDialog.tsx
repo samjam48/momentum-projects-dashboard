@@ -47,7 +47,7 @@ export type ProjectFormState = {
   venture_id: string
 }
 
-type ProjectDialogProps = {
+export type ProjectDialogProps = {
   activeVentures: Venture[]
   editingProjectId: string | null
   formErrors: ProjectFormErrors

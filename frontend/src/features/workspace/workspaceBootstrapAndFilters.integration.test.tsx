@@ -32,14 +32,14 @@ function readFetchUrl(input: RequestInfo | URL): string {
 }
 
 const labelSeed = buildVentureCategoryLabel({
-  id: 'label-fr9',
+  id: 'label-ws-boot',
   name: 'Hustle',
   slug: 'hustle',
 })
 
 const activeVenture = buildVenture({
-  id: 'venture-fr9',
-  name: 'FR9 Venture',
+  id: 'venture-ws-boot',
+  name: 'Workspace Bootstrap Fixture Venture',
   category_label: labelSeed,
   category_label_id: labelSeed.id,
 })
@@ -47,11 +47,11 @@ const activeVenture = buildVenture({
 const PK_WAIT = { timeout: 2500 } satisfies { timeout: number }
 
 /**
- * FR-9 behavioural coverage: workspace bootstrap gates, cold-load priming,
- * filter sync, and board tab + type filter semantics.
- * Extraction guards live in `*.extraction.test.ts` alongside target hooks.
+ * Workspace bootstrap gates, cold-load priming, filter sync, and board tab +
+ * type filter semantics. Hook boundary guards live in `*.extraction.test.ts`
+ * beside the extracted hooks.
  */
-describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () => {
+describe('Workspace bootstrap, filters, and board tabs (integration)', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetTestStorage()
@@ -68,7 +68,7 @@ describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () =
 
   it('holds the loading gate until the projects list finishes its initial fetch', async () => {
     const alpha = buildProject({
-      id: 'project-fr9-projects-gate',
+      id: 'project-ws-boot-projects-gate',
       name: 'Gate Project',
       venture_id: activeVenture.id,
     })
@@ -128,7 +128,7 @@ describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () =
 
   it('cold-loads tasks after the project list primes the task workspace', async () => {
     const alpha = buildProject({
-      id: 'project-fr9-priming',
+      id: 'project-ws-boot-priming',
       name: 'Priming Project',
       venture_id: activeVenture.id,
     })
@@ -138,7 +138,7 @@ describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () =
       projects: [alpha],
       tasks: [
         buildTask({
-          id: 'task-fr9-priming',
+          id: 'task-ws-boot-priming',
           project_id: alpha.id,
           title: 'Primed backlog task',
           status: 'backlog',
@@ -155,12 +155,12 @@ describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () =
 
   it('reflects toolbar single-project selection onto sidebar inclusion checkboxes', async () => {
     const alpha = buildProject({
-      id: 'project-fr9-toolbar-alpha',
+      id: 'project-ws-boot-toolbar-alpha',
       name: 'Toolbar Alpha',
       venture_id: activeVenture.id,
     })
     const beta = buildProject({
-      id: 'project-fr9-toolbar-beta',
+      id: 'project-ws-boot-toolbar-beta',
       name: 'Toolbar Beta',
       venture_id: activeVenture.id,
     })
@@ -191,7 +191,7 @@ describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () =
 
   it('scopes the Projects board tab by project type without losing tab state', async () => {
     const gig = buildProject({
-      id: 'project-fr9-gig',
+      id: 'project-ws-boot-gig',
       name: 'Gig Board Row',
       venture_id: activeVenture.id,
       project_type: 'gig',
@@ -199,7 +199,7 @@ describe('FR-9 workspace bootstrap, filters, and board tabs (integration)', () =
       kanban_order: 0,
     })
     const standard = buildProject({
-      id: 'project-fr9-standard',
+      id: 'project-ws-boot-standard',
       name: 'Standard Board Row',
       venture_id: activeVenture.id,
       project_type: 'project',

@@ -21,49 +21,49 @@ import {
 } from '../../test/workspaceQueries'
 
 const labelSeed = buildVentureCategoryLabel({
-  id: 'label-fr10',
+  id: 'label-archive',
   name: 'Hustle',
   slug: 'hustle',
 })
 
 const activeVenture = buildVenture({
-  id: 'venture-fr10-active',
-  name: 'FR10 Active Venture',
+  id: 'venture-archive-active',
+  name: 'Active Archive Fixture Venture',
   category_label: labelSeed,
   category_label_id: labelSeed.id,
 })
 
 const archivedVenture = buildVenture({
-  id: 'venture-fr10-archived',
-  name: 'FR10 Archived Venture',
+  id: 'venture-archive-archived',
+  name: 'Stowed Archive Fixture Venture',
   category_label: labelSeed,
   category_label_id: labelSeed.id,
   status: 'archived',
 })
 
 const activeProjectAlpha = buildProject({
-  id: 'project-fr10-alpha',
+  id: 'project-archive-alpha',
   name: 'Alpha Client',
   venture_id: activeVenture.id,
   colour: '#5B7C99',
 })
 
 const activeProjectBeta = buildProject({
-  id: 'project-fr10-beta',
+  id: 'project-archive-beta',
   name: 'Beta Client',
   venture_id: activeVenture.id,
   colour: '#6B8E6B',
 })
 
 const emptyArchivedFilterProject = buildProject({
-  id: 'project-fr10-empty-filter',
+  id: 'project-archive-empty-filter',
   name: 'Empty Filter Target',
   venture_id: activeVenture.id,
   colour: '#777777',
 })
 
 const archivedProject = buildProject({
-  id: 'project-fr10-archived',
+  id: 'project-archive-archived',
   name: 'Archived Studio Row',
   venture_id: activeVenture.id,
   colour: '#9B6B55',
@@ -98,10 +98,10 @@ async function selectArchivedTasksProjectFilter(
 }
 
 /**
- * FR-10 — Archive dialog refactor + Archived tasks tab (integration, mocked API).
- * Behaviour-first expectations for ConfirmDialog, Select filter, ArchiveList, and feedback patterns.
+ * Archive dialog + Archived tasks tab (integration, mocked API).
+ * Covers ConfirmDialog, Select filter, ArchiveList, and feedback patterns.
  */
-describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
+describe('Archive dialog and archived tasks tab (integration)', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetTestStorage()
@@ -134,7 +134,7 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
     )
     await waitFor(() => {
       expect(
-        within(archiveDialog).getByRole('button', { name: /fr10 archived venture/i }),
+        within(archiveDialog).getByRole('button', { name: /stowed archive fixture venture/i }),
       ).toBeInTheDocument()
     })
 
@@ -156,7 +156,7 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha],
       tasks: [
         buildTask({
-          id: 'task-fr10-archived-only',
+          id: 'task-archive-archived-only',
           project_id: activeProjectAlpha.id,
           title: 'Archived tasks tab anchor',
           status: 'archived',
@@ -186,13 +186,13 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha, activeProjectBeta],
       tasks: [
         buildTask({
-          id: 'task-fr10-alpha-archived',
+          id: 'task-archive-alpha-archived',
           project_id: activeProjectAlpha.id,
           title: 'Alpha archived task',
           status: 'archived',
         }),
         buildTask({
-          id: 'task-fr10-beta-archived',
+          id: 'task-archive-beta-archived',
           project_id: activeProjectBeta.id,
           title: 'Beta archived task',
           status: 'archived',
@@ -234,7 +234,7 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha, emptyArchivedFilterProject],
       tasks: [
         buildTask({
-          id: 'task-fr10-only-alpha-archived',
+          id: 'task-archive-only-alpha-archived',
           project_id: activeProjectAlpha.id,
           title: 'Only on Alpha',
           status: 'archived',
@@ -271,7 +271,7 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha],
       tasks: [
         buildTask({
-          id: 'task-fr10-restore-confirm',
+          id: 'task-archive-restore-confirm',
           project_id: activeProjectAlpha.id,
           title: 'Restore confirm task',
           status: 'archived',
@@ -304,12 +304,12 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
     })
 
     await waitFor(() => {
-      expect(taskStatusRequests).toContainEqual(
-        expect.objectContaining({
-          taskId: 'task-fr10-restore-confirm',
-          payload: expect.objectContaining({ status: 'backlog' }),
-        }),
-      )
+      expect(
+        taskStatusRequests.some(
+          (req) =>
+            req.taskId === 'task-archive-restore-confirm' && req.payload.status === 'backlog',
+        ),
+      ).toBe(true)
     })
   })
 
@@ -321,7 +321,7 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha],
       tasks: [
         buildTask({
-          id: 'task-fr10-workspace-reload',
+          id: 'task-archive-workspace-reload',
           project_id: activeProjectAlpha.id,
           title: 'Workspace reload after restore',
           status: 'archived',
@@ -372,13 +372,13 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha, archivedProject],
       tasks: [
         buildTask({
-          id: 'task-fr10-on-active-project',
+          id: 'task-archive-on-active-project',
           project_id: activeProjectAlpha.id,
           title: 'Restorable visible row',
           status: 'archived',
         }),
         buildTask({
-          id: 'task-fr10-on-archived-project',
+          id: 'task-archive-on-archived-project',
           project_id: archivedProject.id,
           title: 'Blocked parent project row',
           status: 'archived',
@@ -414,7 +414,7 @@ describe('FR-10 archive dialog and archived tasks tab (integration)', () => {
       projects: [activeProjectAlpha],
       tasks: [
         buildTask({
-          id: 'task-fr10-stale',
+          id: 'task-archive-stale',
           project_id: activeProjectAlpha.id,
           title: 'Phantom archived task',
           status: 'archived',

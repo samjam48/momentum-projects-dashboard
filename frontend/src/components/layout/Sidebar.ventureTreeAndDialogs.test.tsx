@@ -163,7 +163,7 @@ async function renderSidebar(options?: {
   return view
 }
 
-describe('Ticket 1.6-8 Venture Tree Sidebar and Venture Dialogs', () => {
+describe('Venture tree sidebar and venture dialogs', () => {
   beforeEach(() => {
     resetProjectFilterStore()
   })

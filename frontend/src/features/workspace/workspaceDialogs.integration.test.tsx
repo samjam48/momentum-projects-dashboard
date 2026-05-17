@@ -89,54 +89,51 @@ async function dismissProjectDialogEscape(user: ReturnType<typeof userEvent.setu
 }
 
 const labelSeed = buildVentureCategoryLabel({
-  id: 'label-fr11',
+  id: 'label-ws-dlg',
   name: 'Hustle',
   slug: 'hustle',
 })
 
 const activeVenture = buildVenture({
-  id: 'venture-fr11',
-  name: 'FR11 Venture',
+  id: 'venture-ws-dlg',
+  name: 'Dialog Fixture Venture',
   category_label: labelSeed,
   category_label_id: labelSeed.id,
 })
 
 const archivedProjectSeed = buildProject({
-  id: 'project-fr11-archive',
+  id: 'project-ws-dlg-archive',
   name: 'Archive Me Project',
   venture_id: activeVenture.id,
   colour: '#5B7C99',
 })
 
 const taskDiscardSeed = buildTask({
-  id: 'task-fr11-discard-title',
+  id: 'task-ws-dlg-discard-title',
   project_id: archivedProjectSeed.id,
-  title: 'FR11 Keep Title',
+  title: 'Fixture Keep Title',
   status: 'backlog',
 })
 
 const taskSaveSeed = buildTask({
-  id: 'task-fr11-save-close',
+  id: 'task-ws-dlg-save-close',
   project_id: archivedProjectSeed.id,
-  title: 'FR11 Save Close Before',
+  title: 'Fixture Save Close Before',
   status: 'backlog',
 })
 
 const taskArchiveSeed = buildTask({
-  id: 'task-fr11-archive',
+  id: 'task-ws-dlg-archive',
   project_id: archivedProjectSeed.id,
-  title: 'FR11 Archive Task',
+  title: 'Fixture Archive Task',
   status: 'backlog',
 })
 
 /**
- * FR-11 — Workspace dialog controller split entry points + touched flows +
- * WorkspaceDialogs-powered archive triggers + Venture category Creatable contract.
- *
- * Behaviour-first; several cases stay green across refactors except the Venture
- * category CreatableCombobox UX and unused hook stubs (see contract tests).
+ * Workspace dialog controllers: project + task entry points, save/cancel,
+ * archive triggers, and Venture category CreatableCombobox behaviour.
  */
-describe('FR-11 workspace dialogs (integration)', () => {
+describe('Workspace dialogs (integration)', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetTestStorage()
@@ -224,7 +221,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
 
     const descriptionInput = within(editDialog).getByRole('textbox', { name: /^description$/i })
     await user.clear(descriptionInput)
-    await user.type(descriptionInput, 'FR11 phantom description drift')
+    await user.type(descriptionInput, 'Fixture phantom description drift')
 
     await user.click(within(editDialog).getByRole('button', { name: /^cancel$/i }))
 
@@ -237,7 +234,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
       bodiesBeforeReopen.some(
         (body) =>
           (body as { description?: string | null }).description?.includes(
-            'FR11 phantom description drift',
+            'Fixture phantom description drift',
           ),
       ),
     ).toBe(false)
@@ -266,7 +263,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
     const editDialog = await screen.findByRole('dialog', { name: /^edit task$/i })
     const descriptionInput = within(editDialog).getByRole('textbox', { name: /^description$/i })
     await user.clear(descriptionInput)
-    await user.type(descriptionInput, 'FR11 saved on close description')
+    await user.type(descriptionInput, 'Fixture saved on close description')
 
     await user.click(within(editDialog).getByRole('button', { name: /^close task$/i }))
 
@@ -278,7 +275,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
     expect(
       patches.some((body) => {
         const desc = (body as { description?: string | null }).description
-        return typeof desc === 'string' && desc.includes('FR11 saved on close description')
+        return typeof desc === 'string' && desc.includes('Fixture saved on close description')
       }),
     ).toBe(true)
 
@@ -289,7 +286,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
       within(screen.getByRole('dialog', { name: /^edit task$/i })).getByRole('textbox', {
         name: /^description$/i,
       }),
-    ).toHaveValue('FR11 saved on close description')
+    ).toHaveValue('Fixture saved on close description')
   })
 
   it('discard touched project edits via Cancel without PATCHing description', async () => {
@@ -342,7 +339,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
       projects: [
         archivedProjectSeed,
         buildProject({
-          id: 'project-fr11-extra',
+          id: 'project-ws-dlg-extra',
           name: 'Other Project',
           venture_id: activeVenture.id,
         }),
@@ -411,7 +408,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
   })
 
   /**
-   * FR-11 product contract: unify category picking + creation in one Creatable combobox
+   * Venture dialog: category create-or-select in a single Creatable combobox.
    * (accessible name stable for tests). Depends on VentureDialog refactor + backend label contract.
    */
   it('creates venture with a freshly created category via Venture category Creatable combobox', async () => {
@@ -502,7 +499,7 @@ describe('FR-11 workspace dialogs (integration)', () => {
       projects: [
         archivedProjectSeed,
         buildProject({
-          id: 'project-fr11-other',
+          id: 'project-ws-dlg-other',
           name: 'Separate Row',
           venture_id: activeVenture.id,
         }),

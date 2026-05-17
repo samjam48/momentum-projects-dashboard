@@ -583,16 +583,16 @@ export function TaskDialog({
                   <button disabled={taskMutationsSaving} type="submit">
                     Create task
                   </button>
-                  <button
-                    className="secondary-button"
+                  <Button
                     type="button"
+                    variant="secondary"
                     onPointerDown={(event) => {
                       event.preventDefault()
                     }}
                     onClick={onCancel}
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
             ) : (
@@ -905,16 +905,16 @@ export function TaskDialog({
               This permanently removes the entry and updates task hours.
             </p>
             <div className="time-log-confirm-actions">
-              <button
-                className="secondary-button"
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setPendingTimeLogDeleteId(null)}
               >
                 Cancel
-              </button>
-              <button
-                className="danger-button"
+              </Button>
+              <Button
                 type="button"
+                variant="destructive"
                 onClick={() => {
                   void (async () => {
                     await onTimeLogDelete(pendingTimeLogDeleteId)
@@ -923,7 +923,7 @@ export function TaskDialog({
                 }}
               >
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
         </div>

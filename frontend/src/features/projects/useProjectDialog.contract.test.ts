@@ -5,8 +5,8 @@ import { QueryProvider } from '../../test/QueryProvider'
 
 import { useProjectDialog } from './useProjectDialog'
 
-describe('FR-11 useProjectDialog contract', () => {
-  it('renders hook without throwing after WorkspaceDialogs project split lands', () => {
+describe('useProjectDialog hook contract', () => {
+  it('renders hook without throwing when composed from WorkspaceDialogs', () => {
     expect(() =>
       renderHook(() => useProjectDialog(), { wrapper: QueryProvider }),
     ).not.toThrow()

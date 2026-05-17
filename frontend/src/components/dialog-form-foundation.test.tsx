@@ -126,15 +126,12 @@ describe('Shared dialog and form primitive foundation', () => {
   })
 
   it('wires text-field errors through aria-describedby for the shared FormField accessibility contract', () => {
+    const base = buildProjectDialogProps()
     render(
       <ProjectDialog
-        {...buildProjectDialogProps({
-          formErrors: { name: 'Project name is required.' },
-          formState: {
-            ...buildProjectDialogProps().formState,
-            name: '',
-          },
-        })}
+        {...base}
+        formErrors={{ name: 'Project name is required.' }}
+        formState={{ ...base.formState, name: '' }}
       />,
     )
 
