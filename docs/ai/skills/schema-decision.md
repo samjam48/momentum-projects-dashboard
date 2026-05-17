@@ -1,6 +1,28 @@
 ---
 name: schema-decision
-description: Use when adding or changing persisted data structures, especially when deciding between a new column, child table, join table, or JSON/JSONB.
+summary: Choose the persisted data shape that best fits query patterns, lifecycle, and constraints.
+triggers:
+  - add persisted field
+  - change table shape
+  - choose column versus table
+  - choose join table
+  - choose JSON
+roles:
+  - architect
+  - planner
+  - implementer
+  - reviewer
+read_first:
+  - AGENTS.md
+  - docs/architecture.md
+  - docs/database-schema.md
+approval_required_if:
+  - schema changes
+  - migration changes
+related_skills:
+  - api-contract-decision
+  - backend-boundary-decision
+canonical: true
 ---
 
 # Schema Decision
@@ -8,10 +30,10 @@ description: Use when adding or changing persisted data structures, especially w
 Use this skill before proposing or implementing any non-trivial database shape change.
 
 Read first:
-- AGENTS.md
-- patterns.md
-- database-schema.md
-- relevant models, migrations, repositories, and API handlers
+- `AGENTS.md`
+- `docs/patterns.md`
+- `docs/database-schema.md`
+- relevant models, migrations, services, and API handlers
 
 Goal:
 Choose the database shape that best fits query patterns, constraints, lifecycle, and long-term maintainability.

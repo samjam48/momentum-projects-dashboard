@@ -1,10 +1,36 @@
-Name: frontend-state-decision
+---
+name: frontend-state-decision
+summary: Decide the smallest coherent ownership boundary for frontend state.
+triggers:
+  - add UI state
+  - lift state
+  - shared store
+  - context decision
+  - server versus client state
+roles:
+  - architect
+  - planner
+  - implementer
+  - reviewer
+read_first:
+  - AGENTS.md
+  - docs/architecture.md
+  - docs/V1-TRD.md
+approval_required_if:
+  - new shared state model
+related_skills:
+  - frontend-data-flow-check
+  - component-boundary-decision
+canonical: true
+---
+
+# Frontend State Decision
 
 Use when:
 - adding new frontend state,
 - moving state between components,
 - deciding between local, lifted, shared, or server-owned state,
-- introducing or reshaping context/store usage.
+- introducing or reshaping context or store usage.
 
 Goal:
 Choose the smallest coherent ownership boundary for state.
@@ -13,7 +39,7 @@ Core rules:
 - Keep state local when only one component or one bounded interaction needs it.
 - Lift state when multiple nearby components coordinate on the same value or workflow.
 - Use shared state only when coordination crosses component boundaries enough that local lifting becomes awkward or duplicated.
-- Server data belongs in the data/query layer, not duplicated ad hoc in component state.
+- Server data belongs in the data or query layer, not duplicated ad hoc in component state.
 - Do not duplicate a source of truth.
 - Prefer derived state over copied state.
 

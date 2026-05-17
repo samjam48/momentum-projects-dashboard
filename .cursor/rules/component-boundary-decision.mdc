@@ -1,0 +1,11 @@
+---
+description: Thin Cursor adapter for the shared component boundary skill.
+alwaysApply: false
+---
+
+# Component Boundary Decision Rule
+
+Canonical reference:
+[component-boundary-decision.md](mdc:docs/ai/skills/component-boundary-decision.md)
+
+Use the shared skill body for triggers, checks, and output.

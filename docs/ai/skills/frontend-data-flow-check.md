@@ -1,16 +1,41 @@
-Name: frontend-data-flow-check
+---
+name: frontend-data-flow-check
+summary: Keep frontend fetching, transformation, caching, and presentation boundaries coherent.
+triggers:
+  - reshape server data
+  - duplicate API state
+  - shared derived data
+  - mixed query and presentation logic
+roles:
+  - architect
+  - planner
+  - implementer
+  - reviewer
+read_first:
+  - AGENTS.md
+  - docs/architecture.md
+  - docs/V1-TRD.md
+approval_required_if:
+  - API or schema changes driven by frontend convenience
+related_skills:
+  - frontend-state-decision
+  - component-boundary-decision
+canonical: true
+---
+
+# Frontend Data Flow Check
 
 Use when:
 - frontend code transforms or reshapes server data,
 - multiple components consume the same server-backed data,
-- query/cache logic, view models, and presentation logic are mixing together,
+- query or cache logic, view models, and presentation logic are mixing together,
 - client-side state starts mirroring API state inconsistently.
 
 Goal:
 Keep data fetching, transformation, caching, and presentation boundaries coherent.
 
 Core rules:
-- Keep server data retrieval in the data/query layer.
+- Keep server data retrieval in the data or query layer.
 - Avoid duplicating API data in local component state unless there is a clear editing or interaction reason.
 - Prefer a single transformation point for shared derived data.
 - Keep view-specific shaping close to the view, but keep reusable domain shaping out of leaf components.

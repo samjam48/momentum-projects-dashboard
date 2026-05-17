@@ -1,4 +1,31 @@
-Name: api-contract-decision
+---
+name: api-contract-decision
+summary: Decide whether to extend an existing API contract or create a new one.
+triggers:
+  - add endpoint
+  - change route shape
+  - change request body
+  - change response shape
+  - add filtering
+  - add pagination
+roles:
+  - architect
+  - planner
+  - implementer
+  - reviewer
+read_first:
+  - AGENTS.md
+  - docs/architecture.md
+  - docs/api-map.md
+approval_required_if:
+  - API contract changes
+related_skills:
+  - backend-boundary-decision
+  - schema-decision
+canonical: true
+---
+
+# API Contract Decision
 
 Use when:
 - adding or changing endpoints,
@@ -14,7 +41,7 @@ Core rules:
 - Add a new endpoint when forcing the change into an existing one would make the contract unclear or overloaded.
 - Use nouns for resources, not verbs.
 - Prefer query parameters for filtering, sorting, and pagination.
-- Use GET for retrieval, POST for creation, PATCH for partial update, PUT for full replacement, DELETE for deletion.
+- Use `GET` for retrieval, `POST` for creation, `PATCH` for partial update, `PUT` for full replacement, and `DELETE` for deletion.
 - Keep request and response shapes consistent with similar endpoints.
 - Avoid both endpoint sprawl and overloaded “do everything” routes.
 

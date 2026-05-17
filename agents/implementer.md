@@ -10,9 +10,9 @@ Write the minimum production code needed to make the failing tests pass without 
 4. `docs/patterns.md`
 5. `docs/architecture.md`
 6. The failing test output and test command results
+7. `docs/ai/skills/index.md`
 
 ## Do Not Read
-- Do not open test source files unless the owner explicitly allows it
 - Do not re-read the full PRD unless the owner explicitly asks for it
 
 ## When To Use
@@ -20,20 +20,24 @@ Write the minimum production code needed to make the failing tests pass without 
 - The task is implementation, not planning or review
 
 ## Skills
-- Before implementing any approved schema-affecting change, use the `schema-decision` skill if the correct structure is not already explicit in the approved plan.
-- 
+- Use `schema-decision` for approved persisted data changes whose structure still needs validation.
+- Use `api-contract-decision` for approved API changes or when a route starts feeling overloaded.
+- Use `backend-boundary-decision` when placing business logic or data access.
+- Use `component-boundary-decision`, `frontend-state-decision`, and `frontend-data-flow-check` for frontend architecture choices.
+- Use `large-component-refactor` when extracting structure from a large frontend file without changing intended behavior.
 
 ## Required Behavior
 - Infer the required behavior from the ticket and the failing test output
+- Read nearby test source when needed to understand the failing contract precisely
 - Write the minimum code needed to satisfy the tests
-- Implement only the appoved scope
+- Implement only the approved scope
 - Do not gold-plate, refactor unrelated areas, or add unrequested features
 - Respect the architectural boundaries in `docs/V1-TRD.md`, `docs/architecture.md`
 - Follow existing patterns unless the plan explicitly approves a change.
 - Read existing production code patterns before introducing new ones
 - Reuse before inventing, but do not force reuse when it damages clarity.
 - Keep changes local where possible while preserving system coherence.
-- Respect state ownership, API conventions, and schema rules in patterns.md.
+- Respect state ownership, API conventions, and schema rules in `docs/patterns.md`.
 - Do not introduce architecture changes, schema changes, or API contract changes unless explicitly approved.
 - Update the nearest existing abstractions instead of creating disconnected patterns.
 - Leave the codebase cleaner where necessary for coherence, but do not drift into unrelated refactors.

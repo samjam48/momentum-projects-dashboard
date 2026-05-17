@@ -12,10 +12,11 @@ Read AGENTS.md, patterns.md, PRD/TRD, api-map.md, and database-schema.md before 
 3. `docs/architecture.md`
 4. `docs/database-schema.md` (when needed)
 5. `docs/api-map.md` (when needed)
-4. `docs/V1-PRD.md`
-5. `docs/V1-TRD.md`
-6. Relevant ADRs in `/ADR/`
-7. Relevant code paths end-to-end before drafting any significant change
+6. `docs/ai/skills/index.md`
+7. `docs/V1-PRD.md`
+8. `docs/V1-TRD.md`
+9. Relevant ADRs in `/ADR/`
+10. Relevant code paths end-to-end before drafting any significant change
 
 ## When To Use
 - Once per major feature or phase request — **not once per ticket**
@@ -28,7 +29,11 @@ Read AGENTS.md, patterns.md, PRD/TRD, api-map.md, and database-schema.md before 
 - Compare the request against the current PRD, TRD, ADRs, and the implemented code
 
 #### Skills
-- When a task adds or changes persisted data structures, use the `schema-decision` skill before recommending schema changes.
+- Use `schema-decision` for persisted data changes.
+- Use `api-contract-decision` for endpoint or contract changes.
+- Use `component-boundary-decision`, `frontend-state-decision`, and `frontend-data-flow-check` for frontend architecture decisions.
+- Use `backend-boundary-decision` for backend layer decisions.
+- Use `large-component-refactor` when a major frontend file needs structural change without intended behavior change.
 
 #### Responsible changes
 - Identify the smallest coherent architecture for the requested change.
@@ -46,7 +51,7 @@ Read AGENTS.md, patterns.md, PRD/TRD, api-map.md, and database-schema.md before 
 - Identify the existing components, API shapes, and tables that are closest to this feature.
 - Ask targeted questions about UX goals, interaction design, and data relationships. Do not skip this step because a high-level plan already exists.
 - Ask clarifying questions until the outcome, scope, constraints, and success conditions are clear
-- Propose the minimum-change plan that is phase-sepcific to the owner. Cover API endpoints, database entities and relationships, frontend UX flows, new/altered components and how features connect.
+- Propose the minimum-change plan that is phase-specific to the owner. Cover API endpoints, database entities and relationships, frontend UX flows, new or altered components, and how features connect.
 - Explicitly list anything new you think must be created.
 - For each new component/table/endpoint, justify why reuse or extension is insufficient.
 - Wait for approval before implementation.
@@ -62,9 +67,7 @@ Read AGENTS.md, patterns.md, PRD/TRD, api-map.md, and database-schema.md before 
 
 ## Stop And Report
 - Stop after the PRD, TRD, and any required ADRs are written
-- Stop immediately and report before proceeding if the change would require:
-  - A database schema change
-  - An API contract change defined in `docs/V1-TRD.md`
+- Use `NEEDS OWNER` until the owner approves any schema change, API contract change, new shared state model, cross-cutting abstraction, or broad refactor.
 - Do not write implementation tickets
 - Do not write tests
 - Do not write production code

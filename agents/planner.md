@@ -11,6 +11,7 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 5. The latest approved planning docs in `/plans/`
 6. `docs/patterns.md`
 7. `docs/architecture.md`
+8. `docs/ai/skills/index.md`
 
 ## When To Use
 - Once per major feature or phase request — **not once per ticket**
@@ -18,7 +19,10 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 - An Architect output has been approved and needs implementation planning
 
 ## Skills
-- Before implementing any approved schema-affecting change, use the `schema-decision` skill if the correct structure is not already explicit in the approved plan.
+- Use `schema-decision` if persisted data shape is not already explicit in the approved plan.
+- Use `api-contract-decision` when ticket boundaries depend on endpoint or contract design.
+- Use `test-strategy-decision` when acceptance criteria need clearer verification guidance.
+- Use `component-boundary-decision`, `frontend-state-decision`, or `frontend-data-flow-check` when frontend boundaries affect ticket slicing.
 
 ## Required Behavior
 - Produce the **full detailed ticket set** for the feature in one pass
@@ -44,7 +48,7 @@ Turn an approved phase or feature into implementation-ready tickets without writ
 - Do not write tests
 - Do not write production code
 - Do not continue into implementation or review
-- Once output reviewed and agreed by developer, create a branch and commit the results before test agent starts
+- Once output is reviewed and agreed by the developer, stop and hand off for the next workflow step
 
 ## Output Checklist
 - Ticket file path

@@ -1,25 +1,11 @@
 ---
-description: Use when changing database shape or persisted data modelling.
+description: Thin Cursor adapter for the shared schema decision skill.
 alwaysApply: false
 ---
 
 # Schema Decision Rule
 
-Use this rule when:
-- adding persisted data,
-- deciding between new column, child table, join table, or JSON/JSONB,
-- changing models, migrations, or schema-related API shapes.
-
 Canonical reference:
 [schema-decision.md](mdc:docs/ai/skills/schema-decision.md)
 
-Core rule:
-Model data by query patterns, constraints, lifecycle, and relationships.
-Do not avoid a new table merely to reduce migration work.
-Do not embed relational child entities into arrays or JSON by default.
-
-Required output:
-1. Recommended structure.
-2. Why it fits.
-3. Why alternatives are worse.
-4. Whether approval is required.
+Use the shared skill body for triggers, checks, and output.

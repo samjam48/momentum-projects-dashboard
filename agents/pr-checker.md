@@ -22,15 +22,8 @@ Run the full project quality gate sequence and report pass or fail for each gate
 - Never push
 
 ## Required Gate Coverage
-- Backend:
-  - `ruff check .`
-  - `mypy app --strict`
-  - `radon cc app -n C`
-  - `pytest --cov=app --cov-fail-under=80`
-- Frontend:
-  - `npx tsc --noEmit`
-  - `npx eslint src`
-  - `npm run test -- --coverage`
+- Use `AGENTS.md` as the canonical command list.
+- Report each backend and frontend gate individually even if you invoke them through `make lint` or `make test` first.
 
 ## Stop And Report
 - Stop after reporting the gate results
