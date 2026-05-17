@@ -4,6 +4,9 @@ import { X } from 'lucide-react'
 import type { Venture } from '../api/types'
 import type { ProjectBoardStatus, ProjectType } from '../api/types'
 import { ColourPicker } from './ColourPicker'
+import { DialogFormFooter } from './ui/DialogFormFooter'
+import { FormField } from './ui/FormField'
+import { Select } from './ui/Select'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -102,35 +105,30 @@ export function ProjectDialog({
         </DialogHeader>
 
         <form className="project-form" noValidate onSubmit={(event) => void onSubmit(event)}>
-          <label className="field">
-            <span>Venture</span>
-            <select
-              aria-label="Venture"
-              name="venture_id"
-              value={formState.venture_id}
-              onChange={(event) => onFieldChange('venture_id', event.target.value)}
-            >
-              {activeVentures.map((venture) => (
-                <option key={venture.id} value={venture.id}>
-                  {venture.name}
-                </option>
-              ))}
-            </select>
-            {formErrors.venture_id ? (
-              <span className="field-error">{formErrors.venture_id}</span>
-            ) : null}
-          </label>
+          <Select
+            error={formErrors.venture_id}
+            label="Venture"
+            name="venture_id"
+            value={formState.venture_id}
+            onChange={(event) => onFieldChange('venture_id', event.target.value)}
+          >
+            {activeVentures.map((venture) => (
+              <option key={venture.id} value={venture.id}>
+                {venture.name}
+              </option>
+            ))}
+          </Select>
 
-          <label className="field">
-            <span>Project name</span>
-            <input
-              aria-label="Project name"
-              name="name"
-              value={formState.name}
-              onChange={(event) => onFieldChange('name', event.target.value)}
-            />
-            {formErrors.name ? <span className="field-error">{formErrors.name}</span> : null}
-          </label>
+          <FormField error={formErrors.name} label="Project name">
+            {(controlProps) => (
+              <input
+                {...controlProps}
+                name="name"
+                value={formState.name}
+                onChange={(event) => onFieldChange('name', event.target.value)}
+              />
+            )}
+          </FormField>
 
           <label className="field">
             <span>Project description</span>
@@ -162,41 +160,37 @@ export function ProjectDialog({
             />
           </label>
 
-          <label className="field">
-            <span>Project type</span>
-            <select
-              aria-label="Project type"
-              name="project_type"
-              value={formState.project_type}
-              onChange={(event) =>
-                onFieldChange('project_type', event.target.value as ProjectType)
-              }
-            >
-              {[...PROJECT_TYPE_OPTIONS].sort().map((value) => (
-                <option key={value} value={value}>
-                  {projectTypeLabel(value)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            aria-label="Project type"
+            label="Project type"
+            name="project_type"
+            value={formState.project_type}
+            onChange={(event) =>
+              onFieldChange('project_type', event.target.value as ProjectType)
+            }
+          >
+            {[...PROJECT_TYPE_OPTIONS].sort().map((value) => (
+              <option key={value} value={value}>
+                {projectTypeLabel(value)}
+              </option>
+            ))}
+          </Select>
 
-          <label className="field">
-            <span>Board status</span>
-            <select
-              aria-label="Board status"
-              name="board_status"
-              value={formState.board_status}
-              onChange={(event) =>
-                onFieldChange('board_status', event.target.value as ProjectBoardStatus)
-              }
-            >
-              {BOARD_STATUS_OPTIONS.map((value) => (
-                <option key={value} value={value}>
-                  {boardStatusLabel(value)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            aria-label="Board status"
+            label="Board status"
+            name="board_status"
+            value={formState.board_status}
+            onChange={(event) =>
+              onFieldChange('board_status', event.target.value as ProjectBoardStatus)
+            }
+          >
+            {BOARD_STATUS_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {boardStatusLabel(value)}
+              </option>
+            ))}
+          </Select>
 
           {formErrors.form ? (
             <p className="form-error" role="alert">
@@ -218,24 +212,27 @@ export function ProjectDialog({
             </label>
           ) : null}
 
-          {mode === 'edit' && editingProjectId && onArchive ? (
-            <Button
-              className="danger-button"
-              type="button"
-              onClick={() => void onArchive()}
-            >
-              Archive project
-            </Button>
-          ) : null}
-
-          <div className="form-actions" data-testid="project-dialog-actions">
-            <Button disabled={isSaving} type="submit">
-              {mode === 'create' ? 'Create project' : 'Save project'}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-          </div>
+          <DialogFormFooter
+            actionsTestId="project-dialog-actions"
+            className="mt-2"
+            destructiveAction={
+              mode === 'edit' && editingProjectId && onArchive ? (
+                <Button disabled={isSaving} type="button" variant="destructive" onClick={() => void onArchive()}>
+                  Archive project
+                </Button>
+              ) : null
+            }
+            cancelAction={
+              <Button disabled={isSaving} type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+            }
+            primaryAction={
+              <Button disabled={isSaving} type="submit">
+                {mode === 'create' ? 'Create project' : 'Save project'}
+              </Button>
+            }
+          />
         </form>
       </DialogContent>
     </Dialog>

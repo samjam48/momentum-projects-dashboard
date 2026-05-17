@@ -3,11 +3,11 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 import type { ApiError } from '../api/client'
 import type { Venture, VentureCategoryLabel, VenturePayload } from '../api/types'
 import { ColourPicker } from './ColourPicker'
+import { DialogFormFooter } from './ui/DialogFormFooter'
 import { Button } from './ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog'
@@ -255,25 +255,30 @@ export function VentureDialog({
             </p>
           ) : null}
 
-          {mode === 'edit' && venture && onArchive ? (
-            <Button
-              className="danger-button"
-              disabled={isSaving}
-              type="button"
-              onClick={() => void onArchive(venture.id)}
-            >
-              Archive venture
-            </Button>
-          ) : null}
-
-          <DialogFooter className="gap-2 sm:justify-between">
-            <Button disabled={isSaving} type="submit">
-              {mode === 'create' ? 'Create venture' : 'Save venture'}
-            </Button>
-            <Button disabled={isSaving} type="button" variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-          </DialogFooter>
+          <DialogFormFooter
+            destructiveAction={
+              mode === 'edit' && venture && onArchive ? (
+                <Button
+                  disabled={isSaving}
+                  type="button"
+                  variant="destructive"
+                  onClick={() => void onArchive(venture.id)}
+                >
+                  Archive venture
+                </Button>
+              ) : null
+            }
+            cancelAction={
+              <Button disabled={isSaving} type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+            }
+            primaryAction={
+              <Button disabled={isSaving} type="submit">
+                {mode === 'create' ? 'Create venture' : 'Save venture'}
+              </Button>
+            }
+          />
         </form>
       </DialogContent>
     </Dialog>
