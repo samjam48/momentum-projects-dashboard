@@ -1,22 +1,10 @@
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCorners,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
+import type { DragEndEvent } from '@dnd-kit/core'
 import type { RefObject } from 'react'
 
 import type { Project, ProjectBoardStatus } from '../api/types'
 import { projectOrderByBoardStatus } from '../lib/kanbanSort'
+import { KanbanBoard } from './kanban/KanbanBoard'
+import { KanbanColumn } from './kanban/KanbanColumn'
 import { KanbanProjectCard } from './kanban/KanbanProjectCard'
 
 const BOARD_OPTIONS: Array<{ label: string; value: ProjectBoardStatus }> = [
@@ -41,7 +29,7 @@ type ProjectKanbanDragColumnData = {
   type: 'column'
 }
 
-function ProjectKanbanColumn({
+function ProjectBoardColumn({
   boardInteractionDisabled,
   boardStatus,
   boardTitle,
@@ -58,54 +46,29 @@ function ProjectKanbanColumn({
 }): JSX.Element {
   const columnProjects = projectOrderByBoardStatus(displayProjects, boardStatus)
 
-  const { isOver, setNodeRef } = useDroppable({
-    id: kanbanProjectColumnId(boardStatus),
-    data: {
-      type: 'column',
-      board_status: boardStatus,
-    } satisfies ProjectKanbanDragColumnData,
-    disabled: boardInteractionDisabled,
-  })
-
   return (
-    <section
-      ref={setNodeRef}
-      className={`kanban-column${isOver ? ' kanban-column-over' : ''}`}
-      aria-label={boardTitle}
+    <KanbanColumn
+      columnData={{
+        type: 'column',
+        board_status: boardStatus,
+      } satisfies ProjectKanbanDragColumnData}
+      draggingDisabled={boardInteractionDisabled}
+      droppableId={kanbanProjectColumnId(boardStatus)}
+      emptyStateCopy="No projects in this column. Drop a project here when moving cards between columns."
+      itemIds={columnProjects.map((project) => kanbanProjectSortableId(project.id))}
+      pillClassName={`status-pill status-${boardStatus}`}
+      title={boardTitle}
     >
-      <div className="task-card-header">
-        <span className={`status-pill status-${boardStatus}`}>{boardTitle}</span>
-        <span className="kanban-column-count muted-copy">{columnProjects.length}</span>
-      </div>
-
-      <SortableContext
-        items={columnProjects.map((project) => kanbanProjectSortableId(project.id))}
-        strategy={verticalListSortingStrategy}
-      >
-        {columnProjects.length === 0 ? (
-          <div className="kanban-empty-state">
-            <p className="muted-copy">
-              No projects in this column. Drop a project here when moving cards between columns.
-            </p>
-          </div>
-        ) : (
-          <ul
-            className="task-list kanban-task-list"
-            style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}
-          >
-            {columnProjects.map((project) => (
-              <KanbanProjectCard
-                key={project.id}
-                draggingDisabled={boardInteractionDisabled}
-                onOpenProject={onOpenProject}
-                openTaskCounts={openTaskCounts}
-                project={project}
-              />
-            ))}
-          </ul>
-        )}
-      </SortableContext>
-    </section>
+      {columnProjects.map((project) => (
+        <KanbanProjectCard
+          key={project.id}
+          draggingDisabled={boardInteractionDisabled}
+          onOpenProject={onOpenProject}
+          openTaskCounts={openTaskCounts}
+          project={project}
+        />
+      ))}
+    </KanbanColumn>
   )
 }
 
@@ -136,17 +99,6 @@ export function ProjectKanbanBoard({
   projectsError,
   projectsLoading,
 }: ProjectKanbanBoardProps): JSX.Element {
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  )
-
   if (!hasSidebarProjectSelection) {
     return (
       <p className="muted-copy">No projects selected. Choose one or more projects in the sidebar.</p>
@@ -169,21 +121,19 @@ export function ProjectKanbanBoard({
         </p>
       ) : null}
 
-      <DndContext collisionDetection={closestCorners} onDragEnd={onDragEnd} sensors={sensors}>
-        <div ref={boardRef} className="kanban-grid-row">
-          {BOARD_OPTIONS.map((option) => (
-            <ProjectKanbanColumn
-              key={option.value}
-              boardInteractionDisabled={boardInteractionDisabled}
-              boardStatus={option.value}
-              boardTitle={option.label}
-              displayProjects={filterMatchedProjects ? displayProjects : []}
-              onOpenProject={onOpenProject}
-              openTaskCounts={openTaskCounts}
-            />
-          ))}
-        </div>
-      </DndContext>
+      <KanbanBoard boardRef={boardRef} onDragEnd={onDragEnd}>
+        {BOARD_OPTIONS.map((option) => (
+          <ProjectBoardColumn
+            key={option.value}
+            boardInteractionDisabled={boardInteractionDisabled}
+            boardStatus={option.value}
+            boardTitle={option.label}
+            displayProjects={filterMatchedProjects ? displayProjects : []}
+            onOpenProject={onOpenProject}
+            openTaskCounts={openTaskCounts}
+          />
+        ))}
+      </KanbanBoard>
     </>
   )
 }
