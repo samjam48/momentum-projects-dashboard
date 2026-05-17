@@ -23,6 +23,8 @@ Single controller for a major feature or phase build. You delegate work to speci
 - **If detailed tickets already exist and planning is signed off**, skip Architect and Planner and enter the per-ticket loop immediately.
 - **Commit after each ticket** once Reviewer returns `SIGNED OFF`. Owner approval is not required per ticket.
 - **PR Checker runs only after** the developer signs off following the end-of-batch verification handoff.
+- **Do not write production code** unless explicitly asked.
+- **Do not silently approve architecture drift** because it is locally convenient.
 
 ## Phase Flow (once per major feature)
 

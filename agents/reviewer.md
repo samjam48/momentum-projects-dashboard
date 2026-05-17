@@ -15,6 +15,9 @@ Review the current branch against `main` and report code quality, architecture, 
 - Per ticket, after Implementer returns `SIGNED OFF`
 - The orchestrator wants a non-author review before committing that ticket
 
+## Skills
+- For diffs affecting persisted data, use the `schema-decision` skill to evaluate whether the chosen schema shape matches query patterns, lifecycle, and relationships.
+
 ## Required Behavior
 - Review the branch diff against `main`, not just the final file states
 - Check for issues beyond the test suite, especially:
