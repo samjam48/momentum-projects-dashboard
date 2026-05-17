@@ -16,17 +16,22 @@ import type {
   ProjectBoardStatus,
   ProjectType,
   Task,
-  TaskPriority,
   TaskStatus,
 } from './api/types'
 import { AppShell } from './components/layout/AppShell'
 import { ProjectKanbanBoard } from './components/ProjectKanbanBoard'
 import { TaskKanbanBoard } from './components/TaskKanbanBoard'
-import { TaskSummaryTable, type TaskSortKey, type TaskSortState } from './components/TaskSummaryTable'
+import { TaskSummaryTable } from './components/TaskSummaryTable'
 import {
   useWorkspaceDialogs,
   type TaskDialogMode,
 } from './components/WorkspaceDialogs'
+import { deriveOpenTaskCountsByProjectId } from './features/projects/openTaskCounts'
+import {
+  sortTasks,
+  type TaskSortKey,
+  type TaskSortState,
+} from './features/tasks/taskTableSort'
 import { ProjectsPage } from './pages/ProjectsPage'
 import {
   projectOrderByBoardStatus,
@@ -60,99 +65,8 @@ type KanbanDragTaskData = {
   type: 'task'
 }
 
-const PRIORITY_SORT_WEIGHT: Record<TaskPriority, number> = {
-  low: 0,
-  medium: 1,
-  high: 2,
-  urgent: 3,
-}
-
 const KANBAN_COLUMN_ID_PREFIX = 'kanban-column:'
 const KANBAN_TASK_ID_PREFIX = 'kanban-task:'
-
-function compareTasks(
-  leftTask: Task,
-  rightTask: Task,
-  projectsById: Record<string, Project>,
-  sortState: TaskSortState,
-  leftIndex: number,
-  rightIndex: number,
-): number {
-  if (!sortState) {
-    return leftIndex - rightIndex
-  }
-
-  const directionWeight = sortState.direction === 'asc' ? 1 : -1
-
-  if (sortState.key === 'project_name') {
-    const leftName = projectsById[leftTask.project_id]?.name ?? ''
-    const rightName = projectsById[rightTask.project_id]?.name ?? ''
-    const nameComparison = leftName.localeCompare(rightName, undefined, {
-      sensitivity: 'base',
-    })
-
-    if (nameComparison !== 0) {
-      return nameComparison * directionWeight
-    }
-  }
-
-  if (sortState.key === 'priority') {
-    const priorityComparison =
-      PRIORITY_SORT_WEIGHT[leftTask.priority] -
-      PRIORITY_SORT_WEIGHT[rightTask.priority]
-
-    if (priorityComparison !== 0) {
-      return priorityComparison * directionWeight
-    }
-  }
-
-  if (sortState.key === 'target_date') {
-    const leftDate = leftTask.target_date
-    const rightDate = rightTask.target_date
-
-    if (leftDate === null && rightDate !== null) {
-      return 1
-    }
-
-    if (leftDate !== null && rightDate === null) {
-      return -1
-    }
-
-    if (leftDate !== null && rightDate !== null) {
-      const dateComparison = leftDate.localeCompare(rightDate)
-      if (dateComparison !== 0) {
-        return dateComparison * directionWeight
-      }
-    }
-  }
-
-  return leftIndex - rightIndex
-}
-
-function sortTasks(
-  tasks: Task[],
-  projectsById: Record<string, Project>,
-  sortState: TaskSortState,
-): Task[] {
-  if (!sortState) {
-    return tasks
-  }
-
-  const indexedTasks = tasks.map((task, index) => ({ index, task }))
-
-  return indexedTasks
-    .sort((leftEntry, rightEntry) =>
-      compareTasks(
-        leftEntry.task,
-        rightEntry.task,
-        projectsById,
-        sortState,
-        leftEntry.index,
-        rightEntry.index,
-      ),
-    )
-    .map((entry) => entry.task)
-}
 
 function reorderTasksForKanban(
   tasks: Task[],
@@ -707,18 +621,10 @@ function App() {
     .filter((task) => task.project_id in projectsById)
     .filter((task) => sidebarSelectedProjectIds.includes(task.project_id))
   const displayTasks = optimisticTasks ?? visibleTasks
-  const openTaskCountsByProjectId = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const task of tasksQuery.data) {
-      if (task.status === 'done' || task.status === 'archived') {
-        continue
-      }
-
-      counts[task.project_id] = (counts[task.project_id] ?? 0) + 1
-    }
-
-    return counts
-  }, [tasksQuery.data])
+  const openTaskCountsByProjectId = useMemo(
+    () => deriveOpenTaskCountsByProjectId(activeProjects, tasksQuery.data),
+    [activeProjects, tasksQuery.data],
+  )
   const previousFilterKeyRef = useRef(storedProjectIdsKey)
   const previousTasksDataRef = useRef(tasksQuery.data)
   const previousProjectsDataRef = useRef(projectsQuery.data)

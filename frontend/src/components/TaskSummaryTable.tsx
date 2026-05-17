@@ -1,11 +1,7 @@
 import type { Project, Task, TaskStatus } from '../api/types'
+import type { TaskSortKey, TaskSortState } from '../features/tasks/taskTableSort'
 import { DEFAULT_PROJECT_FILTER } from '../stores/projectFilter'
-import { TableSortMenu, type TaskSortKey } from './TableSortMenu'
-
-type TaskSortState = {
-  key: TaskSortKey
-  direction: 'asc' | 'desc'
-} | null
+import { TableSortMenu } from './TableSortMenu'
 
 function formatStatusLabel(status: TaskStatus): string {
   return status.replace('_', ' ')
@@ -225,5 +221,3 @@ export function TaskSummaryTable({
     </>
   )
 }
-
-export type { TaskSortKey, TaskSortState }
