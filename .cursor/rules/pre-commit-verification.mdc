@@ -1,0 +1,28 @@
+---
+description: Use before any commit to enforce the repo's commit-time verification policy.
+alwaysApply: false
+---
+
+# Pre Commit Verification Rule
+
+Canonical reference:
+[rules.md](mdc:docs/ai/rules.md)
+
+Use this rule when:
+- you are about to commit,
+- you prepare a ticket-level commit in the orchestrator flow,
+- or you want to verify whether the current staged change is commit-ready.
+
+Required behavior:
+1. Follow `AGENTS.md` as the canonical policy.
+2. If the change is a per-ticket commit, confirm the relevant failing tests existed before code and that the targeted tests now pass.
+3. If the change is broader than one ticket, run full verification with `make lint` and `make test`.
+4. Run `scripts/docs-sync-check.sh --staged` for staged changes affecting API or schema-sensitive files.
+5. Run `scripts/pre-commit-verification.sh` in the correct mode before commit:
+   - ticket mode with a targeted test command, or
+   - full mode for broader verification.
+
+Do not:
+- commit code changes without specifying ticket or full verification mode,
+- skip or comment out failing tests,
+- assume docs are in sync when API or schema-sensitive files changed.

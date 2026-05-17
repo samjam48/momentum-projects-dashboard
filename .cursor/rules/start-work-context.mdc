@@ -1,0 +1,27 @@
+---
+description: Use before any non-trivial task to force repo-context setup and shared guidance discovery.
+alwaysApply: false
+---
+
+# Start Work Context Rule
+
+Canonical reference:
+[rules.md](mdc:docs/ai/rules.md)
+
+Use this rule when:
+- the task is more than a trivial one-off answer,
+- you are about to plan, implement, test, review, or verify changes,
+- or you are unsure which project docs or shared skills apply.
+
+Required behavior:
+1. Read `AGENTS.md` first.
+2. Identify the task mode: planning, implementation, testing, review, or verification.
+3. If the repo role workflow applies, open the relevant file in `agents/`.
+4. Read `docs/ai/rules.md` for shared hook and rule expectations.
+5. Read `docs/ai/skills/index.md` and open only the skills that match the current decision.
+6. Identify which repo docs, tests, and quality gates are in scope before editing.
+
+Do not:
+- jump straight into edits without reading repo policy,
+- duplicate guidance that already lives in shared docs,
+- ignore a relevant skill or rule because it exists in another tool's adapter.

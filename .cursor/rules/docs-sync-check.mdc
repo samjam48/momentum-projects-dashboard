@@ -1,0 +1,24 @@
+---
+description: Use after API or schema changes to enforce doc-sync for api-map and database-schema.
+alwaysApply: false
+---
+
+# Docs Sync Check Rule
+
+Canonical reference:
+[rules.md](mdc:docs/ai/rules.md)
+
+Use this rule when:
+- you changed backend routers, schemas, or frontend API clients,
+- you changed backend models or migrations,
+- or you suspect the staged diff changes API or persisted data shape.
+
+Required behavior:
+1. Check whether `docs/api-map.md` must change.
+2. Check whether `docs/database-schema.md` must change.
+3. If one is not changing, be able to explain why.
+4. Run `scripts/docs-sync-check.sh --staged` before commit when relevant files changed.
+
+Heuristic enforcement:
+- router or frontend API changes should usually update `docs/api-map.md`,
+- model or migration changes should usually update `docs/database-schema.md`.

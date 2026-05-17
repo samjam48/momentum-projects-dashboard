@@ -1,0 +1,10 @@
+---
+description: Thin Cursor adapter for the shared backend boundary check rule.
+alwaysApply: false
+---
+# Backend Boundary Check Rule
+
+Canonical reference:
+[rules.md](./mdc:docs/ai/rules.md)
+
+Use the shared rules doc for triggers, checks, and rollout guidance.

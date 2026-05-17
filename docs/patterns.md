@@ -40,3 +40,27 @@ App.auth-redirect.test.tsx
 it('redirects signed-out users to the login page')
 ```
 
+
+## Relational modelling bias
+We use Postgres as a relational system, not a document store.
+
+Default to separate tables for repeated business records.
+Examples: interviews, applications, payments, comments, status changes, assignments.
+
+Use JSON/arrays only for:
+- rarely queried metadata,
+- raw external payloads,
+- experimental fields,
+- configuration blobs retrieved as one unit.
+
+A child record should become its own table when it has:
+- more than one occurrence per parent,
+- its own date/status/notes/owner fields,
+- independent filtering or sorting needs,
+- links to other entities,
+- reporting or analytics value,
+- an independent edit lifecycle.
+
+Do not avoid a new table merely to reduce migration work.
+Do not add a new table merely because a field group looks large.
+Choose based on query patterns and lifecycle.

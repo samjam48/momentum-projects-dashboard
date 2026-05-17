@@ -1,0 +1,11 @@
+---
+description: Thin Cursor adapter for the shared frontend state skill.
+alwaysApply: false
+---
+
+# Frontend State Decision Rule
+
+Canonical reference:
+[frontend-state-decision.md](mdc:docs/ai/skills/frontend-state-decision.md)
+
+Use the shared skill body for triggers, checks, and output.

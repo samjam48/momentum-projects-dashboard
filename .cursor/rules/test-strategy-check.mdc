@@ -1,0 +1,11 @@
+---
+description: Thin Cursor adapter for the shared test strategy check rule.
+alwaysApply: false
+---
+
+# Test Strategy Check Rule
+
+Canonical reference:
+[rules.md](mdc:docs/ai/rules.md)
+
+Use the shared rules doc for triggers, checks, and rollout guidance.

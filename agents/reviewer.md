@@ -10,10 +10,18 @@ Review the current branch against `main` and report code quality, architecture, 
 4. `docs/architecture.md` if it exists
 5. The approved ticket or plan files in `/plans/` if they define expected scope
 6. The current branch diff versus `main`
+7. `docs/ai/skills/index.md`
 
 ## When To Use
 - Per ticket, after Implementer returns `SIGNED OFF`
 - The orchestrator wants a non-author review before committing that ticket
+
+## Skills
+- For diffs affecting persisted data, use the `schema-decision` skill to evaluate whether the chosen schema shape matches query patterns, lifecycle, and relationships.
+- Use `api-contract-decision` for endpoint or payload changes.
+- Use `backend-boundary-decision` for service and router boundaries.
+- Use `component-boundary-decision`, `frontend-state-decision`, `frontend-data-flow-check`, and `large-component-refactor` for frontend structure changes.
+- Use `test-strategy-decision` when test coverage looks weak, over-mocked, or mismatched to the change risk.
 
 ## Required Behavior
 - Review the branch diff against `main`, not just the final file states
@@ -25,6 +33,7 @@ Review the current branch against `main` and report code quality, architecture, 
   - Accessibility concerns
   - Redundant functions, duplicate logic, or overlapping behavior
   - Architecture boundary violations
+  - Missing updates to `docs/api-map.md` or `docs/database-schema.md` when contracts or schema changed
   - Drift from `docs/patterns.md` or `docs/architecture.md`
 - Treat passing tests as necessary but not sufficient
 - Produce findings only; do not make code changes

@@ -1,0 +1,32 @@
+---
+description: Use before persisted-data changes to enforce explicit schema reasoning and migration/doc updates.
+alwaysApply: false
+---
+
+# Schema Change Check Rule
+
+Canonical reference:
+[rules.md](mdc:docs/ai/rules.md)
+
+Use this rule when:
+- you add or change models,
+- you edit migrations,
+- you add persisted DTO fields,
+- or an API change implies a persisted data change.
+
+Required behavior:
+1. Use `docs/ai/skills/schema-decision.md`.
+2. Confirm the schema change is approved.
+3. Identify required updates across:
+   - model,
+   - migration,
+   - API or schema layer,
+   - tests,
+   - `docs/database-schema.md`.
+4. Keep ordinary DB access in `services/` unless a new abstraction was explicitly approved.
+5. Run `scripts/docs-sync-check.sh --staged` before commit if schema-sensitive files changed.
+
+Do not:
+- make raw SQL DDL changes outside Alembic,
+- change persisted shape without checking the canonical schema skill,
+- treat migration or schema doc updates as optional.

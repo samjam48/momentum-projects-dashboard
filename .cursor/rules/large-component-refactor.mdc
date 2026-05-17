@@ -1,0 +1,11 @@
+---
+description: Thin Cursor adapter for the shared large component refactor skill.
+alwaysApply: false
+---
+
+# Large Component Refactor Rule
+
+Canonical reference:
+[large-component-refactor.md](mdc:docs/ai/skills/large-component-refactor.md)
+
+Use the shared skill body for triggers, checks, and output.
