@@ -11,7 +11,12 @@ import {
 } from '../api/projects'
 import type { Project, Venture } from '../api/types'
 import { listVentures, unarchiveVenture, useVentures, ventureQueryKeys } from '../api/ventures'
+import { ArchiveList } from '../features/archives/ArchiveList'
+import { EmptyState } from './feedback/EmptyState'
+import { ErrorBanner } from './feedback/ErrorBanner'
+import { LoadingState } from './feedback/LoadingState'
 import { Button } from './ui/button'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import {
   Dialog,
   DialogContent,
@@ -104,7 +109,7 @@ export function ArchiveDialog(): JSX.Element {
     archivedProjectsQuery.isLoading,
   ])
 
-  const performUnarchiveProject = async (projectId: string): Promise<void> => {
+  const performUnarchiveProject = async (projectId: string): Promise<boolean> => {
     setActionError(null)
     setRestorePending(true)
     try {
@@ -120,18 +125,20 @@ export function ArchiveDialog(): JSX.Element {
         }),
       ])
       setOpen(false)
+      return true
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setActionError(caughtError.formError ?? caughtError.message)
-        return
+        return false
       }
       setActionError('Unable to restore project.')
+      return false
     } finally {
       setRestorePending(false)
     }
   }
 
-  const performUnarchiveVenture = async (ventureId: string): Promise<void> => {
+  const performUnarchiveVenture = async (ventureId: string): Promise<boolean> => {
     setActionError(null)
     setRestorePending(true)
     try {
@@ -155,28 +162,35 @@ export function ArchiveDialog(): JSX.Element {
         }),
       ])
       setOpen(false)
+      return true
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setActionError(caughtError.formError ?? caughtError.message)
-        return
+        return false
       }
       setActionError('Unable to restore venture.')
+      return false
     } finally {
       setRestorePending(false)
     }
   }
 
   const handleConfirmRestore = async (): Promise<void> => {
-    if (!restoreIntent) {
+    if (!restoreIntent || restorePending) {
       return
     }
     const { id, kind } = restoreIntent
+    await (kind === 'project' ? performUnarchiveProject(id) : performUnarchiveVenture(id))
     setRestoreIntent(null)
-    if (kind === 'project') {
-      await performUnarchiveProject(id)
+  }
+
+  const handleRestoreDialogOpenChange = (nextOpen: boolean): void => {
+    if (restorePending) {
       return
     }
-    await performUnarchiveVenture(id)
+    if (!nextOpen) {
+      setRestoreIntent(null)
+    }
   }
 
   return (
@@ -247,11 +261,7 @@ export function ArchiveDialog(): JSX.Element {
             </button>
           </div>
 
-          {actionError ? (
-            <p className="form-error" role="alert">
-              {actionError}
-            </p>
-          ) : null}
+          {actionError ? <ErrorBanner message={actionError} /> : null}
 
           <ArchiveTabPanel
             ariaLabelledBy="archive-tab-ventures"
@@ -259,50 +269,36 @@ export function ArchiveDialog(): JSX.Element {
             id="archive-panel-ventures"
           >
             {archivedVenturesQuery.isLoading ? (
-              <p className="muted-copy">Loading archived ventures…</p>
+              <LoadingState message="Loading archived ventures…" />
             ) : null}
             {!archivedVenturesQuery.isLoading && archivedVenturesQuery.error ? (
-              <p className="form-error">{archivedVenturesQuery.error}</p>
+              <ErrorBanner message={archivedVenturesQuery.error} />
             ) : null}
             {!archivedVenturesQuery.isLoading &&
             !archivedVenturesQuery.error &&
             archivedVentures.length === 0 ? (
-              <p className="muted-copy">No archived ventures.</p>
+              <EmptyState
+                description="Archive a venture to restore it later."
+                title="No archived ventures yet."
+              />
             ) : null}
             {!archivedVenturesQuery.isLoading && archivedVentures.length > 0 ? (
-              <ul className="archive-project-list">
-                {archivedVentures.map((venture) => (
-                  <li key={venture.id}>
-                    <div className="archive-project-row archive-project-actions">
-                      <button
-                        className="archive-project-title"
-                        type="button"
-                        onClick={() => {
-                          setVentureDetail(venture)
-                        }}
-                      >
-                        <span>{titleCaseLabel(venture.name)}</span>
-                      </button>
-                      <button
-                        className="archive-restore-link"
-                        data-archive-restore
-                        disabled={restorePending}
-                        style={{ backgroundColor: 'transparent' }}
-                        type="button"
-                        onClick={() => {
-                          setRestoreIntent({
-                            kind: 'venture',
-                            id: venture.id,
-                            displayName: titleCaseLabel(venture.name),
-                          })
-                        }}
-                      >
-                        restore
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <ArchiveList
+                getKey={(venture) => venture.id}
+                getLabel={(venture) => titleCaseLabel(venture.name)}
+                items={archivedVentures}
+                restoreDisabled={restorePending}
+                onRestore={(venture) => {
+                  setRestoreIntent({
+                    kind: 'venture',
+                    id: venture.id,
+                    displayName: titleCaseLabel(venture.name),
+                  })
+                }}
+                onSelect={(venture) => {
+                  setVentureDetail(venture)
+                }}
+              />
             ) : null}
           </ArchiveTabPanel>
 
@@ -312,56 +308,44 @@ export function ArchiveDialog(): JSX.Element {
             id="archive-panel-projects"
           >
             {archivedProjectsQuery.isLoading ? (
-              <p className="muted-copy">Loading archived projects…</p>
+              <LoadingState message="Loading archived projects…" />
             ) : null}
             {!archivedProjectsQuery.isLoading && archivedProjectsQuery.error ? (
-              <p className="form-error">{archivedProjectsQuery.error}</p>
+              <ErrorBanner message={archivedProjectsQuery.error} />
             ) : null}
             {!archivedProjectsQuery.isLoading &&
             !archivedProjectsQuery.error &&
             archivedProjects.length === 0 ? (
-              <p className="muted-copy">No archived projects.</p>
+              <EmptyState
+                description="Archive a project to restore it later."
+                title="No archived projects yet."
+              />
             ) : null}
             {!archivedProjectsQuery.isLoading && archivedProjects.length > 0 ? (
-              <ul className="archive-project-list">
-                {archivedProjects.map((project) => (
-                  <li key={project.id}>
-                    <div className="archive-project-row archive-project-actions">
-                      <button
-                        className="archive-project-title"
-                        type="button"
-                        onClick={() => {
-                          setProjectDetail(project)
-                        }}
-                      >
-                        <span
-                          aria-hidden
-                          className="project-colour-dot"
-                          data-testid={`archive-project-dot-${project.id}`}
-                          style={{ backgroundColor: project.colour ?? undefined }}
-                        />
-                        <span>{project.name}</span>
-                      </button>
-                      <button
-                        className="archive-restore-link"
-                        data-archive-restore
-                        disabled={restorePending}
-                        style={{ backgroundColor: 'transparent' }}
-                        type="button"
-                        onClick={() => {
-                          setRestoreIntent({
-                            kind: 'project',
-                            id: project.id,
-                            displayName: project.name,
-                          })
-                        }}
-                      >
-                        restore
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <ArchiveList
+                getKey={(project) => project.id}
+                getLabel={(project) => project.name}
+                items={archivedProjects}
+                renderLeadingContent={(project) => (
+                  <span
+                    aria-hidden
+                    className="project-colour-dot"
+                    data-testid={`archive-project-dot-${project.id}`}
+                    style={{ backgroundColor: project.colour ?? undefined }}
+                  />
+                )}
+                restoreDisabled={restorePending}
+                onRestore={(project) => {
+                  setRestoreIntent({
+                    kind: 'project',
+                    id: project.id,
+                    displayName: project.name,
+                  })
+                }}
+                onSelect={(project) => {
+                  setProjectDetail(project)
+                }}
+              />
             ) : null}
           </ArchiveTabPanel>
         </DialogContent>
@@ -431,38 +415,19 @@ export function ArchiveDialog(): JSX.Element {
         ) : null}
       </Dialog>
 
-      <Dialog open={Boolean(restoreIntent)} onOpenChange={(next) => !next && setRestoreIntent(null)}>
-        {restoreIntent ? (
-          <DialogContent
-            className="z-[60]"
-            role="alertdialog"
-            onBackdropClick={() => setRestoreIntent(null)}
-          >
-            <DialogHeader>
-              <DialogTitle>
-                {`Restore ${restoreIntent.displayName}?`}
-              </DialogTitle>
-              <DialogDescription>
-                {restoreIntent.kind === 'project'
-                  ? 'This project will appear in your active projects again.'
-                  : 'This venture and its projects will appear with your active items again.'}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button disabled={restorePending} type="button" variant="outline" onClick={() => setRestoreIntent(null)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={restorePending}
-                type="button"
-                onClick={() => void handleConfirmRestore()}
-              >
-                Restore
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        ) : null}
-      </Dialog>
+      <ConfirmDialog
+        confirmLabel="Restore"
+        description={
+          restoreIntent?.kind === 'project'
+            ? 'This project will appear in your active projects again.'
+            : 'This venture and its projects will appear with your active items again.'
+        }
+        open={Boolean(restoreIntent)}
+        pending={restorePending}
+        title={restoreIntent ? `Restore ${restoreIntent.displayName}?` : 'Restore item?'}
+        onConfirm={handleConfirmRestore}
+        onOpenChange={handleRestoreDialogOpenChange}
+      />
     </>
   )
 }
