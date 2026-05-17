@@ -583,7 +583,14 @@ export function TaskDialog({
                   <button disabled={taskMutationsSaving} type="submit">
                     Create task
                   </button>
-                  <button className="secondary-button" type="button" onClick={onCancel}>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onPointerDown={(event) => {
+                      event.preventDefault()
+                    }}
+                    onClick={onCancel}
+                  >
                     Cancel
                   </button>
                 </div>
@@ -705,7 +712,15 @@ export function TaskDialog({
                   data-testid="task-dialog-footer"
                   role="contentinfo"
                 >
-                <Button className="default" type="button" variant="default" onClick={onCancel}>
+                <Button
+                  className="default"
+                  type="button"
+                  variant="default"
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                  }}
+                  onClick={onCancel}
+                >
                   Cancel
                 </Button>
                   {onArchive ? (

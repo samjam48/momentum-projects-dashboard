@@ -7,6 +7,7 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import type { Project, ProjectBoardStatus, Task } from '../api/types'
 import { sortProjectsForKanbanBoard, sortTasksForKanban } from './kanbanSort'
 import { buildProject, buildTask } from '../test/fixtures'
+import { readWorkspaceComposerSource } from '../test/readWorkspaceComposerSource'
 
 type KanbanColumnKey = string
 
@@ -45,7 +46,14 @@ type KanbanDndModule = {
 }
 
 const KANBAN_DND_MODULE_PATH = resolve(process.cwd(), 'src/lib/kanbanDnd.ts')
-const APP_SOURCE_PATH = resolve(process.cwd(), 'src/App.tsx')
+const TASK_KANBAN_CONTROLLER_PATH = resolve(
+  process.cwd(),
+  'src/features/tasks/useTaskKanbanController.ts',
+)
+const PROJECT_KANBAN_CONTROLLER_PATH = resolve(
+  process.cwd(),
+  'src/features/projects/useProjectKanbanController.ts',
+)
 
 function requireSource(filePath: string, description: string): string {
   expect(
@@ -130,8 +138,23 @@ describe('generic kanban DnD utility extraction', () => {
       KANBAN_DND_MODULE_PATH,
       'the extracted generic kanban DnD module for FR-5',
     )
-    const appSource = requireSource(APP_SOURCE_PATH, 'App.tsx')
+    const composerSource = readWorkspaceComposerSource()
+    const taskControllerSource = requireSource(
+      TASK_KANBAN_CONTROLLER_PATH,
+      'useTaskKanbanController',
+    )
+    const projectControllerSource = requireSource(
+      PROJECT_KANBAN_CONTROLLER_PATH,
+      'useProjectKanbanController',
+    )
 
+    const importsKanbanDnd = (source: string): boolean => /from ['"].*kanbanDnd['"]/.test(source)
+
+    expect(
+      importsKanbanDnd(composerSource) ||
+        importsKanbanDnd(taskControllerSource) ||
+        importsKanbanDnd(projectControllerSource),
+    ).toBe(true)
     expect(kanbanDndSource).toMatch(/export\s+type\s+KanbanDndConfig\b/)
     expect(kanbanDndSource).toMatch(/\bcolumnIdPrefix\s*:/)
     expect(kanbanDndSource).toMatch(/\bcardIdPrefix\s*:/)
@@ -144,13 +167,12 @@ describe('generic kanban DnD utility extraction', () => {
     expect(kanbanDndSource).toMatch(/export\s+(?:function|const)\s+reorderKanbanItems\b/)
     expect(kanbanDndSource).toMatch(/export\s+(?:function|const)\s+hasKanbanComparableChanged\b/)
 
-    expect(appSource).toMatch(/from ['"].*kanbanDnd['"]/)
-    expect(appSource).not.toContain('function reorderTasksForKanban(')
-    expect(appSource).not.toContain('function hasKanbanStateChanged(')
-    expect(appSource).not.toContain('function getKanbanDropDetailFromDragEvent(')
-    expect(appSource).not.toContain('function reorderProjectsForKanban(')
-    expect(appSource).not.toContain('function hasProjectKanbanComparableChanged(')
-    expect(appSource).not.toContain('function getProjectKanbanDropDetailFromDragEvent(')
+    expect(composerSource).not.toContain('function reorderTasksForKanban(')
+    expect(composerSource).not.toContain('function hasKanbanStateChanged(')
+    expect(composerSource).not.toContain('function getKanbanDropDetailFromDragEvent(')
+    expect(composerSource).not.toContain('function reorderProjectsForKanban(')
+    expect(composerSource).not.toContain('function hasProjectKanbanComparableChanged(')
+    expect(composerSource).not.toContain('function getProjectKanbanDropDetailFromDragEvent(')
   })
 
   it('keeps the extracted kanban DnD utility pure and free of React, browser, and mutation-side-effect wiring', () => {

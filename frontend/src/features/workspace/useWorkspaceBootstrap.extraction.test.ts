@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { readWorkspaceComposerSource } from '../../test/readWorkspaceComposerSource'
+
 function readRequiredSource(relativePath: string, description: string): string {
   const absolutePath = resolve(process.cwd(), relativePath)
 
@@ -41,10 +43,10 @@ describe('FR-9 workspace bootstrap extraction (repo integration)', () => {
   })
 
   it('wires the App composer through useWorkspaceBootstrap (or optional WorkspaceRoot that uses it)', () => {
-    const appSource = readRequiredSource('src/App.tsx', 'App composer')
+    const composerSource = readWorkspaceComposerSource()
 
-    const importsBootstrap = /\bfrom\s+['"].*\/workspace\/useWorkspaceBootstrap['"]/.test(appSource)
-    const importsWorkspaceRoot = /\bfrom\s+['"].*\/app\/WorkspaceRoot['"]/.test(appSource)
+    const importsBootstrap = /\bfrom\s+['"][^'"]*useWorkspaceBootstrap['"]/.test(composerSource)
+    const importsWorkspaceRoot = /\bfrom\s+['"][^'"]*WorkspaceRoot['"]/.test(composerSource)
 
     expect(
       importsBootstrap || importsWorkspaceRoot,
@@ -66,15 +68,15 @@ describe('FR-9 workspace bootstrap extraction (repo integration)', () => {
   })
 
   it('stops owning inline workspace bootstrap state in App.tsx once the hook exists', () => {
-    const appSource = readRequiredSource('src/App.tsx', 'App composer')
+    const composerSource = readWorkspaceComposerSource()
 
-    expect(appSource).not.toMatch(
+    expect(composerSource).not.toMatch(
       /\[\s*workspaceReady\s*,\s*setWorkspaceReady\s*\]\s*=\s*useState/,
     )
-    expect(appSource).not.toMatch(
+    expect(composerSource).not.toMatch(
       /\[\s*taskWorkspacePrimed\s*,\s*setTaskWorkspacePrimed\s*\]\s*=\s*useState/,
     )
-    expect(appSource).not.toMatch(
+    expect(composerSource).not.toMatch(
       /\[\s*hasEvaluatedTaskWorkspaceBootstrap\s*,\s*setHasEvaluatedTaskWorkspaceBootstrap\s*\]\s*=\s*useState/,
     )
   })

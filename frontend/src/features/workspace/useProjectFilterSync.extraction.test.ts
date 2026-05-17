@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { readWorkspaceComposerSource } from '../../test/readWorkspaceComposerSource'
+
 function readRequiredSource(relativePath: string, description: string): string {
   const absolutePath = resolve(process.cwd(), relativePath)
 
@@ -41,15 +43,17 @@ describe('FR-9 project filter sync extraction (repo integration)', () => {
   })
 
   it('wires the App composer through useProjectFilterSync', () => {
-    const appSource = readRequiredSource('src/App.tsx', 'App composer')
+    const composerSource = readWorkspaceComposerSource()
 
-    expect(/\bfrom\s+['"].*\/workspace\/useProjectFilterSync['"]/.test(appSource)).toBe(true)
+    expect(/\bfrom\s+['"][^'"]*useProjectFilterSync['"]/.test(composerSource)).toBe(true)
   })
 
   it('stops calling deriveToolbarProjectId from App.tsx once the sync hook owns that alignment', () => {
-    const appSource = readRequiredSource('src/App.tsx', 'App composer')
+    const composerSource = readWorkspaceComposerSource()
 
-    expect(appSource).not.toMatch(/\bderiveToolbarProjectId\s*\(/)
-    expect(appSource).not.toMatch(/\bimport\s*\{[^}]*\bderiveToolbarProjectId\b[^}]*\}\s*from\s*['"].*stores\/projectFilter['"]/)
+    expect(composerSource).not.toMatch(/\bderiveToolbarProjectId\s*\(/)
+    expect(composerSource).not.toMatch(
+      /\bimport\s*\{[^}]*\bderiveToolbarProjectId\b[^}]*\}\s*from\s*['"].*stores\/projectFilter['"]/,
+    )
   })
 })

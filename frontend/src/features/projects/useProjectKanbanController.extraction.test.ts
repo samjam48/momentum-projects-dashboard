@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { readWorkspaceComposerSource } from '../../test/readWorkspaceComposerSource'
+
 function readRequiredSource(relativePath: string, description: string): string {
   const absolutePath = resolve(process.cwd(), relativePath)
 
@@ -40,19 +42,19 @@ describe('FR-8 project board controller extraction (repo integration)', () => {
   })
 
   it('stops registering project-kanban:drop directly from App.tsx once the controller exists', () => {
-    const appSource = readRequiredSource('src/App.tsx', 'App composer')
+    const composerSource = readWorkspaceComposerSource()
 
-    expect(appSource).not.toMatch(/addEventListener\(\s*['"]project-kanban:drop['"]/)
-    expect(appSource).not.toMatch(/removeEventListener\(\s*['"]project-kanban:drop['"]/)
+    expect(composerSource).not.toMatch(/addEventListener\(\s*['"]project-kanban:drop['"]/)
+    expect(composerSource).not.toMatch(/removeEventListener\(\s*['"]project-kanban:drop['"]/)
   })
 
   it('wires the workspace composer through the feature controller (hook or ProjectBoardView)', () => {
-    const appSource = readRequiredSource('src/App.tsx', 'App composer')
+    const composerSource = readWorkspaceComposerSource()
 
-    const importsController = /from\s+['"]\.\/features\/projects\/useProjectKanbanController['"]/.test(
-      appSource,
+    const importsController = /from\s+['"][^'"]*\/useProjectKanbanController['"]/.test(
+      composerSource,
     )
-    const importsBoardView = /from\s+['"]\.\/features\/projects\/ProjectBoardView['"]/.test(appSource)
+    const importsBoardView = /from\s+['"][^'"]*\/ProjectBoardView['"]/.test(composerSource)
 
     expect(
       importsController || importsBoardView,

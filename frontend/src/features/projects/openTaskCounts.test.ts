@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 
 import type { Project, Task } from '../../api/types'
 import { buildProject, buildTask } from '../../test/fixtures'
+import { readWorkspaceComposerSource } from '../../test/readWorkspaceComposerSource'
 
 type OpenTaskCountsModule = {
   deriveOpenTaskCountsByProjectId: (
@@ -16,7 +17,6 @@ const OPEN_TASK_COUNTS_MODULE_PATH = resolve(
   process.cwd(),
   'src/features/projects/openTaskCounts.ts',
 )
-const APP_SOURCE_PATH = resolve(process.cwd(), 'src/App.tsx')
 
 function requireSource(filePath: string, description: string): string {
 
@@ -45,15 +45,15 @@ describe('project open-task-count utility extraction', () => {
       OPEN_TASK_COUNTS_MODULE_PATH,
       'the extracted project open-task-count helper for FR-2',
     )
-    const appSource = requireSource(APP_SOURCE_PATH, 'App.tsx')
+    const composerSource = readWorkspaceComposerSource()
 
     expect(openTaskCountsSource).toMatch(
       /export\s+(?:function|const)\s+deriveOpenTaskCountsByProjectId\b/,
     )
-    expect(appSource).toMatch(/from ['"].*openTaskCounts['"]/)
-    expect(appSource).not.toContain('for (const task of tasksQuery.data)')
-    expect(appSource).not.toContain("task.status === 'done' || task.status === 'archived'")
-    expect(appSource).not.toContain('counts[task.project_id] =')
+    expect(composerSource).toMatch(/from ['"].*openTaskCounts['"]/)
+    expect(composerSource).not.toContain('for (const task of tasksQuery.data)')
+    expect(composerSource).not.toContain("task.status === 'done' || task.status === 'archived'")
+    expect(composerSource).not.toContain('counts[task.project_id] =')
   })
 
   it('keeps the extracted open-task-count helper free of React and browser APIs', () => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { useProjects } from '../../api/projects'
 import { useTasks } from '../../api/tasks'
-import type { TaskDialogMode } from '../../components/WorkspaceDialogs'
+import type { TaskDialogMode } from './workspaceDialogTypes'
 
 type UseWorkspaceBootstrapArgs = {
   taskDialogMode: TaskDialogMode

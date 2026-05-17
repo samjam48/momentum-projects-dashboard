@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 
 import type { Project, Task } from '../../api/types'
 import { buildProject, buildTask } from '../../test/fixtures'
+import { readWorkspaceComposerSource } from '../../test/readWorkspaceComposerSource'
 
 type TaskSortKey = 'target_date' | 'priority' | 'project_name'
 
@@ -29,7 +30,6 @@ type TaskSortModule = {
 }
 
 const TASK_SORT_MODULE_PATH = resolve(process.cwd(), 'src/features/tasks/taskTableSort.ts')
-const APP_SOURCE_PATH = resolve(process.cwd(), 'src/App.tsx')
 const TASK_SUMMARY_TABLE_SOURCE_PATH = resolve(
   process.cwd(),
   'src/components/TaskSummaryTable.tsx',
@@ -71,7 +71,7 @@ describe('task table sort utility extraction', () => {
       TASK_SORT_MODULE_PATH,
       'the extracted task table sort module for FR-2',
     )
-    const appSource = requireSource(APP_SOURCE_PATH, 'App.tsx')
+    const composerSource = readWorkspaceComposerSource()
     const taskSummaryTableSource = requireSource(
       TASK_SUMMARY_TABLE_SOURCE_PATH,
       'TaskSummaryTable.tsx',
@@ -86,12 +86,12 @@ describe('task table sort utility extraction', () => {
     expect(taskSortSource).toMatch(/export\s+(?:function|const)\s+compareTasks\b/)
     expect(taskSortSource).toMatch(/export\s+(?:function|const)\s+sortTasks\b/)
 
-    expect(appSource).toMatch(/from ['"].*taskTableSort['"]/)
+    expect(composerSource).toMatch(/from ['"].*taskTableSort['"]/)
     expect(taskSummaryTableSource).toMatch(/from ['"].*taskTableSort['"]/)
     expect(tableSortMenuSource).toMatch(/from ['"].*taskTableSort['"]/)
 
-    expect(appSource).not.toContain('function compareTasks(')
-    expect(appSource).not.toContain('function sortTasks(')
+    expect(composerSource).not.toContain('function compareTasks(')
+    expect(composerSource).not.toContain('function sortTasks(')
     expect(taskSummaryTableSource).not.toContain('type TaskSortState =')
     expect(tableSortMenuSource).not.toContain('type TaskSortKey =')
   })

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { buildVenture, buildVentureCategoryLabel } from '../test/fixtures'
+import { displayVentureCategoryTitle } from '../lib/ventureCategoryDisplay'
 import { VentureDialog, type VentureDialogProps } from './VentureDialog'
 
 const labelHustle = buildVentureCategoryLabel({
@@ -36,6 +37,10 @@ function buildProps(overrides: Partial<VentureDialogProps> = {}): VentureDialogP
   }
 }
 
+function getCategoryCombo(): HTMLElement {
+  return screen.getByRole('combobox', { name: /^venture category$/i })
+}
+
 describe('VentureDialog (1.6-8)', () => {
   it('does not wipe venture fields when categoryLabels refetches (new array)', async () => {
     const props = buildProps()
@@ -57,8 +62,9 @@ describe('VentureDialog (1.6-8)', () => {
     expect(descriptionInput).toHaveValue('Side project')
   })
 
-  it('keeps edits after creating a category label when labels list updates', async () => {
+  it('keeps edits after creating a category label via combobox when labels list updates', async () => {
     const existing = labelHustle
+    const user = userEvent.setup()
     const onCreateCategoryLabel = vi.fn().mockResolvedValue(
       buildVentureCategoryLabel({
         id: 'lbl-created',
@@ -78,10 +84,15 @@ describe('VentureDialog (1.6-8)', () => {
     )
 
     const nameInput = screen.getByRole('textbox', { name: /^name$/i })
-    await userEvent.type(nameInput, 'Keep Venture Name')
+    await user.type(nameInput, 'Keep Venture Name')
 
-    await userEvent.type(screen.getByRole('textbox', { name: /new category label/i }), 'Agency')
-    await userEvent.click(screen.getByRole('button', { name: /create label/i }))
+    await user.click(getCategoryCombo())
+    await user.keyboard('Agency')
+    await user.click(
+      await screen.findByRole('option', {
+        name: /create .*agency/i,
+      }),
+    )
 
     await waitFor(() => expect(onCreateCategoryLabel).toHaveBeenCalled())
 
@@ -106,7 +117,7 @@ describe('VentureDialog (1.6-8)', () => {
     )
 
     expect(screen.getByRole('textbox', { name: /^name$/i })).toHaveValue('Keep Venture Name')
-    expect(screen.getByRole('combobox', { name: /category label/i })).toHaveValue('lbl-created')
+    expect(getCategoryCombo()).toHaveValue('Agency')
   })
 
   it('sets default category when labels arrive after open (create)', async () => {
@@ -114,10 +125,12 @@ describe('VentureDialog (1.6-8)', () => {
       <VentureDialog {...buildProps({ categoryLabels: [], hustleLabelId: null })} />,
     )
 
-    rerender(<VentureDialog {...buildProps({ categoryLabels: [labelHustle], hustleLabelId: null })} />)
+    rerender(
+      <VentureDialog {...buildProps({ categoryLabels: [labelHustle], hustleLabelId: null })} />,
+    )
 
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: /category label/i })).toHaveValue(labelHustle.id)
+      expect(getCategoryCombo()).toHaveValue(displayVentureCategoryTitle(labelHustle.name))
     })
   })
 
@@ -130,6 +143,7 @@ describe('VentureDialog (1.6-8)', () => {
       category_label_id: labelBusiness.id,
     })
 
+    const user = userEvent.setup()
     const { rerender } = render(
       <VentureDialog
         {...buildProps({
@@ -141,8 +155,8 @@ describe('VentureDialog (1.6-8)', () => {
     )
 
     const nameInput = screen.getByRole('textbox', { name: /^name$/i })
-    await userEvent.clear(nameInput)
-    await userEvent.type(nameInput, 'Edited name')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Edited name')
 
     const refetchedLabels = [
       buildVentureCategoryLabel({ ...labelHustle }),
@@ -162,3 +176,4 @@ describe('VentureDialog (1.6-8)', () => {
     expect(nameInput).toHaveValue('Edited name')
   })
 })
+
