@@ -163,7 +163,7 @@ The application uses **six** tables, one-to-one with SQLModel table classes.
 |--------|-----------------|----------|---------|------------------|-------|
 | `id` | `String` | Yes | UUID string | **PK** | |
 | `task_id` | `String` | No | — | **FK** → `tasks.id` | Nullable to preserve archived logs after task delete. Active logs remain attached to a task. |
-| `project_id` | `String` | Yes | — | **FK** → `projects.id` | Copied from task on create in service. |
+| `project_id` | `String` | Yes | — | **FK** → `projects.id` | Denormalized from the parent task project. Service enforces parity after create/update time-log flushes and cascades active child logs on task project moves. |
 | `status` | `String` | Yes | `"active"` | | `active` / `archived`. |
 | `activity_type_id` | `String` | No | — | **FK** → `activity_types.id` | Nullable; cleared when activity type is archived (`activity_types.archive_activity_type`). |
 | `hours` | `Float` | Yes | — | | Must be > 0 in API validation. |
@@ -209,7 +209,7 @@ The application uses **six** tables, one-to-one with SQLModel table classes.
 | `projects` | `ventures` | Many → one (optional) | `projects.venture_id` | Nullable FK. |
 | `tasks` | `projects` | Many → one | `tasks.project_id` | |
 | `time_logs` | `tasks` | Many → one | `time_logs.task_id` | Nullable when log is archived on task delete. |
-| `time_logs` | `projects` | Many → one | `time_logs.project_id` | Denormalized; must match task’s project when created via service. |
+| `time_logs` | `projects` | Many → one | `time_logs.project_id` | Denormalized; service enforces parity with `tasks.project_id` on create/update and cascades active child logs when a task moves projects. |
 | `time_logs` | `activity_types` | Many → one (optional) | `time_logs.activity_type_id` | |
 
 **Many-to-many:** None.

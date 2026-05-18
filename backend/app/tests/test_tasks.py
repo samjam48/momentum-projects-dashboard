@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from app.db.database import get_engine
 from app.models.activity_type import ActivityType
+from app.models.task import Task
 from app.models.time_log import TimeLog
 
 from .venture_test_utils import create_active_venture_in_db
@@ -537,6 +538,76 @@ def test_time_logs_are_manual_sorted_and_inherit_project_id(client: TestClient) 
     assert [log["id"] for log in logs] == [third_log["id"], second_log["id"], first_log["id"]]
     assert all(log["source"] == "manual" for log in logs)
     assert all(log["project_id"] == project["id"] for log in logs)
+
+
+def test_time_log_project_id_synced_when_task_moves_project(client: TestClient) -> None:
+    source_project = _create_project(client, name="Source project")
+    target_project = _create_project(client, name="Target project")
+    task = _create_task(client, project_id=str(source_project["id"]))
+
+    active_log = _create_manual_time_log(
+        client,
+        str(task["id"]),
+        hours=1.0,
+        logged_date="2026-05-12",
+        notes="Active row",
+    )
+    archived_log = _create_manual_time_log(
+        client,
+        str(task["id"]),
+        hours=2.0,
+        logged_date="2026-05-13",
+        notes="Archived row",
+    )
+    with Session(get_engine()) as session:
+        archived_row = session.get(TimeLog, archived_log["id"])
+        assert archived_row is not None
+        archived_row.status = "archived"
+        session.add(archived_row)
+        session.commit()
+        session.refresh(archived_row)
+        assert archived_row.project_id == source_project["id"]
+        assert archived_row.status == "archived"
+
+    move_response = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}",
+        json={"project_id": target_project["id"]},
+    )
+    assert move_response.status_code == 200, move_response.text
+
+    with Session(get_engine()) as session:
+        active_row = session.get(TimeLog, active_log["id"])
+        archived_row = session.get(TimeLog, archived_log["id"])
+
+    assert active_row is not None
+    assert archived_row is not None
+    assert active_row.status == "active"
+    assert archived_row.status == "archived"
+    assert archived_row.project_id == source_project["id"]
+    assert active_row.project_id == target_project["id"]
+
+
+def test_create_time_log_persists_task_project_id_after_flush(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+
+    time_log = _create_manual_time_log(
+        client,
+        str(task["id"]),
+        hours=1.0,
+        logged_date="2026-05-12",
+        notes="Created row",
+        project_id="00000000-0000-0000-0000-000000000123",
+    )
+
+    with Session(get_engine()) as session:
+        persisted_task = session.get(Task, task["id"])
+        persisted_time_log = session.get(TimeLog, time_log["id"])
+
+    assert persisted_task is not None
+    assert persisted_time_log is not None
+    assert persisted_time_log.project_id == persisted_task.project_id
+    assert persisted_time_log.project_id == project["id"]
 
 
 def test_list_time_logs_and_actual_hours_exclude_archived_rows(client: TestClient) -> None:

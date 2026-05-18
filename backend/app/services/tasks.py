@@ -129,6 +129,11 @@ def _to_time_log_read(
     )
 
 
+def _enforce_time_log_project_integrity(*, time_log: TimeLog, task: Task) -> None:
+    if time_log.project_id != task.project_id:
+        raise ValueError("Time log project_id must match task.project_id after flush.")
+
+
 def _apply_time_log_update(
     session: Session,
     *,
@@ -197,7 +202,8 @@ def get_task(session: Session, task_id: str) -> Task:
 def update_task(session: Session, task_id: str, payload: TaskUpdate) -> Task:
     task = ensure_task_mutable(session, task_id)
     target_project_id = payload.project_id if payload.project_id is not None else task.project_id
-    if target_project_id != task.project_id:
+    project_id_changed = target_project_id != task.project_id
+    if project_id_changed:
         ensure_project_mutable(session, target_project_id)
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -208,6 +214,14 @@ def update_task(session: Session, task_id: str, payload: TaskUpdate) -> Task:
     task.updated_at = _utc_now()
 
     session.add(task)
+    if project_id_changed:
+        statement = select(TimeLog).where(
+            TimeLog.task_id == task.id,
+            TimeLog.status == "active",
+        )
+        for time_log in session.exec(statement):
+            time_log.project_id = task.project_id
+            session.add(time_log)
     session.commit()
     session.refresh(task)
     return task
@@ -307,6 +321,7 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     )
     session.add(time_log)
     session.flush()
+    _enforce_time_log_project_integrity(time_log=time_log, task=task)
     _recompute_actual_hours(session, task)
     session.commit()
     session.refresh(time_log)
@@ -339,6 +354,7 @@ def update_time_log(
 
     session.add(time_log)
     session.flush()
+    _enforce_time_log_project_integrity(time_log=time_log, task=task)
     _recompute_actual_hours(session, task)
     session.commit()
     session.refresh(time_log)
