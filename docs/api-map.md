@@ -66,7 +66,7 @@ Full paths assume default prefix **`/api/v1`**.
 | POST | `/tasks` | Create task. |
 | GET | `/tasks/{task_id}` | Get task. |
 | PATCH | `/tasks/{task_id}` | Update task. |
-| DELETE | `/tasks/{task_id}` | Hard-delete task and its time logs. |
+| DELETE | `/tasks/{task_id}` | Hard-delete task and archive child time logs. |
 | PATCH | `/tasks/{task_id}/status` | Update task status (Kanban). |
 | GET | `/tasks/{task_id}/time-logs` | List time logs for task. |
 | POST | `/tasks/{task_id}/time-logs` | Create manual time log. |
@@ -261,7 +261,7 @@ Schemas: `backend/app/schemas/task.py`
 
 | | |
 |--|--|
-| **Purpose** | **Hard delete** task and **all** its `time_logs`. |
+| **Purpose** | **Hard delete** task and archive child time logs (`status='archived'`, `task_id=NULL`, `project_id` preserved). |
 | **Response** | `204` empty. |
 | **Errors** | **404** task. |
 
@@ -282,7 +282,7 @@ Schemas: `backend/app/schemas/task.py`
 
 | | |
 |--|--|
-| **Purpose** | List time logs for task, newest `logged_date` / `created_at` first. |
+| **Purpose** | List time logs for task, newest `logged_date` / `created_at` first; returns only rows with `status='active'` still attached to this task (`task_id` match). Archived/detached rows are excluded. |
 | **Response** | `200` — `TimeLogRead[]` with `activity_type_name` / `activity_type_display_name` populated when linked. |
 | **Errors** | **404** if task id invalid. |
 
@@ -498,7 +498,7 @@ Exact field sets match Pydantic models in `backend/app/schemas/`. Notable comput
 
 | Topic | Observation |
 |--------|----------------|
-| **“Delete” vs archive** | `DELETE /projects/{id}` and `DELETE /ventures/{id}` are **soft archives** in the domain sense; `DELETE /tasks/{id}` is a **hard delete**. Naming is easy to misunderstand—clients should read service code. |
+| **“Delete” vs archive** | `DELETE /projects/{id}` and `DELETE /ventures/{id}` are **soft archives** in the domain sense; `DELETE /tasks/{id}` hard-deletes the task while archiving detached child time logs. Naming is easy to misunderstand—clients should read service code. |
 | **Task status routes** | Both `PATCH /tasks/{id}` and `PATCH /tasks/{id}/status` can change status with different request bodies; not duplicate but overlapping surface. |
 | **Activity type DELETE vs PATCH archive** | Two ways to retire types; delete is hard and blocked when referenced. |
 | **OpenAPI vs this doc** | This file can drift from `/docs`; prefer routers/schemas as source of truth when they disagree. |

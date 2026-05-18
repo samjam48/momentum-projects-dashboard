@@ -147,7 +147,7 @@ The application uses **six** tables, one-to-one with SQLModel table classes.
 | `created_at` | `DateTime(timezone=True)` | Yes | Model `utc_now()` | | |
 | `updated_at` | `DateTime(timezone=True)` | Yes | Model `utc_now()` | | |
 
-**Foreign keys:** `project_id` → `projects.id` (no `ON DELETE` in migration). **Application:** deleting a task deletes its time logs in the same transaction (`delete_task`).
+**Foreign keys:** `project_id` → `projects.id` (no `ON DELETE` in migration). **Application:** deleting a task hard-deletes the task and archives child time logs (`status='archived'`, `task_id=NULL`) in the same transaction (`delete_task`).
 
 ---
 
@@ -157,13 +157,14 @@ The application uses **six** tables, one-to-one with SQLModel table classes.
 |--|--|
 | **Purpose** | Time entries linked to a task (and denormalized `project_id`) and optionally an activity type. |
 | **SQLModel** | `TimeLog` — `backend/app/models/time_log.py` |
-| **Created / altered in** | `20260513_0002` → `20260514_0003` (title, location) → `20260515_0004` (`activity_type_id`) |
+| **Created / altered in** | `20260513_0002` → `20260514_0003` (title, location) → `20260515_0004` (`activity_type_id`) → `20260518_0005` (`status`, nullable `task_id`) |
 
 | Column | DB / model type | Required | Default | PK / FK / unique | Notes |
 |--------|-----------------|----------|---------|------------------|-------|
 | `id` | `String` | Yes | UUID string | **PK** | |
-| `task_id` | `String` | Yes | — | **FK** → `tasks.id` | |
+| `task_id` | `String` | No | — | **FK** → `tasks.id` | Nullable to preserve archived logs after task delete. Active logs remain attached to a task. |
 | `project_id` | `String` | Yes | — | **FK** → `projects.id` | Copied from task on create in service. |
+| `status` | `String` | Yes | `"active"` | | `active` / `archived`. |
 | `activity_type_id` | `String` | No | — | **FK** → `activity_types.id` | Nullable; cleared when activity type is archived (`activity_types.archive_activity_type`). |
 | `hours` | `Float` | Yes | — | | Must be > 0 in API validation. |
 | `logged_date` | `Date` | Yes | — | | |
@@ -207,7 +208,7 @@ The application uses **six** tables, one-to-one with SQLModel table classes.
 | `ventures` | `venture_category_labels` | Many → one | `ventures.category_label_id` | |
 | `projects` | `ventures` | Many → one (optional) | `projects.venture_id` | Nullable FK. |
 | `tasks` | `projects` | Many → one | `tasks.project_id` | |
-| `time_logs` | `tasks` | Many → one | `time_logs.task_id` | |
+| `time_logs` | `tasks` | Many → one | `time_logs.task_id` | Nullable when log is archived on task delete. |
 | `time_logs` | `projects` | Many → one | `time_logs.project_id` | Denormalized; must match task’s project when created via service. |
 | `time_logs` | `activity_types` | Many → one (optional) | `time_logs.activity_type_id` | |
 
@@ -217,8 +218,9 @@ The application uses **six** tables, one-to-one with SQLModel table classes.
 
 - `projects.status` / `ventures.status` → `archived` means archived in the domain sense.
 - `activity_types.status` → `archived` hides type from “active” listing and new log validation; existing FKs cleared on archive in application code.
+- `time_logs.status` + nullable `task_id` preserve detached logs when parent task is deleted.
 
-**Hard deletes:** `tasks` (and child `time_logs`), unused `venture_category_labels`, unused `activity_types`.
+**Hard deletes:** `tasks`, unused `venture_category_labels`, unused `activity_types`.
 
 ---
 
@@ -257,6 +259,7 @@ erDiagram
 | `20260513_0002` | `20260513_0002_create_tasks_and_time_logs_tables.py` | `tasks`, `time_logs`. |
 | `20260514_0003` | `20260514_0003_add_time_log_title_and_location.py` | Adds `title`, `location` on `time_logs`. |
 | `20260515_0004` | `20260515_0004_phase_1_6_foundation.py` | New tables + `projects`/`time_logs` columns + FKs + seed data. |
+| `20260518_0005` | `20260518_0005_time_log_status_and_nullable_task_id.py` | Adds `time_logs.status`; makes `time_logs.task_id` nullable for task-delete archive semantics. |
 
 ---
 

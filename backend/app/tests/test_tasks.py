@@ -6,10 +6,11 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.db.database import get_engine
 from app.models.activity_type import ActivityType
+from app.models.time_log import TimeLog
 
 from .venture_test_utils import create_active_venture_in_db
 
@@ -538,6 +539,56 @@ def test_time_logs_are_manual_sorted_and_inherit_project_id(client: TestClient) 
     assert all(log["project_id"] == project["id"] for log in logs)
 
 
+def test_list_time_logs_and_actual_hours_exclude_archived_rows(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+
+    active_log = _create_manual_time_log(
+        client,
+        str(task["id"]),
+        hours=1.25,
+        logged_date="2026-05-12",
+        notes="Active row",
+    )
+    archived_log = _create_manual_time_log(
+        client,
+        str(task["id"]),
+        hours=2.75,
+        logged_date="2026-05-13",
+        notes="Will be archived",
+    )
+
+    with Session(get_engine()) as session:
+        archived_row = session.get(TimeLog, archived_log["id"])
+        assert archived_row is not None
+        archived_row.status = "archived"
+        session.add(archived_row)
+        session.commit()
+        session.refresh(archived_row)
+        assert archived_row.task_id == task["id"]
+        assert archived_row.status == "archived"
+
+    recompute_response = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{active_log['id']}",
+        json={"notes": "Recompute active-only totals"},
+    )
+    assert recompute_response.status_code == 200, recompute_response.text
+
+    logs_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}/time-logs")
+    assert logs_response.status_code == 200, logs_response.text
+    logs = logs_response.json()
+    assert [log["id"] for log in logs] == [active_log["id"]]
+
+    detail_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}")
+    assert detail_response.status_code == 200, detail_response.text
+    assert detail_response.json()["actual_hours"] == 1.25
+
+    list_response = client.get(TASKS_ENDPOINT, params={"project_id": project["id"]})
+    assert list_response.status_code == 200, list_response.text
+    listed_task = next(item for item in list_response.json() if item["id"] == task["id"])
+    assert listed_task["actual_hours"] == 1.25
+
+
 def test_delete_time_log_removes_entry_and_updates_actual_hours(client: TestClient) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=str(project["id"]))
@@ -549,7 +600,7 @@ def test_delete_time_log_removes_entry_and_updates_actual_hours(client: TestClie
         f"{TASKS_ENDPOINT}/{task['id']}/time-logs/{first_log['id']}",
     )
 
-    assert delete_response.status_code in {200, 204}, delete_response.text
+    assert delete_response.status_code == 204, delete_response.text
 
     logs_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}/time-logs")
     assert logs_response.status_code == 200, logs_response.text
@@ -560,6 +611,10 @@ def test_delete_time_log_removes_entry_and_updates_actual_hours(client: TestClie
     task_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}")
     assert task_response.status_code == 200, task_response.text
     assert task_response.json()["actual_hours"] == 2.0
+
+    with Session(get_engine()) as session:
+        deleted_row = session.exec(select(TimeLog).where(TimeLog.id == first_log["id"])).first()
+    assert deleted_row is None
 
 
 def test_time_logs_reject_non_positive_hours_and_missing_task(client: TestClient) -> None:
@@ -579,18 +634,52 @@ def test_time_logs_reject_non_positive_hours_and_missing_task(client: TestClient
     assert missing_task_response.status_code == 404, missing_task_response.text
 
 
-def test_delete_task_removes_task_and_manual_time_logs(client: TestClient) -> None:
+def test_delete_task_archives_child_time_logs_and_removes_task(client: TestClient) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=str(project["id"]))
 
-    _create_manual_time_log(client, str(task["id"]), hours=1.0)
+    first_log = _create_manual_time_log(client, str(task["id"]), hours=1.0)
+    second_log = _create_manual_time_log(client, str(task["id"]), hours=2.0)
     delete_response = client.delete(f"{TASKS_ENDPOINT}/{task['id']}")
     detail_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}")
     logs_response = client.get(f"{TASKS_ENDPOINT}/{task['id']}/time-logs")
 
-    assert delete_response.status_code in {200, 204}, delete_response.text
+    assert delete_response.status_code == 204, delete_response.text
     assert detail_response.status_code == 404, detail_response.text
     assert logs_response.status_code == 404, logs_response.text
+
+    with Session(get_engine()) as session:
+        first_row = session.exec(select(TimeLog).where(TimeLog.id == first_log["id"])).first()
+        second_row = session.exec(select(TimeLog).where(TimeLog.id == second_log["id"])).first()
+
+    assert first_row is not None
+    assert second_row is not None
+    assert first_row.task_id is None
+    assert second_row.task_id is None
+    assert getattr(first_row, "status", None) == "archived"
+    assert getattr(second_row, "status", None) == "archived"
+    assert first_row.project_id == project["id"]
+    assert second_row.project_id == project["id"]
+
+
+def test_delete_task_with_zero_time_logs_still_returns_no_content(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+
+    delete_response = client.delete(f"{TASKS_ENDPOINT}/{task['id']}")
+
+    assert delete_response.status_code == 204, delete_response.text
+
+
+def test_delete_task_succeeds_when_parent_project_archived(client: TestClient) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]))
+
+    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    assert archive_project.status_code in {200, 204}, archive_project.text
+
+    delete_response = client.delete(f"{TASKS_ENDPOINT}/{task['id']}")
+    assert delete_response.status_code == 204, delete_response.text
 
 
 def test_list_tasks_excludes_archived_by_default_and_filters_archived_status(

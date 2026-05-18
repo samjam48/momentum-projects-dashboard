@@ -95,7 +95,10 @@ def _active_activity_type_name_or_422(session: Session, activity_type_id: str) -
 
 def _recompute_actual_hours(session: Session, task: Task) -> None:
     hours_total = session.exec(
-        select(func.sum(TimeLog.hours)).where(TimeLog.task_id == task.id)
+        select(func.sum(TimeLog.hours)).where(
+            TimeLog.task_id == task.id,
+            TimeLog.status == "active",
+        )
     ).one()
     task.actual_hours = float(hours_total or 0.0)
     task.updated_at = _utc_now()
@@ -106,6 +109,8 @@ def _to_time_log_read(
     time_log: TimeLog,
     activity_type_name: str | None = None,
 ) -> TimeLogRead:
+    if time_log.task_id is None:
+        raise ValueError("TimeLog.task_id must be present when building TimeLogRead.")
     return TimeLogRead(
         id=time_log.id,
         task_id=time_log.task_id,
@@ -212,7 +217,9 @@ def delete_task(session: Session, task_id: str) -> None:
     task = _get_task_or_404(session, task_id)
     statement = select(TimeLog).where(TimeLog.task_id == task.id)
     for time_log in session.exec(statement):
-        session.delete(time_log)
+        time_log.status = "archived"
+        time_log.task_id = None
+        session.add(time_log)
     session.delete(task)
     session.commit()
 
@@ -248,7 +255,10 @@ def list_time_logs(session: Session, task_id: str) -> list[TimeLogRead]:
     time_logs = list(
         session.exec(
             select(TimeLog)
-            .where(TimeLog.task_id == task.id)
+            .where(
+                TimeLog.task_id == task.id,
+                TimeLog.status == "active",
+            )
             .order_by(col(TimeLog.logged_date).desc(), col(TimeLog.created_at).desc())
         )
     )
@@ -286,6 +296,7 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     time_log = TimeLog(
         task_id=task.id,
         project_id=task.project_id,
+        status="active",
         activity_type_id=payload.activity_type_id,
         hours=payload.hours,
         logged_date=payload.logged_date,
