@@ -3,8 +3,15 @@
 This document describes the **HTTP API implemented by the FastAPI application** in this repository (`backend/app/`). It is grounded in routers, `main.py`, settings, Pydantic schemas, and service modules—**not** in external product docs unless they match code.
 
 **Base URL path:** All routers below are mounted under `settings.api_v1_prefix`, default **`/api/v1`** (`backend/app/core/config.py`, `backend/app/main.py`).
+The setting is loaded from env var **`MOMENTUM_API_V1_PREFIX`** (because `Settings` uses `env_prefix="MOMENTUM_"`).
 
 **Interactive OpenAPI:** FastAPI’s default **`/docs`** and **`/redoc`** are available unless disabled elsewhere (not customized in `main.py`).
+
+### API prefix contract
+
+- Backend route prefix: `MOMENTUM_API_V1_PREFIX` defaults to `/api/v1`.
+- Frontend API modules currently hardcode `'/api/v1/...'` request paths (for example `frontend/src/api/projects.ts`, `tasks.ts`, `ventures.ts`) and prepend only the host/base origin from `VITE_API_BASE_URL` in `frontend/src/api/client.ts`.
+- Contract: if `MOMENTUM_API_V1_PREFIX` changes, frontend path constants must be updated in lockstep (or centralized first) to keep requests aligned. Changing `VITE_API_BASE_URL` alone does not change the `/api/v1` path segment.
 
 ---
 
@@ -31,9 +38,11 @@ This document describes the **HTTP API implemented by the FastAPI application** 
 | **200** | Successful GET, PATCH, DELETE that returns a body (some DELETEs return 204 instead). |
 | **201** | Successful POST creating a resource. |
 | **204** | Successful DELETE (or PATCH) with **no response body** (`Response` with no content). |
+| **405** | Method exists but is intentionally not implemented for that resource action (for example project/venture DELETE archive aliases removed). |
+| **400** | Well-formed request violates a non-state rule (for example, empty PATCH body where at least one field is required). |
 | **404** | `HTTPException` from services when a primary entity is missing (wording varies per `detail` string). |
 | **409** | Conflict rules (e.g. archived entity cannot be modified). |
-| **422** | **Validation:** Pydantic request body/query validation **or** `HTTPException` with `422` used for domain validation (e.g. invalid `order` payload, empty PATCH for time log). FastAPI’s default validation error JSON shape applies for Pydantic failures. |
+| **422** | Validation-layer failures (Pydantic body/query/path validation). FastAPI’s default validation error JSON shape applies. Service-level `422` also remains in a few explicit domain-validation paths: project board reorder payload composition (`order`), `category_label_id: null` on venture PATCH, and slug-content validation in `_slugify()` for activity types and venture category labels (e.g. punctuation-only names → `"name must contain letters or numbers"`). |
 
 There are **no custom global exception handlers** in `main.py`; expect standard FastAPI / Starlette behaviour for unhandled exceptions (typically **500**).
 
@@ -59,14 +68,15 @@ Full paths assume default prefix **`/api/v1`**.
 | POST | `/projects` | Create project. |
 | GET | `/projects/{project_id}` | Get project by id. |
 | PATCH | `/projects/{project_id}` | Update project. |
-| DELETE | `/projects/{project_id}` | Archive project (optional body). |
+| POST | `/projects/{project_id}/archive` | Archive project (optional body). |
+| DELETE | `/projects/{project_id}` | Not implemented; use POST archive route. |
 | PATCH | `/projects/{project_id}/unarchive` | Unarchive project. |
 | PATCH | `/projects/{project_id}/board-status` | Update board column / order / batch reorder. |
 | GET | `/tasks` | List tasks (filters). |
 | POST | `/tasks` | Create task. |
 | GET | `/tasks/{task_id}` | Get task. |
 | PATCH | `/tasks/{task_id}` | Update task. |
-| DELETE | `/tasks/{task_id}` | Hard-delete task and its time logs. |
+| DELETE | `/tasks/{task_id}` | Hard-delete task and archive child time logs. |
 | PATCH | `/tasks/{task_id}/status` | Update task status (Kanban). |
 | GET | `/tasks/{task_id}/time-logs` | List time logs for task. |
 | POST | `/tasks/{task_id}/time-logs` | Create manual time log. |
@@ -85,10 +95,11 @@ Full paths assume default prefix **`/api/v1`**.
 | POST | `/ventures` | Create venture. |
 | GET | `/ventures/{venture_id}` | Get venture (embeds category label summary). |
 | PATCH | `/ventures/{venture_id}` | Update venture. |
-| DELETE | `/ventures/{venture_id}` | Archive venture (+ cascade archive active projects). |
+| POST | `/ventures/{venture_id}/archive` | Archive venture (+ cascade archive active projects). |
+| DELETE | `/ventures/{venture_id}` | Not implemented; use POST archive route. |
 | PATCH | `/ventures/{venture_id}/unarchive` | Unarchive venture (+ restore venture-archived projects). |
 
-**Total:** **33** route operations in the summary table (some `DELETE` handlers implement archive semantics rather than hard delete).
+**Total:** **35** route operations in the summary table.
 
 ---
 
@@ -132,11 +143,11 @@ Schemas: `backend/app/schemas/project.py`
 | | |
 |--|--|
 | **Purpose** | List projects for a status tab / filters. |
-| **Query params** | `status` (alias for `status_filter`): optional `active` \| `archived`. **Default if omitted:** service treats as **`active`**. `venture_id`: optional string. `board_status`: optional `idea` \| `active` \| `paused` \| `shipped`. `project_type`: optional `project` \| `asset` \| `gig` \| `contract`. `finished`: optional boolean. |
-| **Response** | `200` — JSON array of `ProjectRead`. |
-| **Ordering** | Service: board status rank (idea → active → paused → shipped), then `kanban_order` nulls last, then `created_at`, then `id`. |
+| **Query params** | `status` (alias for `status_filter`): optional `active` \| `archived`. **Default if omitted:** service treats as **`active`**. `venture_id`: optional string. `board_status`: optional `idea` \| `active` \| `paused` \| `shipped`. `project_type`: optional `project` \| `asset` \| `gig` \| `contract`. `finished`: optional boolean. `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: JSON array of `ProjectRead`. With `limit`: `{ "items": ProjectRead[], "next_cursor": string \| null }`. |
+| **Ordering** | Service: board status rank (idea → active → paused → shipped), then `kanban_order` nulls last, then `created_at`, then `id`. Paginated responses preserve this same ordering. |
 | **DB** | `projects` |
-| **Errors** | Standard validation if query types invalid → **422**. |
+| **Errors** | Standard validation if query types invalid → **422**. Invalid cursor token → **400**. |
 
 **Example:** `GET /api/v1/projects?venture_id=<uuid>&board_status=active`
 
@@ -176,7 +187,7 @@ Schemas: `backend/app/schemas/project.py`
 
 ---
 
-### `DELETE /api/v1/projects/{project_id}`
+### `POST /api/v1/projects/{project_id}/archive`
 
 | | |
 |--|--|
@@ -184,6 +195,15 @@ Schemas: `backend/app/schemas/project.py`
 | **Body** | Optional `ProjectArchive`: `finished` boolean or omit. If `finished` omitted, service sets `finished` to `true` when `board_status == "shipped"`, else `false`. |
 | **Response** | `204` empty. |
 | **Errors** | **404** if project id missing. |
+
+---
+
+### `DELETE /api/v1/projects/{project_id}`
+
+| | |
+|--|--|
+| **Purpose** | Not implemented for archive semantics. |
+| **Response** | **405** with guidance to use `POST /api/v1/projects/{project_id}/archive`. |
 
 ---
 
@@ -220,10 +240,11 @@ Schemas: `backend/app/schemas/task.py`
 | | |
 |--|--|
 | **Purpose** | List tasks. |
-| **Query** | `project_id` optional. `status` optional (`backlog` \| `in_progress` \| `review` \| `done` \| `archived`). **If `status` omitted**, service excludes `archived` by default. `priority` optional (`low` \| `medium` \| `high` \| `urgent`). |
-| **Response** | `200` — list of `TaskRead`. |
+| **Query** | `project_id` optional. `status` optional (`backlog` \| `in_progress` \| `review` \| `done` \| `archived`). **If `status` omitted**, service excludes `archived` by default. `priority` optional (`low` \| `medium` \| `high` \| `urgent`). `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `TaskRead[]`. With `limit`: `{ "items": TaskRead[], "next_cursor": string \| null }`. |
 | **DB** | `tasks` |
 | **Ordering** | `created_at` ascending. |
+| **Errors** | Invalid cursor token → **400**. `cursor` without `limit` or invalid `limit` bounds → **422**. |
 
 ---
 
@@ -261,7 +282,7 @@ Schemas: `backend/app/schemas/task.py`
 
 | | |
 |--|--|
-| **Purpose** | **Hard delete** task and **all** its `time_logs`. |
+| **Purpose** | **Hard delete** task and archive child time logs (`status='archived'`, `task_id=NULL`, `project_id` preserved). |
 | **Response** | `204` empty. |
 | **Errors** | **404** task. |
 
@@ -282,7 +303,8 @@ Schemas: `backend/app/schemas/task.py`
 
 | | |
 |--|--|
-| **Purpose** | List time logs for task, newest `logged_date` / `created_at` first. |
+| **Purpose** | List time logs for task, newest `logged_date` / `created_at` first; returns only rows with `status='active'` still attached to this task (`task_id` match). Archived/detached rows are excluded. |
+| **Pagination** | Deferred by design in this phase: `limit`/`cursor` are ignored on this endpoint; response shape remains `TimeLogRead[]`. |
 | **Response** | `200` — `TimeLogRead[]` with `activity_type_name` / `activity_type_display_name` populated when linked. |
 | **Errors** | **404** if task id invalid. |
 
@@ -296,7 +318,7 @@ Schemas: `backend/app/schemas/task.py`
 | **Body** | `TimeLogCreate`: required `hours` (> 0), `logged_date`; optional `activity_type_id` (must be **active** type), `notes`, `title`, `location`. |
 | **Response** | `201` — `TimeLogRead`. |
 | **Side effects** | Recomputes `tasks.actual_hours`. |
-| **Errors** | **404** task; **422** invalid activity type. |
+| **Errors** | **404** task; **409** invalid/archived activity type id. |
 
 ---
 
@@ -305,10 +327,10 @@ Schemas: `backend/app/schemas/task.py`
 | | |
 |--|--|
 | **Purpose** | Partial update of log belonging to task. |
-| **Body** | `TimeLogUpdate` — at least one field required (service **422** if empty). |
+| **Body** | `TimeLogUpdate` — at least one field required (service **400** if empty). |
 | **Response** | `200` — `TimeLogRead`. |
 | **Side effects** | Recomputes `tasks.actual_hours` if `hours` changes. |
-| **Errors** | **404** wrong task or missing log; **422** empty body or bad activity type. |
+| **Errors** | **404** wrong task or missing log; **400** empty body; **409** invalid/archived activity type id. |
 
 ---
 
@@ -332,8 +354,8 @@ Schemas: `backend/app/schemas/activity_type.py`
 
 | | |
 |--|--|
-| **Query** | `status`: optional `active` \| `archived`. **Default:** `active`. |
-| **Response** | `200` — `ActivityTypeRead[]` ordered by `sort_order` nulls last, then `created_at`. |
+| **Query** | `status`: optional `active` \| `archived`. **Default:** `active`. `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `ActivityTypeRead[]` ordered by `sort_order` nulls last, then `created_at`. With `limit`: `{ "items": ActivityTypeRead[], "next_cursor": string \| null }`, using the same ordering sequence. |
 | **DB** | `activity_types` |
 
 ---
@@ -344,7 +366,7 @@ Schemas: `backend/app/schemas/activity_type.py`
 |--|--|
 | **Body** | `ActivityTypeCreate`: `name` (non-blank, max 25 chars). Slug derived server-side; slug `uncategorised` forbidden. |
 | **Response** | `201` — `ActivityTypeRead`. |
-| **Errors** | **422** duplicate name/slug or reserved slug (HTTPException messages). |
+| **Errors** | **409** duplicate name/slug or reserved slug (`uncategorised`). Shape validation cases remain **422**. |
 
 ---
 
@@ -364,7 +386,7 @@ Schemas: `backend/app/schemas/activity_type.py`
 |--|--|
 | **Purpose** | Hard delete if **no** time logs reference it. |
 | **Response** | `204` empty. |
-| **Errors** | **404**; **422** `"Activity type is used by time logs."` |
+| **Errors** | **404**; **409** `"Activity type is used by time logs."` |
 
 ---
 
@@ -389,7 +411,8 @@ Schemas: `backend/app/schemas/venture_category_label.py`
 | | |
 |--|--|
 | **Purpose** | List all labels with `usage_count` (number of ventures referencing each). |
-| **Response** | `200` — `VentureCategoryLabelRead[]` (seeded slugs sort first per service). |
+| **Query** | `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `VentureCategoryLabelRead[]` (seeded slugs sort first per service). With `limit`: `{ "items": VentureCategoryLabelRead[], "next_cursor": string \| null }`, preserving the same seeded-rank/name/id ordering. |
 | **DB** | `venture_category_labels`, aggregate on `ventures` |
 
 ---
@@ -398,7 +421,7 @@ Schemas: `backend/app/schemas/venture_category_label.py`
 
 | | |
 |--|--|
-| **Body** | `VentureCategoryLabelCreate`: `name` (non-blank). Slug derived; duplicate slug → **422** `"name already exists"`. |
+| **Body** | `VentureCategoryLabelCreate`: `name` (non-blank). Slug derived; duplicate slug → **409** `"name already exists"`. |
 | **Response** | `201` — `VentureCategoryLabelRead` with `usage_count: 0`. |
 
 ---
@@ -418,7 +441,7 @@ Schemas: `backend/app/schemas/venture_category_label.py`
 |--|--|
 | **Purpose** | Hard delete when `usage_count == 0`. |
 | **Response** | `204` empty. |
-| **Errors** | **404**; **422** `"Label is in use by one or more ventures."` |
+| **Errors** | **404**; **409** `"Label is in use by one or more ventures."` |
 
 ---
 
@@ -432,8 +455,8 @@ Schemas: `backend/app/schemas/venture.py`
 
 | | |
 |--|--|
-| **Query** | `status`: optional `active` \| `archived` — **default `active`**. `category_label_id` optional filter. |
-| **Response** | `200` — `VentureRead[]` each including nested `category_label` summary. |
+| **Query** | `status`: optional `active` \| `archived` — **default `active`**. `category_label_id` optional filter. `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `VentureRead[]` each including nested `category_label` summary. With `limit`: `{ "items": VentureRead[], "next_cursor": string \| null }`. |
 | **DB** | `ventures`, `venture_category_labels` |
 
 ---
@@ -466,12 +489,21 @@ Schemas: `backend/app/schemas/venture.py`
 
 ---
 
-### `DELETE /api/v1/ventures/{venture_id}`
+### `POST /api/v1/ventures/{venture_id}/archive`
 
 | | |
 |--|--|
 | **Purpose** | Archive venture; cascades to active projects (sets them archived, `archived_by_venture=true`). **Idempotent:** if already archived, returns **204** without error. |
 | **Response** | `204` empty. |
+
+---
+
+### `DELETE /api/v1/ventures/{venture_id}`
+
+| | |
+|--|--|
+| **Purpose** | Not implemented for archive semantics. |
+| **Response** | **405** with guidance to use `POST /api/v1/ventures/{venture_id}/archive`. |
 
 ---
 
@@ -498,7 +530,7 @@ Exact field sets match Pydantic models in `backend/app/schemas/`. Notable comput
 
 | Topic | Observation |
 |--------|----------------|
-| **“Delete” vs archive** | `DELETE /projects/{id}` and `DELETE /ventures/{id}` are **soft archives** in the domain sense; `DELETE /tasks/{id}` is a **hard delete**. Naming is easy to misunderstand—clients should read service code. |
+| **“Delete” vs archive** | Archive is explicit via `POST /projects/{id}/archive` and `POST /ventures/{id}/archive`. `DELETE /tasks/{id}` hard-deletes the task while archiving detached child time logs. |
 | **Task status routes** | Both `PATCH /tasks/{id}` and `PATCH /tasks/{id}/status` can change status with different request bodies; not duplicate but overlapping surface. |
 | **Activity type DELETE vs PATCH archive** | Two ways to retire types; delete is hard and blocked when referenced. |
 | **OpenAPI vs this doc** | This file can drift from `/docs`; prefer routers/schemas as source of truth when they disagree. |

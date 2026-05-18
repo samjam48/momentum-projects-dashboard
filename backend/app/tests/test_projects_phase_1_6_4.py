@@ -246,7 +246,7 @@ def test_archive_project_defaults_finished_true_when_board_status_is_shipped(
         finished=False,
     )
 
-    archive = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive.status_code in {200, 204}, archive.text
 
     detail = client.get(f"{PROJECTS_ENDPOINT}/{project['id']}")
@@ -272,9 +272,8 @@ def test_archive_project_respects_explicit_finished_override(client: TestClient)
         finished=False,
     )
 
-    archive_shipped = client.request(
-        "DELETE",
-        f"{PROJECTS_ENDPOINT}/{shipped_project['id']}",
+    archive_shipped = client.post(
+        f"{PROJECTS_ENDPOINT}/{shipped_project['id']}/archive",
         json={"finished": False},
     )
     assert archive_shipped.status_code in {200, 204}, archive_shipped.text
@@ -282,9 +281,8 @@ def test_archive_project_respects_explicit_finished_override(client: TestClient)
     assert shipped_detail.status_code == 200, shipped_detail.text
     assert shipped_detail.json()["finished"] is False
 
-    archive_active = client.request(
-        "DELETE",
-        f"{PROJECTS_ENDPOINT}/{active_project['id']}",
+    archive_active = client.post(
+        f"{PROJECTS_ENDPOINT}/{active_project['id']}/archive",
         json={"finished": True},
     )
     assert archive_active.status_code in {200, 204}, archive_active.text
@@ -299,7 +297,7 @@ def test_archive_project_under_active_venture_does_not_set_archived_by_venture(
     venture = _create_venture_in_db("Active parent")
     project = _create_project(client, venture_id=venture.id, name="Direct archive")
 
-    archive = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive.status_code in {200, 204}, archive.text
 
     stored = _project_from_db(str(project["id"]))
@@ -332,7 +330,7 @@ def test_unarchive_project_restores_active_and_clears_archived_by_venture(
         name="Needs unarchive",
         archived_by_venture=True,
     )
-    archive = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive.status_code in {200, 204}, archive.text
 
     unarchive = client.patch(f"{PROJECTS_ENDPOINT}/{project['id']}/unarchive")
@@ -345,9 +343,21 @@ def test_unarchive_project_restores_active_and_clears_archived_by_venture(
 def test_unarchive_blocked_when_parent_venture_archived(client: TestClient) -> None:
     venture = _create_venture_in_db("Archived parent candidate")
     project = _create_project(client, venture_id=venture.id, name="Blocked unarchive")
-    archive = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive.status_code in {200, 204}, archive.text
     _set_venture_status_in_db(venture.id, "archived")
 
     unarchive = client.patch(f"{PROJECTS_ENDPOINT}/{project['id']}/unarchive")
     assert unarchive.status_code == 409, unarchive.text
+
+
+def test_delete_project_no_longer_archives_project(client: TestClient) -> None:
+    venture = _create_venture_in_db("Delete alias removed")
+    project = _create_project(client, venture_id=venture.id, name="DELETE should not archive")
+
+    delete_response = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    assert delete_response.status_code == 405, delete_response.text
+
+    detail = client.get(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["status"] == "active"

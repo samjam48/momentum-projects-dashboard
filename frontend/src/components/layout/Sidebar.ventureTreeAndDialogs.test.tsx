@@ -87,9 +87,9 @@ function installSidebarFetchMock(options?: {
       return Promise.resolve(jsonOk([]))
     }
 
-    const ventureDeleteMatch = url.pathname.match(/^\/api\/v1\/ventures\/([^/]+)$/)
-    if (ventureDeleteMatch && method === 'DELETE') {
-      const [, ventureId] = ventureDeleteMatch
+    const ventureArchiveMatch = url.pathname.match(/^\/api\/v1\/ventures\/([^/]+)\/archive$/)
+    if (ventureArchiveMatch && method === 'POST') {
+      const [, ventureId] = ventureArchiveMatch
       activeVentures = activeVentures.map((venture) =>
         venture.id === ventureId ? { ...venture, status: 'archived' } : venture,
       )

@@ -1,21 +1,30 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.db.database import SessionDep
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.venture import VentureCreate, VentureRead, VentureStatus, VentureUpdate
 from app.services import ventures
 
 router = APIRouter(prefix="/ventures")
 
 
-@router.get("", response_model=list[VentureRead])
+@router.get("", response_model=list[VentureRead] | PaginatedResponse[VentureRead])
 def list_ventures(
     session: SessionDep,
     status_filter: VentureStatus | None = Query(default=None, alias="status"),
     category_label_id: str | None = None,
-) -> list[VentureRead]:
-    return ventures.list_ventures(session, status_filter, category_label_id)
+    limit: int | None = Query(default=None, ge=1, le=500),
+    cursor: str | None = None,
+) -> list[VentureRead] | PaginatedResponse[VentureRead]:
+    return ventures.list_ventures_paginated(
+        session,
+        status_filter,
+        category_label_id,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.post("", response_model=VentureRead, status_code=status.HTTP_201_CREATED)
@@ -37,10 +46,21 @@ def update_venture(
     return ventures.update_venture(session, venture_id, payload)
 
 
-@router.delete("/{venture_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{venture_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
 def archive_venture(session: SessionDep, venture_id: str) -> Response:
     ventures.archive_venture(session, venture_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{venture_id}", status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+def delete_venture(venture_id: str) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail=(
+            "DELETE /ventures/{venture_id} is not implemented. "
+            "Use POST /ventures/{venture_id}/archive."
+        ),
+    )
 
 
 @router.patch("/{venture_id}/unarchive", response_model=VentureRead)

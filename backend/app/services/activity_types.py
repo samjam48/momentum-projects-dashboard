@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 
+from app.core.time import utc_now
 from app.models.activity_type import ActivityType
 from app.models.time_log import TimeLog
 from app.schemas.activity_type import (
@@ -11,15 +11,12 @@ from app.schemas.activity_type import (
     ActivityTypeStatus,
     ActivityTypeUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, decode_cursor, encode_cursor
 from fastapi import HTTPException, status
 from sqlmodel import Session, col, select
 
 _SLUG_NON_ALNUM_PATTERN = re.compile(r"[^a-z0-9]+")
 _RESERVED_UNCATEGORISED = "uncategorised"
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _slugify(name: str) -> str:
@@ -59,7 +56,7 @@ def _ensure_slug_unique(
     if current_activity_type_id is not None and existing.id == current_activity_type_id:
         return
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_409_CONFLICT,
         detail="name already exists",
     )
 
@@ -79,23 +76,78 @@ def _to_read(activity_type: ActivityType) -> ActivityTypeRead:
 def list_activity_types(
     session: Session,
     status_filter: ActivityTypeStatus | None,
-) -> list[ActivityTypeRead]:
+) -> list[ActivityTypeRead] | PaginatedResponse[ActivityTypeRead]:
+    return list_activity_types_paginated(
+        session,
+        status_filter,
+        limit=None,
+        cursor=None,
+    )
+
+
+def list_activity_types_paginated(
+    session: Session,
+    status_filter: ActivityTypeStatus | None,
+    *,
+    limit: int | None,
+    cursor: str | None,
+) -> list[ActivityTypeRead] | PaginatedResponse[ActivityTypeRead]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+
     active_filter = status_filter or "active"
-    rows = list(
-        session.exec(
-            select(ActivityType)
-            .where(ActivityType.status == active_filter)
-            .order_by(col(ActivityType.sort_order).nulls_last(), col(ActivityType.created_at))
+    statement = (
+        select(ActivityType)
+        .where(ActivityType.status == active_filter)
+        .order_by(
+            col(ActivityType.sort_order).nulls_last(),
+            col(ActivityType.created_at),
         )
     )
-    return [_to_read(row) for row in rows]
+    rows = list(session.exec(statement))
+    if limit is None:
+        return [_to_read(row) for row in rows]
+
+    start_index = 0
+    if cursor is not None:
+        try:
+            cursor_values = decode_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            ) from exc
+        if len(cursor_values) != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        cursor_id = cursor_values[0]
+        matching_indices = [idx for idx, row in enumerate(rows) if row.id == cursor_id]
+        if not matching_indices:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        start_index = matching_indices[0] + 1
+
+    page_items = rows[start_index : start_index + limit]
+    has_more = start_index + limit < len(rows)
+    next_cursor = encode_cursor((page_items[-1].id,)) if has_more and page_items else None
+    return PaginatedResponse(
+        items=[_to_read(row) for row in page_items],
+        next_cursor=next_cursor,
+    )
 
 
 def create_activity_type(session: Session, payload: ActivityTypeCreate) -> ActivityTypeRead:
     slug = _slugify(payload.name)
     if slug == _RESERVED_UNCATEGORISED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="uncategorised is reserved",
         )
     _ensure_slug_unique(session, slug)
@@ -120,14 +172,14 @@ def update_activity_type(
     slug = _slugify(payload.name)
     if slug == _RESERVED_UNCATEGORISED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="uncategorised is reserved",
         )
     _ensure_slug_unique(session, slug, current_activity_type_id=activity_type.id)
 
     activity_type.name = _to_title_case(payload.name.strip())
     activity_type.slug = slug
-    activity_type.updated_at = _utc_now()
+    activity_type.updated_at = utc_now()
     session.add(activity_type)
     session.commit()
     session.refresh(activity_type)
@@ -141,7 +193,7 @@ def delete_activity_type(session: Session, activity_type_id: str) -> None:
     ).first()
     if used is not None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Activity type is used by time logs.",
         )
     session.delete(activity_type)
@@ -152,7 +204,7 @@ def archive_activity_type(session: Session, activity_type_id: str) -> None:
     activity_type = _get_activity_type_or_404(session, activity_type_id)
     if activity_type.status != "archived":
         activity_type.status = "archived"
-        activity_type.updated_at = _utc_now()
+        activity_type.updated_at = utc_now()
         session.add(activity_type)
     time_logs = list(
         session.exec(select(TimeLog).where(TimeLog.activity_type_id == activity_type.id))

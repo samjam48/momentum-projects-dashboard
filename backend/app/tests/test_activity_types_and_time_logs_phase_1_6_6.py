@@ -148,8 +148,8 @@ def test_create_activity_type_trims_and_validates_uniqueness_reserved_and_max_le
     assert created.status_code == 201, created.text
     assert created.json()["name"] == "Deep Work"
     assert created.json()["slug"] == "deep-work"
-    assert duplicate.status_code == 422, duplicate.text
-    assert reserved.status_code == 422, reserved.text
+    assert duplicate.status_code == 409, duplicate.text
+    assert reserved.status_code == 409, reserved.text
     assert too_long.status_code == 422, too_long.text
 
 
@@ -176,7 +176,7 @@ def test_patch_activity_type_supports_rename_with_same_validation_rules(
     assert renamed.status_code == 200, renamed.text
     assert renamed.json()["name"] == "Planning Session"
     assert renamed.json()["slug"] == "planning-session"
-    assert duplicate.status_code == 422, duplicate.text
+    assert duplicate.status_code == 409, duplicate.text
     assert too_long.status_code == 422, too_long.text
 
 
@@ -204,7 +204,7 @@ def test_delete_activity_type_rejects_when_used_and_returns_404_for_unknown_id(
         f"{ACTIVITY_TYPES_ENDPOINT}/00000000-0000-0000-0000-000000000000"
     )
 
-    assert used_delete.status_code == 422, used_delete.text
+    assert used_delete.status_code == 409, used_delete.text
     assert unknown_delete.status_code == 404, unknown_delete.text
 
 
@@ -274,8 +274,8 @@ def test_create_time_log_accepts_optional_activity_type_and_rejects_unknown_or_a
 
     assert no_type.status_code == 201, no_type.text
     assert with_type.status_code == 201, with_type.text
-    assert unknown.status_code == 422, unknown.text
-    assert archived.status_code == 422, archived.text
+    assert unknown.status_code == 409, unknown.text
+    assert archived.status_code == 409, archived.text
 
 
 def test_time_log_reads_include_activity_type_fields_and_uncategorised_display(

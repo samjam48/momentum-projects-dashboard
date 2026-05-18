@@ -38,12 +38,13 @@ npm run test -- --coverage  # ≥ 70%
 ```
 `make lint` and `make test` run these. Use them.
 ---
-## Current Sprint — Phase 1.6: Ventures, Project Types, Project Kanban, Activity Types
-**Goal:** Implement the signed-off Phase 1.6 domain migration: ventures and category labels, projects nested under ventures with `project_type`, a dedicated Project Kanban board, and time-log activity types.
-**Status (2026-05-16):** Tickets **1.6-9** through **1.6-15** (including post–1.6-12 polish **1.6-13** / **1.6-14** and final polish **1.6-15**) are implemented on **`feat/phase-1.6`** with per-ticket commits and Reviewer **SIGNED OFF**. Owner: run `make lint` / `make test`, review diff vs `main`, then open PR (or delegate **PR Checker** per `agents/orchestrator.md`). Reviewer mapping: **`plans/phase-1.6-reviewer-checklist.md`**.
-**Ticket source:** Implement `plans/tickets-phase-1.6-2026-05-15.md` in dependency order (`1.6-1` through `1.6-15`) with per-ticket Reviewer sign-off.
-**Primary references:** `plans/PRD-phase-1.6-2026-05-15.md`, `plans/TRD-phase-1.6-2026-05-15.md`, `docs/V1-PRD.md`, and `docs/V1-TRD.md`.
-**Out of scope:** Task `type` / labels, time-log grouping/filter by activity type, income/goals/dashboard ship, Toggl sync, server-persisted preferences, and true hard-delete/purge UI.
+## Current Sprint — Backend hardening refactor (pre Phase 2 income)
+**Goal:** Close code-review P0/P1 backend gaps: unified task/time-log mutation guards, time-log archive on task delete, `project_id` integrity, HTTP status semantics, POST archive routes, `utc_now` DRY, and opt-in list pagination — per signed-off planning package (2026-05-18).
+**Status (2026-05-18):** Planning **SIGNED OFF**. Phases **A-F** are implemented and committed on **`feat/backend-refactor`** via orchestrator. Awaiting owner verification, final review summary, and merge decision.
+**Ticket source:** `plans/tickets-backend-refactor-2026-05-18.md` in dependency order (**BR-1** through **BR-17**).
+**Primary references:** `plans/PRD-backend-refactor-2026-05-18.md`, `plans/TRD-backend-refactor-2026-05-18.md`, `ADR/001`–`003`, `docs/api-map.md`, `docs/database-schema.md`.
+**Out of scope:** Auth, Postgres, Phase 2 income schema/endpoints, frontend refactor (coordinate only for BR-10/BR-14), true purge UI.
+**Phase 1.6 note:** Venture/project Kanban and activity types remain on **`feat/phase-1.6`** until owner merges; do not conflate with this sprint unless explicitly stacked.
 ---
 ## Definition of Done
 1. All acceptance criteria tests pass

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
-from typing import cast
+from datetime import date
+from typing import Any, cast
 
+from app.core.time import utc_now
 from app.models.activity_type import ActivityType
 from app.models.project import Project
 from app.models.task import Task
 from app.models.time_log import TimeLog
 from app.models.venture import Venture
+from app.schemas.pagination import PaginatedResponse, encode_cursor
 from app.schemas.task import (
     TaskCreate,
     TaskPriority,
+    TaskRead,
     TaskStatus,
     TaskStatusUpdate,
     TaskUpdate,
@@ -18,17 +21,15 @@ from app.schemas.task import (
     TimeLogRead,
     TimeLogUpdate,
 )
+from app.services.pagination import apply_cursor_limit
+from app.services.task_guards import ensure_project_mutable, ensure_task_mutable
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
-
-
 def _utc_today() -> date:
-    return _utc_now().date()
+    return utc_now().date()
 
 
 def _get_task_or_404(session: Session, task_id: str) -> Task:
@@ -41,26 +42,6 @@ def _get_task_or_404(session: Session, task_id: str) -> Task:
     return task
 
 
-def _get_project_or_404(session: Session, project_id: str) -> Project:
-    project = session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found.",
-        )
-    return project
-
-
-def _ensure_task_project_is_active(session: Session, project_id: str) -> Project:
-    project = _get_project_or_404(session, project_id)
-    if project.status == "archived":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Archived projects cannot accept task changes.",
-        )
-    return project
-
-
 def _ensure_parent_chain_allows_archived_leave_kanban(
     session: Session,
     *,
@@ -71,7 +52,18 @@ def _ensure_parent_chain_allows_archived_leave_kanban(
     if prior_status != "archived":
         return
 
-    project = _ensure_task_project_is_active(session, task_project_id)
+    project = session.get(Project, task_project_id)
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found.",
+        )
+    if project.status == "archived":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Archived projects cannot accept task changes.",
+        )
+
     venture_id = project.venture_id
     if venture_id is None:
         return
@@ -91,11 +83,11 @@ def _apply_completed_date(status_value: TaskStatus, completed_date: date | None)
     return None
 
 
-def _active_activity_type_name_or_422(session: Session, activity_type_id: str) -> str:
+def _active_activity_type_name_or_409(session: Session, activity_type_id: str) -> str:
     activity_type = session.get(ActivityType, activity_type_id)
     if activity_type is None or activity_type.status != "active":
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="activity_type_id must reference an active activity type",
         )
     return activity_type.name
@@ -103,10 +95,13 @@ def _active_activity_type_name_or_422(session: Session, activity_type_id: str) -
 
 def _recompute_actual_hours(session: Session, task: Task) -> None:
     hours_total = session.exec(
-        select(func.sum(TimeLog.hours)).where(TimeLog.task_id == task.id)
+        select(func.sum(TimeLog.hours)).where(
+            TimeLog.task_id == task.id,
+            TimeLog.status == "active",
+        )
     ).one()
     task.actual_hours = float(hours_total or 0.0)
-    task.updated_at = _utc_now()
+    task.updated_at = utc_now()
     session.add(task)
 
 
@@ -114,6 +109,8 @@ def _to_time_log_read(
     time_log: TimeLog,
     activity_type_name: str | None = None,
 ) -> TimeLogRead:
+    if time_log.task_id is None:
+        raise ValueError("TimeLog.task_id must be present when building TimeLogRead.")
     return TimeLogRead(
         id=time_log.id,
         task_id=time_log.task_id,
@@ -130,6 +127,33 @@ def _to_time_log_read(
         location=time_log.location,
         created_at=time_log.created_at,
     )
+
+
+def _enforce_time_log_project_integrity(*, time_log: TimeLog, task: Task) -> None:
+    if time_log.project_id != task.project_id:
+        raise ValueError("Time log project_id must match task.project_id after flush.")
+
+
+def _apply_time_log_update(
+    session: Session,
+    *,
+    time_log: TimeLog,
+    update_data: dict[str, Any],
+) -> None:
+    if "activity_type_id" in update_data:
+        new_activity_id = update_data["activity_type_id"]
+        if new_activity_id is not None:
+            _active_activity_type_name_or_409(session, new_activity_id)
+        time_log.activity_type_id = new_activity_id
+
+    for field_name in ("hours", "logged_date"):
+        value = update_data.get(field_name)
+        if value is not None:
+            setattr(time_log, field_name, value)
+
+    for field_name in ("notes", "title", "location"):
+        if field_name in update_data:
+            setattr(time_log, field_name, update_data[field_name])
 
 
 def list_tasks(
@@ -152,8 +176,53 @@ def list_tasks(
     return list(session.exec(statement))
 
 
+def list_tasks_paginated(
+    session: Session,
+    project_id: str | None,
+    task_status: TaskStatus | None,
+    priority: TaskPriority | None,
+    *,
+    limit: int | None,
+    cursor: str | None,
+) -> list[Task] | PaginatedResponse[TaskRead]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+    if limit is None:
+        return list_tasks(session, project_id, task_status, priority)
+
+    statement = select(Task)
+    if project_id is not None:
+        statement = statement.where(Task.project_id == project_id)
+    if task_status is not None:
+        statement = statement.where(Task.status == task_status)
+    else:
+        statement = statement.where(Task.status != "archived")
+    if priority is not None:
+        statement = statement.where(Task.priority == priority)
+
+    statement = apply_cursor_limit(
+        statement,
+        limit,
+        cursor,
+        (col(Task.created_at), col(Task.id)),
+    )
+    page_rows = list(session.exec(statement))
+    page_items = page_rows[:limit]
+    next_cursor = None
+    if len(page_rows) > limit and page_items:
+        last_item = page_items[-1]
+        next_cursor = encode_cursor((last_item.created_at.isoformat(), last_item.id))
+    return PaginatedResponse(
+        items=[TaskRead.model_validate(item) for item in page_items],
+        next_cursor=next_cursor,
+    )
+
+
 def create_task(session: Session, payload: TaskCreate) -> Task:
-    _ensure_task_project_is_active(session, payload.project_id)
+    ensure_project_mutable(session, payload.project_id)
     task = Task(
         project_id=payload.project_id,
         title=payload.title,
@@ -176,18 +245,28 @@ def get_task(session: Session, task_id: str) -> Task:
 
 
 def update_task(session: Session, task_id: str, payload: TaskUpdate) -> Task:
-    task = _get_task_or_404(session, task_id)
-    target_project_id = payload.project_id or task.project_id
-    _ensure_task_project_is_active(session, target_project_id)
+    task = ensure_task_mutable(session, task_id)
+    target_project_id = payload.project_id if payload.project_id is not None else task.project_id
+    project_id_changed = target_project_id != task.project_id
+    if project_id_changed:
+        ensure_project_mutable(session, target_project_id)
 
     update_data = payload.model_dump(exclude_unset=True)
     next_status = cast(TaskStatus, update_data.get("status", task.status))
     for field_name, value in update_data.items():
         setattr(task, field_name, value)
     task.completed_date = _apply_completed_date(next_status, task.completed_date)
-    task.updated_at = _utc_now()
+    task.updated_at = utc_now()
 
     session.add(task)
+    if project_id_changed:
+        statement = select(TimeLog).where(
+            TimeLog.task_id == task.id,
+            TimeLog.status == "active",
+        )
+        for time_log in session.exec(statement):
+            time_log.project_id = task.project_id
+            session.add(time_log)
     session.commit()
     session.refresh(task)
     return task
@@ -197,7 +276,9 @@ def delete_task(session: Session, task_id: str) -> None:
     task = _get_task_or_404(session, task_id)
     statement = select(TimeLog).where(TimeLog.task_id == task.id)
     for time_log in session.exec(statement):
-        session.delete(time_log)
+        time_log.status = "archived"
+        time_log.task_id = None
+        session.add(time_log)
     session.delete(task)
     session.commit()
 
@@ -212,6 +293,7 @@ def update_task_status(session: Session, task_id: str, payload: TaskStatusUpdate
         prior_status=previous_status,
         task_project_id=task.project_id,
     )
+    task = ensure_task_mutable(session, task_id)
 
     task.status = payload.status
     task.kanban_order = payload.kanban_order
@@ -219,7 +301,7 @@ def update_task_status(session: Session, task_id: str, payload: TaskStatusUpdate
         task.completed_date = previous_completed_date
     else:
         task.completed_date = _apply_completed_date(payload.status, previous_completed_date)
-    task.updated_at = _utc_now()
+    task.updated_at = utc_now()
 
     session.add(task)
     session.commit()
@@ -232,7 +314,10 @@ def list_time_logs(session: Session, task_id: str) -> list[TimeLogRead]:
     time_logs = list(
         session.exec(
             select(TimeLog)
-            .where(TimeLog.task_id == task.id)
+            .where(
+                TimeLog.task_id == task.id,
+                TimeLog.status == "active",
+            )
             .order_by(col(TimeLog.logged_date).desc(), col(TimeLog.created_at).desc())
         )
     )
@@ -260,16 +345,17 @@ def list_time_logs(session: Session, task_id: str) -> list[TimeLogRead]:
 
 
 def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> TimeLogRead:
-    task = _get_task_or_404(session, task_id)
+    task = ensure_task_mutable(session, task_id)
     activity_type_name: str | None = None
     if payload.activity_type_id is not None:
-        activity_type_name = _active_activity_type_name_or_422(
+        activity_type_name = _active_activity_type_name_or_409(
             session,
             payload.activity_type_id,
         )
     time_log = TimeLog(
         task_id=task.id,
         project_id=task.project_id,
+        status="active",
         activity_type_id=payload.activity_type_id,
         hours=payload.hours,
         logged_date=payload.logged_date,
@@ -280,6 +366,7 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     )
     session.add(time_log)
     session.flush()
+    _enforce_time_log_project_integrity(time_log=time_log, task=task)
     _recompute_actual_hours(session, task)
     session.commit()
     session.refresh(time_log)
@@ -293,7 +380,7 @@ def update_time_log(
     time_log_id: str,
     payload: TimeLogUpdate,
 ) -> TimeLogRead:
-    task = _get_task_or_404(session, task_id)
+    task = ensure_task_mutable(session, task_id)
     time_log = session.get(TimeLog, time_log_id)
     if time_log is None or time_log.task_id != task.id:
         raise HTTPException(
@@ -304,29 +391,15 @@ def update_time_log(
     update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field is required.",
         )
 
-    if "activity_type_id" in update_data:
-        new_activity_id = update_data["activity_type_id"]
-        if new_activity_id is not None:
-            _active_activity_type_name_or_422(session, new_activity_id)
-        time_log.activity_type_id = new_activity_id
-
-    if "hours" in update_data and update_data["hours"] is not None:
-        time_log.hours = update_data["hours"]
-    if "logged_date" in update_data and update_data["logged_date"] is not None:
-        time_log.logged_date = update_data["logged_date"]
-    if "notes" in update_data:
-        time_log.notes = update_data["notes"]
-    if "title" in update_data:
-        time_log.title = update_data["title"]
-    if "location" in update_data:
-        time_log.location = update_data["location"]
+    _apply_time_log_update(session, time_log=time_log, update_data=update_data)
 
     session.add(time_log)
     session.flush()
+    _enforce_time_log_project_integrity(time_log=time_log, task=task)
     _recompute_actual_hours(session, task)
     session.commit()
     session.refresh(time_log)

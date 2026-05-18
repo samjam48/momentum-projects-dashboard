@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any, cast
 
+from app.core.time import utc_now
 from app.models.project import Project
 from app.models.venture import Venture
 from app.models.venture_category_label import VentureCategoryLabel
+from app.schemas.pagination import PaginatedResponse, encode_cursor
 from app.schemas.venture import (
     VentureCategoryLabelSummary,
     VentureCreate,
@@ -13,13 +14,10 @@ from app.schemas.venture import (
     VentureStatus,
     VentureUpdate,
 )
+from app.services.pagination import apply_cursor_limit
 from fastapi import HTTPException, status
 from sqlalchemy import true
 from sqlmodel import Session, col, select
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _get_venture_or_404(session: Session, venture_id: str) -> Venture:
@@ -77,11 +75,62 @@ def list_ventures(
     session: Session,
     status_filter: VentureStatus | None,
     category_label_id: str | None,
-) -> list[VentureRead]:
+) -> list[VentureRead] | PaginatedResponse[VentureRead]:
+    return list_ventures_paginated(
+        session,
+        status_filter,
+        category_label_id,
+        limit=None,
+        cursor=None,
+    )
+
+
+def list_ventures_paginated(
+    session: Session,
+    status_filter: VentureStatus | None,
+    category_label_id: str | None,
+    *,
+    limit: int | None,
+    cursor: str | None,
+) -> list[VentureRead] | PaginatedResponse[VentureRead]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+
     venture_status = status_filter or "active"
     statement = select(Venture).where(Venture.status == venture_status)
     if category_label_id is not None:
         statement = statement.where(Venture.category_label_id == category_label_id)
+    if limit is not None:
+        paged_statement = apply_cursor_limit(
+            statement,
+            limit,
+            cursor,
+            (col(Venture.created_at), col(Venture.id)),
+        )
+        venture_rows = list(session.exec(paged_statement))
+        page_ventures = venture_rows[:limit]
+        if not page_ventures:
+            return PaginatedResponse(items=[], next_cursor=None)
+        label_ids = {venture.category_label_id for venture in page_ventures}
+        labels = list(
+            session.exec(
+                select(VentureCategoryLabel).where(col(VentureCategoryLabel.id).in_(label_ids))
+            )
+        )
+        labels_by_id = {label.id: label for label in labels}
+        items = [
+            _to_read(venture, labels_by_id[venture.category_label_id])
+            for venture in page_ventures
+        ]
+        next_cursor = None
+        if len(venture_rows) > limit:
+            last_item = page_ventures[-1]
+            next_cursor = encode_cursor((last_item.created_at.isoformat(), last_item.id))
+        return PaginatedResponse(items=items, next_cursor=next_cursor)
+
     statement = statement.order_by(cast(Any, Venture.created_at), cast(Any, Venture.id))
     ventures = list(session.exec(statement))
     if not ventures:
@@ -145,7 +194,7 @@ def update_venture(session: Session, venture_id: str, payload: VentureUpdate) ->
             setattr(venture, field_name, value.strip())
         else:
             setattr(venture, field_name, value)
-    venture.updated_at = _utc_now()
+    venture.updated_at = utc_now()
 
     session.add(venture)
     session.commit()
@@ -159,7 +208,7 @@ def archive_venture(session: Session, venture_id: str) -> None:
         return
 
     venture.status = "archived"
-    venture.updated_at = _utc_now()
+    venture.updated_at = utc_now()
     session.add(venture)
 
     projects = list(session.exec(select(Project).where(Project.venture_id == venture.id)))
@@ -167,7 +216,7 @@ def archive_venture(session: Session, venture_id: str) -> None:
         if project.status == "active":
             project.status = "archived"
             project.archived_by_venture = True
-            project.updated_at = _utc_now()
+            project.updated_at = utc_now()
             session.add(project)
     session.commit()
 
@@ -176,7 +225,7 @@ def unarchive_venture(session: Session, venture_id: str) -> VentureRead:
     venture = _get_venture_or_404(session, venture_id)
     if venture.status == "archived":
         venture.status = "active"
-        venture.updated_at = _utc_now()
+        venture.updated_at = utc_now()
         session.add(venture)
 
         projects = list(
@@ -190,7 +239,7 @@ def unarchive_venture(session: Session, venture_id: str) -> VentureRead:
         for project in projects:
             project.status = "active"
             project.archived_by_venture = False
-            project.updated_at = _utc_now()
+            project.updated_at = utc_now()
             session.add(project)
         session.commit()
         session.refresh(venture)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any, cast
 
+from app.core.time import utc_now
 from app.models.project import Project
 from app.models.venture import Venture
+from app.schemas.pagination import PaginatedResponse, decode_cursor, encode_cursor
 from app.schemas.project import (
     ProjectBoardStatus,
     ProjectBoardStatusUpdate,
@@ -16,10 +17,6 @@ from app.schemas.project import (
 from fastapi import HTTPException, status
 from sqlalchemy import case
 from sqlmodel import Session, col, select
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _get_project_or_404(session: Session, project_id: str) -> Project:
@@ -54,7 +51,16 @@ def list_projects(
     board_status: ProjectBoardStatus | None = None,
     project_type: ProjectType | None = None,
     finished: bool | None = None,
-) -> list[Project]:
+    *,
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> list[Project] | PaginatedResponse[Project]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+
     status_filter = project_status or "active"
     statement = select(Project).where(Project.status == status_filter)
     if venture_id is not None:
@@ -78,7 +84,37 @@ def list_projects(
         cast(Any, Project.created_at),
         cast(Any, Project.id),
     )
-    return list(session.exec(statement))
+    if limit is None:
+        return list(session.exec(statement))
+
+    ordered_rows = list(session.exec(statement))
+    start_index = 0
+    if cursor is not None:
+        try:
+            cursor_values = decode_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            ) from exc
+        if len(cursor_values) != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        cursor_id = cursor_values[0]
+        matching_indices = [idx for idx, row in enumerate(ordered_rows) if row.id == cursor_id]
+        if not matching_indices:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        start_index = matching_indices[0] + 1
+
+    page_items = ordered_rows[start_index : start_index + limit]
+    has_more = start_index + limit < len(ordered_rows)
+    next_cursor = encode_cursor((page_items[-1].id,)) if has_more and page_items else None
+    return PaginatedResponse(items=page_items, next_cursor=next_cursor)
 
 
 def create_project(session: Session, payload: ProjectCreate) -> Project:
@@ -119,7 +155,7 @@ def update_project(session: Session, project_id: str, payload: ProjectUpdate) ->
         _get_active_venture_or_404(session, venture_id)
     for field_name, value in update_data.items():
         setattr(project, field_name, value)
-    project.updated_at = _utc_now()
+    project.updated_at = utc_now()
 
     session.add(project)
     session.commit()
@@ -136,7 +172,7 @@ def archive_project(session: Session, project_id: str, finished: bool | None = N
         else:
             project.finished = finished
         project.archived_by_venture = False
-        project.updated_at = _utc_now()
+        project.updated_at = utc_now()
         session.add(project)
         session.commit()
 
@@ -152,7 +188,7 @@ def unarchive_project(session: Session, project_id: str) -> Project:
     if project.status == "archived":
         project.status = "active"
         project.archived_by_venture = False
-        project.updated_at = _utc_now()
+        project.updated_at = utc_now()
         session.add(project)
         session.commit()
         session.refresh(project)
@@ -221,13 +257,13 @@ def update_project_board_status(
         project.finished = True
     elif payload.finished is not None:
         project.finished = payload.finished
-    project.updated_at = _utc_now()
+    project.updated_at = utc_now()
     session.add(project)
 
     if payload.order is not None:
         for order_item, order_project in zip(payload.order, order_projects, strict=True):
             order_project.kanban_order = order_item.kanban_order
-            order_project.updated_at = _utc_now()
+            order_project.updated_at = utc_now()
             session.add(order_project)
 
     session.commit()

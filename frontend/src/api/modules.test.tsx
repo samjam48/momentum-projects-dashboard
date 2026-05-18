@@ -48,6 +48,10 @@ type MockResponseOptions = {
 type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>
 
 function jsonResponse({ body, status = 200 }: MockResponseOptions): Response {
+  if (status === 204) {
+    return new Response(null, { status: 204 })
+  }
+
   return new Response(JSON.stringify(body ?? null), {
     headers: { 'Content-Type': 'application/json' },
     status,
@@ -501,6 +505,26 @@ describe('phase 1.6.7 API hooks (TanStack Query)', () => {
     )
   })
 
+  it('archives a venture via POST /ventures/{id}/archive', async () => {
+    const { client } = createTrackedQueryClient()
+    const fetchMock = installFetchMock([jsonResponse({ body: null, status: 204 })])
+    const { result: mutResult } = renderHook(() => useVentureMutations(), {
+      wrapper: queryWrapperWithClient(client),
+    })
+
+    await act(async () => {
+      await mutResult.current.archive('venture-1')
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined]
+    const rawUrl =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    const url = new URL(rawUrl, 'http://localhost')
+
+    expect(url.pathname).toBe('/api/v1/ventures/venture-1/archive')
+    expect((init?.method ?? 'GET').toUpperCase()).toBe('POST')
+  })
+
   it('loads activity types via useQuery and invalidates active and archived lists after create', async () => {
     installFetchMock([jsonResponse({ body: [buildActivityType()] })])
 
@@ -579,6 +603,27 @@ describe('phase 1.6.7 API hooks (TanStack Query)', () => {
     expect(invalidateSpy).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: projectQueryKeys.board() }),
     )
+  })
+
+  it('archives a project via POST /projects/{id}/archive', async () => {
+    const { client } = createTrackedQueryClient()
+    const fetchMock = installFetchMock([jsonResponse({ body: null, status: 204 })])
+    const { result: mutResult } = renderHook(() => useProjectMutations(), {
+      wrapper: queryWrapperWithClient(client),
+    })
+
+    await act(async () => {
+      await mutResult.current.archive('project-1', { finished: true })
+    })
+
+    const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined]
+    const rawUrl =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    const url = new URL(rawUrl, 'http://localhost')
+
+    expect(url.pathname).toBe('/api/v1/projects/project-1/archive')
+    expect((init?.method ?? 'GET').toUpperCase()).toBe('POST')
+    expect(init?.body).toBe(JSON.stringify({ finished: true }))
   })
 
   it('invalidates project lists and board after project board status update', async () => {

@@ -129,7 +129,7 @@ def test_list_projects_defaults_to_active_and_supports_status_filter(
     active_project = _create_project(client, name="Active Project")
     archived_project = _create_project(client, name="Archived Project")
 
-    archive_response = client.delete(f"{PROJECTS_ENDPOINT}/{archived_project['id']}")
+    archive_response = client.post(f"{PROJECTS_ENDPOINT}/{archived_project['id']}/archive")
     assert archive_response.status_code in {200, 204}, archive_response.text
 
     default_response = client.get(PROJECTS_ENDPOINT)
@@ -148,7 +148,7 @@ def test_list_projects_defaults_to_active_and_supports_status_filter(
 def test_get_project_by_id_returns_archived_projects(client: TestClient) -> None:
     project = _create_project(client, name="Project To Archive")
 
-    archive_response = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_response = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_response.status_code in {200, 204}, archive_response.text
 
     detail_response = client.get(f"{PROJECTS_ENDPOINT}/{project['id']}")
@@ -213,7 +213,7 @@ def test_patch_project_rejects_invalid_colour(client: TestClient, colour: str) -
 def test_patch_archived_project_returns_conflict(client: TestClient) -> None:
     project = _create_project(client)
 
-    archive_response = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_response = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_response.status_code in {200, 204}, archive_response.text
 
     response = client.patch(
@@ -227,8 +227,8 @@ def test_patch_archived_project_returns_conflict(client: TestClient) -> None:
 def test_delete_project_soft_archives_and_is_idempotent(client: TestClient) -> None:
     project = _create_project(client)
 
-    first_delete = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
-    second_delete = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    first_delete = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
+    second_delete = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     detail_response = client.get(f"{PROJECTS_ENDPOINT}/{project['id']}")
 
     assert first_delete.status_code in {200, 204}, first_delete.text
@@ -241,6 +241,6 @@ def test_delete_project_soft_archives_and_is_idempotent(client: TestClient) -> N
 def test_delete_project_returns_404_for_unknown_project(client: TestClient) -> None:
     _create_project(client, name="Existing Project")
 
-    response = client.delete(f"{PROJECTS_ENDPOINT}/00000000-0000-0000-0000-000000000000")
+    response = client.post(f"{PROJECTS_ENDPOINT}/00000000-0000-0000-0000-000000000000/archive")
 
     assert response.status_code == 404, response.text

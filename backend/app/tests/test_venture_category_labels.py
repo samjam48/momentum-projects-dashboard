@@ -123,7 +123,7 @@ def test_create_label_rejects_blank_or_punctuation_only_name(
 @pytest.mark.parametrize("name", ["hustle", " Hustle ", "HUSTLE"])
 def test_create_label_enforces_case_insensitive_uniqueness(client: TestClient, name: str) -> None:
     response = client.post(LABELS_ENDPOINT, json={"name": name})
-    assert response.status_code == 422, response.text
+    assert response.status_code == 409, response.text
 
 
 def test_patch_label_renames_when_unique_and_normalizable(client: TestClient) -> None:
@@ -137,14 +137,20 @@ def test_patch_label_renames_when_unique_and_normalizable(client: TestClient) ->
     assert label["slug"] == "serious-work"
 
 
-@pytest.mark.parametrize("name", ["", "   ", "!!!", "HUSTLE"])
-def test_patch_label_rejects_blank_duplicate_or_punctuation_only_name(
+@pytest.mark.parametrize("name", ["", "   ", "!!!"])
+def test_patch_label_rejects_blank_or_punctuation_only_name(
     client: TestClient,
     name: str,
 ) -> None:
     label_id = _get_label_id_by_name("Business")
     response = client.patch(f"{LABELS_ENDPOINT}/{label_id}", json={"name": name})
     assert response.status_code == 422, response.text
+
+
+def test_patch_label_rejects_duplicate_name(client: TestClient) -> None:
+    label_id = _get_label_id_by_name("Business")
+    response = client.patch(f"{LABELS_ENDPOINT}/{label_id}", json={"name": "HUSTLE"})
+    assert response.status_code == 409, response.text
 
 
 def test_patch_label_returns_404_for_unknown_id(client: TestClient) -> None:
@@ -174,7 +180,7 @@ def test_delete_label_rejects_when_in_use_by_venture(client: TestClient) -> None
     _create_venture_using_label(label_id)
 
     delete_response = client.delete(f"{LABELS_ENDPOINT}/{label_id}")
-    assert delete_response.status_code == 422, delete_response.text
+    assert delete_response.status_code == 409, delete_response.text
 
     list_response = client.get(LABELS_ENDPOINT)
     assert list_response.status_code == 200, list_response.text

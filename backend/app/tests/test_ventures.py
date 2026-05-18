@@ -151,7 +151,7 @@ def test_create_venture_rejects_unknown_category_label_id(client: TestClient) ->
             "category_label_id": "00000000-0000-0000-0000-000000000000",
         },
     )
-    assert response.status_code in {404, 422}, response.text
+    assert response.status_code == 404, response.text
 
 
 def test_list_ventures_defaults_to_active_and_supports_archived_filter(
@@ -162,7 +162,7 @@ def test_list_ventures_defaults_to_active_and_supports_archived_filter(
     assert active.status_code == 201, active.text
     assert archived.status_code == 201, archived.text
 
-    archive_response = client.delete(f"{VENTURES_ENDPOINT}/{archived.json()['id']}")
+    archive_response = client.post(f"{VENTURES_ENDPOINT}/{archived.json()['id']}/archive")
     assert archive_response.status_code in {200, 204}, archive_response.text
 
     default_response = client.get(VENTURES_ENDPOINT)
@@ -266,14 +266,14 @@ def test_patch_venture_rejects_unknown_category_label_id(client: TestClient) -> 
         f"{VENTURES_ENDPOINT}/{venture_id}",
         json={"category_label_id": "00000000-0000-0000-0000-000000000000"},
     )
-    assert response.status_code in {404, 422}, response.text
+    assert response.status_code == 404, response.text
 
 
 def test_patch_archived_venture_returns_conflict(client: TestClient) -> None:
     create_response = client.post(VENTURES_ENDPOINT, json={"name": "Archive Me"})
     assert create_response.status_code == 201, create_response.text
     venture_id = create_response.json()["id"]
-    archive_response = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
+    archive_response = client.post(f"{VENTURES_ENDPOINT}/{venture_id}/archive")
     assert archive_response.status_code in {200, 204}, archive_response.text
 
     patch_response = client.patch(
@@ -283,7 +283,7 @@ def test_patch_archived_venture_returns_conflict(client: TestClient) -> None:
     assert patch_response.status_code == 409, patch_response.text
 
 
-def test_delete_venture_archives_active_child_projects_and_marks_cascade_flag(
+def test_archive_venture_archives_active_child_projects_and_marks_cascade_flag(
     client: TestClient,
 ) -> None:
     create_response = client.post(VENTURES_ENDPOINT, json={"name": "Cascade Venture"})
@@ -296,11 +296,11 @@ def test_delete_venture_archives_active_child_projects_and_marks_cascade_flag(
         venture_id=venture_id,
         name="Already Archived Child",
     )
-    archive_direct = client.delete(f"/api/v1/projects/{archived_child['id']}")
+    archive_direct = client.post(f"/api/v1/projects/{archived_child['id']}/archive")
     assert archive_direct.status_code in {200, 204}, archive_direct.text
 
-    delete_response = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
-    assert delete_response.status_code in {200, 204}, delete_response.text
+    archive_response = client.post(f"{VENTURES_ENDPOINT}/{venture_id}/archive")
+    assert archive_response.status_code in {200, 204}, archive_response.text
 
     venture = _get_venture_from_db(venture_id)
     assert venture.status == "archived"
@@ -312,13 +312,13 @@ def test_delete_venture_archives_active_child_projects_and_marks_cascade_flag(
     assert projects[str(archived_child["id"])].archived_by_venture is False
 
 
-def test_delete_venture_is_idempotent(client: TestClient) -> None:
+def test_archive_venture_is_idempotent(client: TestClient) -> None:
     create_response = client.post(VENTURES_ENDPOINT, json={"name": "Idempotent Archive"})
     assert create_response.status_code == 201, create_response.text
     venture_id = create_response.json()["id"]
 
-    first = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
-    second = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
+    first = client.post(f"{VENTURES_ENDPOINT}/{venture_id}/archive")
+    second = client.post(f"{VENTURES_ENDPOINT}/{venture_id}/archive")
 
     assert first.status_code in {200, 204}, first.text
     assert second.status_code in {200, 204}, second.text
@@ -331,11 +331,11 @@ def test_unarchive_venture_restores_only_projects_archived_by_venture(client: Te
 
     cascade_child = _create_project(client, venture_id=venture_id, name="Cascade Child")
     archived_before = _create_project(client, venture_id=venture_id, name="Manual Archived Child")
-    archive_direct = client.delete(f"/api/v1/projects/{archived_before['id']}")
+    archive_direct = client.post(f"/api/v1/projects/{archived_before['id']}/archive")
     assert archive_direct.status_code in {200, 204}, archive_direct.text
 
-    delete_response = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
-    assert delete_response.status_code in {200, 204}, delete_response.text
+    archive_response = client.post(f"{VENTURES_ENDPOINT}/{venture_id}/archive")
+    assert archive_response.status_code in {200, 204}, archive_response.text
 
     restore_response = client.patch(f"{VENTURES_ENDPOINT}/{venture_id}/unarchive")
     assert restore_response.status_code == 200, restore_response.text
@@ -357,3 +357,16 @@ def test_unarchive_active_venture_is_idempotent(client: TestClient) -> None:
 
     response = client.patch(f"{VENTURES_ENDPOINT}/{venture_id}/unarchive")
     assert response.status_code in {200, 204}, response.text
+
+
+def test_delete_venture_no_longer_archives_venture(client: TestClient) -> None:
+    create_response = client.post(VENTURES_ENDPOINT, json={"name": "Delete alias removed"})
+    assert create_response.status_code == 201, create_response.text
+    venture_id = create_response.json()["id"]
+
+    delete_response = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
+    assert delete_response.status_code == 405, delete_response.text
+
+    detail_response = client.get(f"{VENTURES_ENDPOINT}/{venture_id}")
+    assert detail_response.status_code == 200, detail_response.text
+    assert detail_response.json()["status"] == "active"

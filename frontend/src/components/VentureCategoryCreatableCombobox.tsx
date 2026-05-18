@@ -38,12 +38,18 @@ export function VentureCategoryCreatableCombobox({
 
   const trimmedFilter = filterText.trim()
   const normalizedQuery = trimmedFilter.toLowerCase()
+  const selectedLabel = categoryLabels.find((item) => item.id === selectedLabelId)
+  const selectedDisplay =
+    selectedLabel !== undefined ? displayVentureCategoryTitle(selectedLabel.name) : ''
+  const normalizedSelectedDisplay = selectedDisplay.trim().toLowerCase()
+  const normalizedFilterForList =
+    normalizedQuery === normalizedSelectedDisplay ? '' : normalizedQuery
 
   const filtered =
-    normalizedQuery === ''
+    normalizedFilterForList === ''
       ? categoryLabels
       : categoryLabels.filter((label) =>
-          label.name.toLowerCase().includes(normalizedQuery),
+          label.name.toLowerCase().includes(normalizedFilterForList),
         )
 
   const hasExactMatch = categoryLabels.some(
@@ -76,9 +82,6 @@ export function VentureCategoryCreatableCombobox({
             const value = event.target.value
             onClearError()
             setFilterText(value)
-            const selected = categoryLabels.find((item) => item.id === selectedLabelId)
-            const selectedDisplay =
-              selected !== undefined ? displayVentureCategoryTitle(selected.name) : ''
             if (value.trim().toLowerCase() !== selectedDisplay.trim().toLowerCase()) {
               onSelectedLabelIdChange('')
             }
