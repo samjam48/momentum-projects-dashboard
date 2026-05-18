@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import TypedDict, cast
 from uuid import uuid4
 
@@ -14,6 +15,8 @@ from app.models.venture import Venture
 from app.models.venture_category_label import VentureCategoryLabel
 
 PROJECTS_ENDPOINT = "/api/v1/projects"
+APP_DIR = Path(__file__).resolve().parents[1]
+PROJECTS_ROUTER_FILE = APP_DIR / "routers" / "projects.py"
 
 
 class _ProjectResponse(TypedDict):
@@ -83,11 +86,7 @@ def _set_venture_status_in_db(venture_id: str, status: str) -> None:
 
 
 def test_projects_router_declares_board_status_mutation_endpoint() -> None:
-    router_source = (
-        "/Users/samjam/Code/momentum-projects-dashboard/backend/app/routers/projects.py"
-    )
-    with open(router_source, encoding="utf-8") as file:
-        source = file.read()
+    source = PROJECTS_ROUTER_FILE.read_text(encoding="utf-8")
     assert "/{project_id}/board-status" in source
     assert "project_services" in source
 
