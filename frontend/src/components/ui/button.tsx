@@ -20,7 +20,10 @@ const buttonVariants = cva(
       variant: {
         default:
           'bg-[var(--accent-action)] text-[#fff8f0] hover:bg-[var(--accent-action-hover)]',
+        destructive: 'bg-[#c8553d] text-[#fff8f0] hover:bg-[#a7422e]',
         ghost: 'bg-transparent text-[var(--primary-text)] hover:bg-[var(--accent-muted)]',
+        outline:
+          'border border-[rgba(90,58,37,0.18)] bg-transparent text-[#4d3729] hover:bg-[var(--accent-muted)]',
         secondary:
           'bg-[#ead7c0] text-[#4d3729] hover:bg-[#dec3a5]',
       },
@@ -47,4 +50,4 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = 'Button'
 
-export { Button, buttonVariants }
+export { Button }

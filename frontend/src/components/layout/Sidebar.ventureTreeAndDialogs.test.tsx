@@ -163,7 +163,7 @@ async function renderSidebar(options?: {
   return view
 }
 
-describe('Ticket 1.6-8 Venture Tree Sidebar and Venture Dialogs', () => {
+describe('Venture tree sidebar and venture dialogs', () => {
   beforeEach(() => {
     resetProjectFilterStore()
   })
@@ -234,11 +234,11 @@ describe('Ticket 1.6-8 Venture Tree Sidebar and Venture Dialogs', () => {
     expect(screen.getByRole('dialog', { name: /^hustle$/i })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /name/i })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /description/i })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /category label/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /venture category/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /archive venture/i })).toBeInTheDocument()
   })
 
-  it('opens venture create dialog via + Hustle with default Hustle label and label-create control', async () => {
+  it('opens venture create dialog via + Hustle with default Hustle category combobox', async () => {
     await renderSidebar({
       activeProjects: [
         buildProject({ id: 'project-1', name: 'Landing Page', venture_id: TEST_VENTURE_ID }),
@@ -250,8 +250,7 @@ describe('Ticket 1.6-8 Venture Tree Sidebar and Venture Dialogs', () => {
     await userEvent.click(createButton)
 
     expect(screen.getByRole('dialog', { name: /new venture/i })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: /category label/i })).toHaveDisplayValue(/hustle/i)
-    expect(screen.getByRole('button', { name: /create label/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /venture category/i })).toHaveDisplayValue(/hustle/i)
   })
 
   it('archive dialog includes archived ventures/projects views in archive pattern', async () => {

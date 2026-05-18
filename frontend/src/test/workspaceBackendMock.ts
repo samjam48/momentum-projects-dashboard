@@ -1189,8 +1189,34 @@ export function installWorkspaceBackendMock(
           return jsonResponse({ body: { detail: 'Task not found' }, status: 404 })
         }
 
-        taskStatusUpdateCount += 1
         const payload = body as TaskStatusPayload
+        const currentTaskSnapshot = tasks[taskIndex]
+        if (currentTaskSnapshot.status === 'archived') {
+          const parentProject = projects.find(
+            (candidate) => candidate.id === currentTaskSnapshot.project_id,
+          )
+          if (!parentProject || parentProject.status === 'archived') {
+            return jsonResponse({
+              body: { detail: 'Archived projects cannot accept task changes.' },
+              status: 409,
+            })
+          }
+
+          const parentVentureId = parentProject.venture_id
+          if (typeof parentVentureId === 'string' && parentVentureId.length > 0) {
+            const parentVenture = ventures.find((candidate) => candidate.id === parentVentureId)
+            if (!parentVenture || parentVenture.status === 'archived') {
+              return jsonResponse({
+                body: {
+                  detail: 'Cannot restore archived task while parent venture is archived.',
+                },
+                status: 409,
+              })
+            }
+          }
+        }
+
+        taskStatusUpdateCount += 1
         taskStatusRequests.push({ taskId, payload })
 
         const handlerResponse = options.onTaskStatusUpdate

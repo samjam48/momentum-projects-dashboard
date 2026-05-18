@@ -1,7 +1,5 @@
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-
 import type { Project } from '../../api/types'
+import { KanbanCardShell } from './KanbanCardShell'
 
 function countOpenTasksForProject(openTaskCounts: Record<string, number>, projectId: string): number {
   return openTaskCounts[projectId] ?? 0
@@ -20,32 +18,23 @@ export function KanbanProjectCard({
   openTaskCounts,
   project,
 }: KanbanProjectCardProps): JSX.Element {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: `kanban-project:${project.id}`,
-    data: {
-      type: 'project',
-      projectId: project.id,
-      board_status: project.board_status,
-    },
-    disabled: draggingDisabled,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
   const openCount = countOpenTasksForProject(openTaskCounts, project.id)
   const showType = project.project_type !== 'project'
 
   return (
-    <li
-      ref={setNodeRef}
-      className={`task-card kanban-project-card${isDragging ? ' task-card-dragging' : ''}`}
-      data-dragging-suppressed-for-mutation={draggingDisabled ? '' : undefined}
-      style={{ ...style, padding: '16px' }}
-      {...attributes}
-      {...listeners}
+    <KanbanCardShell
+      className="task-card kanban-project-card"
+      dragData={{
+        type: 'project',
+        projectId: project.id,
+        board_status: project.board_status,
+      }}
+      draggingDisabled={draggingDisabled}
+      id={`kanban-project:${project.id}`}
+      style={{ padding: '16px' }}
+      testAttributes={{
+        'data-dragging-suppressed-for-mutation': draggingDisabled ? '' : undefined,
+      }}
     >
       <div className="kanban-task-linear">
         <div className="kanban-task-title-row">
@@ -77,6 +66,6 @@ export function KanbanProjectCard({
           ) : null}
         </div>
       </div>
-    </li>
+    </KanbanCardShell>
   )
 }

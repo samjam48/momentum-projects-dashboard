@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Settings } from 'lucide-react'
 
-type TaskSortKey = 'target_date' | 'priority' | 'project_name'
+import type { TaskSortKey } from '../features/tasks/taskTableSort'
 
 type TableSortMenuProps = {
   onSort: (key: TaskSortKey) => void
@@ -76,5 +76,3 @@ export function TableSortMenu({ onSort }: TableSortMenuProps): JSX.Element {
     </div>
   )
 }
-
-export type { TaskSortKey }
