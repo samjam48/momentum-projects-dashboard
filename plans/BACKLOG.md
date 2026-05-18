@@ -96,3 +96,25 @@ Future phases beyond the current sprint live here. Nothing in this file is in sc
 - Tremor chart components (evaluate vs Recharts in Phase 3)
 - Kanban ↔ list-only toggle on Projects page
 - True hard-delete with cascade (admin/settings only)
+
+---
+
+## Flagged
+
+Items deferred from completed work or discovered during review. Not in the current sprint until pulled into `AGENTS.md`.
+
+### Epic D — TaskDialog module decomposition
+
+**Source:** Frontend refactor epic (owner Q4 in `docs/frontend-refactor-prd-trd.md`). `TaskDialog.tsx` remains ~930 lines; orchestration already lives in `features/tasks/useTaskDialog.tsx`.
+
+**Summary:** Split the task create/edit UI out of the monolithic component into feature-local modules under `features/tasks/` (e.g. `TaskCreateForm`, `TaskEditForm`, `TaskTimeLogsPanel`, `TimeLogFormDialog`, thin composer). Co-locate behaviour tests. High regression surface: nested dialogs (task → time log → manage activity types), blur autosave vs cancel, time-log PATCH. **Defer if task-dialog UX is changing soon** — avoid over-investing in structure before design settles.
+
+**Approach options (pick one when scheduled):**
+
+| Option | Scope | Rough effort | Outcome |
+|--------|--------|--------------|---------|
+| **A. Minimal** | Move `TaskDialog.tsx` to `features/tasks/` only; no internal split | ~2–4 hours | Correct folder layout; file still large |
+| **B. Medium** | Extract `TimeLogFormDialog` + `TaskTimeLogsPanel`; leave create/edit shell in main composer | ~1–2 days | Isolates the heaviest nested-dialog/time-log block |
+| **C. Full epic D** | Full split per PRD (create/edit forms, time logs, nested dialogs, tests per module) | ~3–7 days | Matches signed-off target; best maintainability |
+
+**Also noted (optional hygiene, not blocking):** `BoardOptionsMenu` nests a Radix `Checkbox` (`<button>`) inside a `menuitemcheckbox` `<button>` — valid HTML/a11y cleanup, ~half day if desired.
