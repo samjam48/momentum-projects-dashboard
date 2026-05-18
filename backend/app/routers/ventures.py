@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.db.database import SessionDep
 from app.schemas.venture import VentureCreate, VentureRead, VentureStatus, VentureUpdate
@@ -37,10 +37,21 @@ def update_venture(
     return ventures.update_venture(session, venture_id, payload)
 
 
-@router.delete("/{venture_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{venture_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
 def archive_venture(session: SessionDep, venture_id: str) -> Response:
     ventures.archive_venture(session, venture_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{venture_id}", status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+def delete_venture(venture_id: str) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail=(
+            "DELETE /ventures/{venture_id} is not implemented. "
+            "Use POST /ventures/{venture_id}/archive."
+        ),
+    )
 
 
 @router.patch("/{venture_id}/unarchive", response_model=VentureRead)

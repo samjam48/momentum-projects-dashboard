@@ -45,7 +45,7 @@ def _create_project(
     assert response.status_code == 201, response.text
     project = cast(_ProjectResponse, response.json())
     if archived:
-        archive_response = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+        archive_response = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
         assert archive_response.status_code in {200, 204}, archive_response.text
     return project
 
@@ -116,7 +116,7 @@ def test_archive_matrix_archived_project_patch_task_blocks_with_conflict(
 ) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=project["id"])
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     response = client.patch(
@@ -133,7 +133,7 @@ def test_archive_matrix_archived_project_status_patch_blocks_with_conflict(
 ) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=project["id"])
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     response = client.patch(
@@ -150,7 +150,7 @@ def test_archive_matrix_archived_project_create_time_log_blocks_with_conflict(
 ) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=project["id"])
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     response = client.post(
@@ -168,7 +168,7 @@ def test_archive_matrix_archived_project_patch_time_log_blocks_with_conflict(
     project = _create_project(client)
     task = _create_task(client, project_id=project["id"])
     time_log = _create_time_log(client, task_id=task["id"])
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     response = client.patch(
@@ -187,7 +187,7 @@ def test_archive_matrix_venture_archived_status_patch_blocks_with_conflict(
     task = _create_task(client, project_id=project["id"])
     venture_id = project["venture_id"]
     assert venture_id is not None
-    archive_venture = client.delete(f"{VENTURES_ENDPOINT}/{venture_id}")
+    archive_venture = client.post(f"{VENTURES_ENDPOINT}/{venture_id}/archive")
     assert archive_venture.status_code in {200, 204}, archive_venture.text
 
     response = client.patch(
@@ -218,7 +218,7 @@ def test_delete_task_returns_204_even_when_parent_project_archived(
 ) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=project["id"])
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     response = client.delete(f"{TASKS_ENDPOINT}/{task['id']}")
@@ -232,7 +232,7 @@ def test_delete_time_log_returns_204_even_when_parent_project_archived(
     project = _create_project(client)
     task = _create_task(client, project_id=project["id"])
     time_log = _create_time_log(client, task_id=task["id"])
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     response = client.delete(

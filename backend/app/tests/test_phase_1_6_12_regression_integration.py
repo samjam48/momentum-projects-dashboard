@@ -223,7 +223,7 @@ def test_archiving_venture_hides_active_child_projects_from_venture_scoped_list(
     assert listed_before.status_code == 200, listed_before.text
     assert [row["id"] for row in listed_before.json()] == [project_id]
 
-    archive_venture = client.delete(f"/api/v1/ventures/{venture_id}")
+    archive_venture = client.post(f"/api/v1/ventures/{venture_id}/archive")
     assert archive_venture.status_code in {200, 204}, archive_venture.text
 
     listed_mid = client.get(
@@ -280,14 +280,14 @@ def test_unarchive_venture_restores_only_cascade_archived_projects(
     assert pre_archived.status_code == 201, pre_archived.text
     pre_archived_id = pre_archived.json()["id"]
 
-    manual_archive = client.delete(f"/api/v1/projects/{pre_archived_id}")
+    manual_archive = client.post(f"/api/v1/projects/{pre_archived_id}/archive")
     assert manual_archive.status_code in {200, 204}, manual_archive.text
 
     pre_body = client.get(f"/api/v1/projects/{pre_archived_id}").json()
     assert pre_body["status"] == "archived"
     assert pre_body["archived_by_venture"] is False
 
-    cascade_archive_venture = client.delete(f"/api/v1/ventures/{venture_id}")
+    cascade_archive_venture = client.post(f"/api/v1/ventures/{venture_id}/archive")
     assert cascade_archive_venture.status_code in {200, 204}, cascade_archive_venture.text
 
     after_venture_archive_active = client.get(f"/api/v1/projects/{active_child_id}").json()
@@ -335,7 +335,7 @@ def test_archiving_active_project_uses_finished_false_when_not_shipped(
     assert project_resp.status_code == 201, project_resp.text
     project_id = project_resp.json()["id"]
 
-    archive = client.delete(f"/api/v1/projects/{project_id}")
+    archive = client.post(f"/api/v1/projects/{project_id}/archive")
     assert archive.status_code in {200, 204}, archive.text
 
     detail = client.get(f"/api/v1/projects/{project_id}")
@@ -370,7 +370,7 @@ def test_archiving_shipped_column_project_defaults_finished_true(
     assert project_resp.status_code == 201, project_resp.text
     project_id = project_resp.json()["id"]
 
-    archive = client.delete(f"/api/v1/projects/{project_id}")
+    archive = client.post(f"/api/v1/projects/{project_id}/archive")
     assert archive.status_code in {200, 204}, archive.text
 
     detail = client.get(f"/api/v1/projects/{project_id}")

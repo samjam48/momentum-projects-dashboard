@@ -360,15 +360,15 @@ describe('Workspace dialogs (integration)', () => {
     })
 
     await waitFor(() => {
-      const deletes = fetchMock.mock.calls.filter(([input, init]) => {
+      const archives = fetchMock.mock.calls.filter(([input, init]) => {
         const method = ((init)?.method ?? 'GET').toUpperCase()
-        if (method !== 'DELETE') {
+        if (method !== 'POST') {
           return false
         }
         const url = new URL(readFetchUrl(input), 'http://localhost')
-        return url.pathname === `/api/v1/projects/${archivedProjectSeed.id}`
+        return url.pathname === `/api/v1/projects/${archivedProjectSeed.id}/archive`
       })
-      expect(deletes.length).toBeGreaterThan(0)
+      expect(archives.length).toBeGreaterThan(0)
     })
 
     await waitFor(() => {
@@ -520,16 +520,15 @@ describe('Workspace dialogs (integration)', () => {
     await user.click(within(projectDialog).getByRole('button', { name: /archive project/i }))
 
     await waitFor(() => {
-      const deletes = fetchMock.mock.calls.filter(([input, init]) => {
+      const archives = fetchMock.mock.calls.filter(([input, init]) => {
         const method = ((init)?.method ?? 'GET').toUpperCase()
-        if (method !== 'DELETE') {
+        if (method !== 'POST') {
           return false
         }
         const url = new URL(readFetchUrl(input), 'http://localhost')
-        return url.pathname === `/api/v1/projects/${archivedProjectSeed.id}`
+        return url.pathname === `/api/v1/projects/${archivedProjectSeed.id}/archive`
       })
-      expect(deletes.length).toBeGreaterThan(0)
+      expect(archives.length).toBeGreaterThan(0)
     })
   })
 })
-

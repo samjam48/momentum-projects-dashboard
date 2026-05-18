@@ -90,11 +90,11 @@ export async function archiveProject(
   projectId: string,
   options?: { finished?: boolean },
 ): Promise<void> {
-  const init: RequestInit = { method: 'DELETE' }
+  const init: RequestInit = { method: 'POST' }
   if (options !== undefined && options.finished !== undefined) {
     init.body = JSON.stringify({ finished: options.finished })
   }
-  await apiRequest<null>(`/api/v1/projects/${projectId}`, init)
+  await apiRequest<null>(`/api/v1/projects/${projectId}/archive`, init)
 }
 
 export async function unarchiveProject(projectId: string): Promise<Project> {

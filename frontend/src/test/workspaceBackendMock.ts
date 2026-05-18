@@ -571,10 +571,10 @@ export function installWorkspaceBackendMock(
         return jsonResponse({ body: createdVenture, status: 201 })
       }
 
-      const ventureArchiveMatch = pathname.match(/^\/api\/v1\/ventures\/([^/]+)\/unarchive$/)
-      if (ventureArchiveMatch && method === 'PATCH') {
+      const ventureUnarchiveMatch = pathname.match(/^\/api\/v1\/ventures\/([^/]+)\/unarchive$/)
+      if (ventureUnarchiveMatch && method === 'PATCH') {
         ventureUnarchiveCount += 1
-        const [, ventureId] = ventureArchiveMatch
+        const [, ventureId] = ventureUnarchiveMatch
         const handlerResponse = options.onVentureUnarchive
           ? await options.onVentureUnarchive(ventureId, ventureUnarchiveCount)
           : null
@@ -696,8 +696,9 @@ export function installWorkspaceBackendMock(
         return jsonResponse({ body: ventures[ventureIndex] })
       }
 
-      if (ventureIdMatch && method === 'DELETE') {
-        const [, ventureId] = ventureIdMatch
+      const ventureArchiveMatch = pathname.match(/^\/api\/v1\/ventures\/([^/]+)\/archive$/)
+      if (ventureArchiveMatch && method === 'POST') {
+        const [, ventureId] = ventureArchiveMatch
         const ventureIndex = ventures.findIndex((candidate) => candidate.id === ventureId)
 
         if (ventureIndex < 0) {
@@ -725,6 +726,16 @@ export function installWorkspaceBackendMock(
         }
 
         return new Response(null, { status: 204 })
+      }
+
+      if (ventureIdMatch && method === 'DELETE') {
+        return jsonResponse({
+          body: {
+            detail:
+              'DELETE /ventures/{venture_id} is not implemented. Use POST /ventures/{venture_id}/archive.',
+          },
+          status: 405,
+        })
       }
 
       if (method === 'GET' && pathname === '/api/v1/projects') {
@@ -896,6 +907,31 @@ export function installWorkspaceBackendMock(
         return jsonResponse({ body: projects[projectIndex] })
       }
 
+      const projectArchiveMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/archive$/)
+      if (projectArchiveMatch && method === 'POST') {
+        const [, projectId] = projectArchiveMatch
+        const projectIndex = projects.findIndex((candidate) => candidate.id === projectId)
+
+        if (projectIndex < 0) {
+          return jsonResponse({ body: { detail: 'Project not found' }, status: 404 })
+        }
+
+        const handlerResponse = options.onProjectArchive
+          ? await options.onProjectArchive(projectId)
+          : null
+
+        if (handlerResponse) {
+          return handlerResponse
+        }
+
+        projects[projectIndex] = {
+          ...projects[projectIndex],
+          status: 'archived',
+          updated_at: '2026-05-13T10:30:00Z',
+        }
+        return new Response(null, { status: 204 })
+      }
+
       const projectMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)$/)
       if (projectMatch) {
         const [, projectId] = projectMatch
@@ -962,20 +998,13 @@ export function installWorkspaceBackendMock(
         }
 
         if (method === 'DELETE') {
-          const handlerResponse = options.onProjectArchive
-            ? await options.onProjectArchive(projectId)
-            : null
-
-          if (handlerResponse) {
-            return handlerResponse
-          }
-
-          projects[projectIndex] = {
-            ...projects[projectIndex],
-            status: 'archived',
-            updated_at: '2026-05-13T10:30:00Z',
-          }
-          return new Response(null, { status: 204 })
+          return jsonResponse({
+            body: {
+              detail:
+                'DELETE /projects/{project_id} is not implemented. Use POST /projects/{project_id}/archive.',
+            },
+            status: 405,
+          })
         }
       }
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.db.database import SessionDep
 from app.schemas.project import (
@@ -60,7 +60,7 @@ def update_project(
     return ProjectRead.model_validate(project)
 
 
-@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{project_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
 def archive_project(
     session: SessionDep,
     project_id: str,
@@ -72,6 +72,17 @@ def archive_project(
         finished=payload.finished if payload is not None else None,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+def delete_project(project_id: str) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail=(
+            "DELETE /projects/{project_id} is not implemented. "
+            "Use POST /projects/{project_id}/archive."
+        ),
+    )
 
 
 @router.patch("/{project_id}/unarchive", response_model=ProjectRead)

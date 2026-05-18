@@ -255,7 +255,7 @@ def test_board_status_reorder_duplicate_project_id_returns_422(client: TestClien
 def test_board_status_move_archived_project_returns_conflict(client: TestClient) -> None:
     venture = _create_venture_in_db("archived project venture")
     project = _create_project(client, venture_id=venture.id, board_status="active")
-    archive = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive.status_code in {200, 204}, archive.text
 
     response = client.patch(

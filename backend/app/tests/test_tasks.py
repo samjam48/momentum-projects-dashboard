@@ -58,7 +58,7 @@ def _create_project(
     project = response.json()
     assert isinstance(project, dict)
     if archived:
-        archive_response = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+        archive_response = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
         assert archive_response.status_code in {200, 204}, archive_response.text
     return project
 
@@ -472,7 +472,7 @@ def test_status_patch_blocks_restoring_archived_task_when_project_archived(
     )
     assert archive_task.status_code == 200, archive_task.text
 
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     blocked = client.patch(
@@ -495,7 +495,7 @@ def test_status_patch_blocks_restoring_archived_task_when_parent_venture_archive
     )
     assert archive_task.status_code == 200, archive_task.text
 
-    archive_venture = client.delete(f"/api/v1/ventures/{venture_id}")
+    archive_venture = client.post(f"/api/v1/ventures/{venture_id}/archive")
     assert archive_venture.status_code in {200, 204}, archive_venture.text
 
     blocked = client.patch(
@@ -746,7 +746,7 @@ def test_delete_task_succeeds_when_parent_project_archived(client: TestClient) -
     project = _create_project(client)
     task = _create_task(client, project_id=str(project["id"]))
 
-    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    archive_project = client.post(f"{PROJECTS_ENDPOINT}/{project['id']}/archive")
     assert archive_project.status_code in {200, 204}, archive_project.text
 
     delete_response = client.delete(f"{TASKS_ENDPOINT}/{task['id']}")

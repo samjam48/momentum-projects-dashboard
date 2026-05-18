@@ -53,7 +53,7 @@ export async function updateVenture(ventureId: string, payload: VenturePayload):
 }
 
 export async function archiveVenture(ventureId: string): Promise<void> {
-  await apiRequest<null>(`/api/v1/ventures/${ventureId}`, { method: 'DELETE' })
+  await apiRequest<null>(`/api/v1/ventures/${ventureId}/archive`, { method: 'POST' })
 }
 
 export async function unarchiveVenture(ventureId: string): Promise<Venture> {

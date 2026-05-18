@@ -38,6 +38,7 @@ The setting is loaded from env var **`MOMENTUM_API_V1_PREFIX`** (because `Settin
 | **200** | Successful GET, PATCH, DELETE that returns a body (some DELETEs return 204 instead). |
 | **201** | Successful POST creating a resource. |
 | **204** | Successful DELETE (or PATCH) with **no response body** (`Response` with no content). |
+| **405** | Method exists but is intentionally not implemented for that resource action (for example project/venture DELETE archive aliases removed). |
 | **400** | Well-formed request violates a non-state rule (for example, empty PATCH body where at least one field is required). |
 | **404** | `HTTPException` from services when a primary entity is missing (wording varies per `detail` string). |
 | **409** | Conflict rules (e.g. archived entity cannot be modified). |
@@ -67,7 +68,8 @@ Full paths assume default prefix **`/api/v1`**.
 | POST | `/projects` | Create project. |
 | GET | `/projects/{project_id}` | Get project by id. |
 | PATCH | `/projects/{project_id}` | Update project. |
-| DELETE | `/projects/{project_id}` | Archive project (optional body). |
+| POST | `/projects/{project_id}/archive` | Archive project (optional body). |
+| DELETE | `/projects/{project_id}` | Not implemented; use POST archive route. |
 | PATCH | `/projects/{project_id}/unarchive` | Unarchive project. |
 | PATCH | `/projects/{project_id}/board-status` | Update board column / order / batch reorder. |
 | GET | `/tasks` | List tasks (filters). |
@@ -93,10 +95,11 @@ Full paths assume default prefix **`/api/v1`**.
 | POST | `/ventures` | Create venture. |
 | GET | `/ventures/{venture_id}` | Get venture (embeds category label summary). |
 | PATCH | `/ventures/{venture_id}` | Update venture. |
-| DELETE | `/ventures/{venture_id}` | Archive venture (+ cascade archive active projects). |
+| POST | `/ventures/{venture_id}/archive` | Archive venture (+ cascade archive active projects). |
+| DELETE | `/ventures/{venture_id}` | Not implemented; use POST archive route. |
 | PATCH | `/ventures/{venture_id}/unarchive` | Unarchive venture (+ restore venture-archived projects). |
 
-**Total:** **33** route operations in the summary table (some `DELETE` handlers implement archive semantics rather than hard delete).
+**Total:** **35** route operations in the summary table.
 
 ---
 
@@ -184,7 +187,7 @@ Schemas: `backend/app/schemas/project.py`
 
 ---
 
-### `DELETE /api/v1/projects/{project_id}`
+### `POST /api/v1/projects/{project_id}/archive`
 
 | | |
 |--|--|
@@ -192,6 +195,15 @@ Schemas: `backend/app/schemas/project.py`
 | **Body** | Optional `ProjectArchive`: `finished` boolean or omit. If `finished` omitted, service sets `finished` to `true` when `board_status == "shipped"`, else `false`. |
 | **Response** | `204` empty. |
 | **Errors** | **404** if project id missing. |
+
+---
+
+### `DELETE /api/v1/projects/{project_id}`
+
+| | |
+|--|--|
+| **Purpose** | Not implemented for archive semantics. |
+| **Response** | **405** with guidance to use `POST /api/v1/projects/{project_id}/archive`. |
 
 ---
 
@@ -474,12 +486,21 @@ Schemas: `backend/app/schemas/venture.py`
 
 ---
 
-### `DELETE /api/v1/ventures/{venture_id}`
+### `POST /api/v1/ventures/{venture_id}/archive`
 
 | | |
 |--|--|
 | **Purpose** | Archive venture; cascades to active projects (sets them archived, `archived_by_venture=true`). **Idempotent:** if already archived, returns **204** without error. |
 | **Response** | `204` empty. |
+
+---
+
+### `DELETE /api/v1/ventures/{venture_id}`
+
+| | |
+|--|--|
+| **Purpose** | Not implemented for archive semantics. |
+| **Response** | **405** with guidance to use `POST /api/v1/ventures/{venture_id}/archive`. |
 
 ---
 
@@ -506,7 +527,7 @@ Exact field sets match Pydantic models in `backend/app/schemas/`. Notable comput
 
 | Topic | Observation |
 |--------|----------------|
-| **“Delete” vs archive** | `DELETE /projects/{id}` and `DELETE /ventures/{id}` are **soft archives** in the domain sense; `DELETE /tasks/{id}` hard-deletes the task while archiving detached child time logs. Naming is easy to misunderstand—clients should read service code. |
+| **“Delete” vs archive** | Archive is explicit via `POST /projects/{id}/archive` and `POST /ventures/{id}/archive`. `DELETE /tasks/{id}` hard-deletes the task while archiving detached child time logs. |
 | **Task status routes** | Both `PATCH /tasks/{id}` and `PATCH /tasks/{id}/status` can change status with different request bodies; not duplicate but overlapping surface. |
 | **Activity type DELETE vs PATCH archive** | Two ways to retire types; delete is hard and blocked when referenced. |
 | **OpenAPI vs this doc** | This file can drift from `/docs`; prefer routers/schemas as source of truth when they disagree. |
