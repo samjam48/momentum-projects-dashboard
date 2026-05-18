@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 
+from app.core.time import utc_now
 from app.models.activity_type import ActivityType
 from app.models.time_log import TimeLog
 from app.schemas.activity_type import (
@@ -16,10 +16,6 @@ from sqlmodel import Session, col, select
 
 _SLUG_NON_ALNUM_PATTERN = re.compile(r"[^a-z0-9]+")
 _RESERVED_UNCATEGORISED = "uncategorised"
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _slugify(name: str) -> str:
@@ -127,7 +123,7 @@ def update_activity_type(
 
     activity_type.name = _to_title_case(payload.name.strip())
     activity_type.slug = slug
-    activity_type.updated_at = _utc_now()
+    activity_type.updated_at = utc_now()
     session.add(activity_type)
     session.commit()
     session.refresh(activity_type)
@@ -152,7 +148,7 @@ def archive_activity_type(session: Session, activity_type_id: str) -> None:
     activity_type = _get_activity_type_or_404(session, activity_type_id)
     if activity_type.status != "archived":
         activity_type.status = "archived"
-        activity_type.updated_at = _utc_now()
+        activity_type.updated_at = utc_now()
         session.add(activity_type)
     time_logs = list(
         session.exec(select(TimeLog).where(TimeLog.activity_type_id == activity_type.id))

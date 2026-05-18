@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Any, cast
 
+from app.core.time import utc_now
 from app.models.activity_type import ActivityType
 from app.models.project import Project
 from app.models.task import Task
@@ -24,12 +25,8 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
-
-
 def _utc_today() -> date:
-    return _utc_now().date()
+    return utc_now().date()
 
 
 def _get_task_or_404(session: Session, task_id: str) -> Task:
@@ -101,7 +98,7 @@ def _recompute_actual_hours(session: Session, task: Task) -> None:
         )
     ).one()
     task.actual_hours = float(hours_total or 0.0)
-    task.updated_at = _utc_now()
+    task.updated_at = utc_now()
     session.add(task)
 
 
@@ -211,7 +208,7 @@ def update_task(session: Session, task_id: str, payload: TaskUpdate) -> Task:
     for field_name, value in update_data.items():
         setattr(task, field_name, value)
     task.completed_date = _apply_completed_date(next_status, task.completed_date)
-    task.updated_at = _utc_now()
+    task.updated_at = utc_now()
 
     session.add(task)
     if project_id_changed:
@@ -256,7 +253,7 @@ def update_task_status(session: Session, task_id: str, payload: TaskStatusUpdate
         task.completed_date = previous_completed_date
     else:
         task.completed_date = _apply_completed_date(payload.status, previous_completed_date)
-    task.updated_at = _utc_now()
+    task.updated_at = utc_now()
 
     session.add(task)
     session.commit()

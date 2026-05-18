@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 
+from app.core.time import utc_now
 from app.models.venture import Venture
 from app.models.venture_category_label import VentureCategoryLabel
 from app.schemas.venture_category_label import (
@@ -23,10 +23,6 @@ _SEEDED_ORDER = {
     "education": 4,
     "hobby": 5,
 }
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _slugify(name: str) -> str:
@@ -148,7 +144,7 @@ def update_label(
     _ensure_slug_unique(session, slug, current_label_id=label.id)
     label.name = _to_title_case(payload.name.strip())
     label.slug = slug
-    label.updated_at = _utc_now()
+    label.updated_at = utc_now()
     session.add(label)
     session.commit()
     session.refresh(label)

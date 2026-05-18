@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any, cast
 
+from app.core.time import utc_now
 from app.models.project import Project
 from app.models.venture import Venture
 from app.schemas.project import (
@@ -16,10 +16,6 @@ from app.schemas.project import (
 from fastapi import HTTPException, status
 from sqlalchemy import case
 from sqlmodel import Session, col, select
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _get_project_or_404(session: Session, project_id: str) -> Project:
@@ -119,7 +115,7 @@ def update_project(session: Session, project_id: str, payload: ProjectUpdate) ->
         _get_active_venture_or_404(session, venture_id)
     for field_name, value in update_data.items():
         setattr(project, field_name, value)
-    project.updated_at = _utc_now()
+    project.updated_at = utc_now()
 
     session.add(project)
     session.commit()
@@ -136,7 +132,7 @@ def archive_project(session: Session, project_id: str, finished: bool | None = N
         else:
             project.finished = finished
         project.archived_by_venture = False
-        project.updated_at = _utc_now()
+        project.updated_at = utc_now()
         session.add(project)
         session.commit()
 
@@ -152,7 +148,7 @@ def unarchive_project(session: Session, project_id: str) -> Project:
     if project.status == "archived":
         project.status = "active"
         project.archived_by_venture = False
-        project.updated_at = _utc_now()
+        project.updated_at = utc_now()
         session.add(project)
         session.commit()
         session.refresh(project)
@@ -221,13 +217,13 @@ def update_project_board_status(
         project.finished = True
     elif payload.finished is not None:
         project.finished = payload.finished
-    project.updated_at = _utc_now()
+    project.updated_at = utc_now()
     session.add(project)
 
     if payload.order is not None:
         for order_item, order_project in zip(payload.order, order_projects, strict=True):
             order_project.kanban_order = order_item.kanban_order
-            order_project.updated_at = _utc_now()
+            order_project.updated_at = utc_now()
             session.add(order_project)
 
     session.commit()

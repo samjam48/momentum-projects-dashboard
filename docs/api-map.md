@@ -3,8 +3,15 @@
 This document describes the **HTTP API implemented by the FastAPI application** in this repository (`backend/app/`). It is grounded in routers, `main.py`, settings, Pydantic schemas, and service modules—**not** in external product docs unless they match code.
 
 **Base URL path:** All routers below are mounted under `settings.api_v1_prefix`, default **`/api/v1`** (`backend/app/core/config.py`, `backend/app/main.py`).
+The setting is loaded from env var **`MOMENTUM_API_V1_PREFIX`** (because `Settings` uses `env_prefix="MOMENTUM_"`).
 
 **Interactive OpenAPI:** FastAPI’s default **`/docs`** and **`/redoc`** are available unless disabled elsewhere (not customized in `main.py`).
+
+### API prefix contract
+
+- Backend route prefix: `MOMENTUM_API_V1_PREFIX` defaults to `/api/v1`.
+- Frontend API modules currently hardcode `'/api/v1/...'` request paths (for example `frontend/src/api/projects.ts`, `tasks.ts`, `ventures.ts`) and prepend only the host/base origin from `VITE_API_BASE_URL` in `frontend/src/api/client.ts`.
+- Contract: if `MOMENTUM_API_V1_PREFIX` changes, frontend path constants must be updated in lockstep (or centralized first) to keep requests aligned. Changing `VITE_API_BASE_URL` alone does not change the `/api/v1` path segment.
 
 ---
 

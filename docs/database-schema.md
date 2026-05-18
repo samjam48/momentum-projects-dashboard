@@ -26,6 +26,8 @@ This document describes the **persisted relational schema** used by the Momentum
 2. **SQLModel classes** (`backend/app/models/*.py`) — authoritative for **application-level defaults** (e.g. Python `default_factory` for IDs and timestamps) and fields the ORM expects.
 3. **Minor discrepancies** — e.g. `created_at` / `updated_at` on `time_logs`: early migrations set non-null columns without `server_default`; new rows rely on model `default_factory` in Python. When in doubt, compare the **latest migration** with the **model** for a given table.
 
+**Timestamp helper:** application-level timestamp defaults and service-side timestamp updates use the shared `app.core.time.utc_now()` helper unless a historical migration or test intentionally keeps a local timestamp function.
+
 There is **no multi-tenant schema**: no `account_id` or similar column appears in models or migrations.
 
 ---

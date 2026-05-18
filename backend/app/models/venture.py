@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import uuid4
 
+from app.core.time import utc_now
 from sqlmodel import Field, SQLModel
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 class Venture(SQLModel, table=True):

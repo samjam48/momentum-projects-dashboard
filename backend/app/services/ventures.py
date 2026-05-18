@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any, cast
 
+from app.core.time import utc_now
 from app.models.project import Project
 from app.models.venture import Venture
 from app.models.venture_category_label import VentureCategoryLabel
@@ -16,10 +16,6 @@ from app.schemas.venture import (
 from fastapi import HTTPException, status
 from sqlalchemy import true
 from sqlmodel import Session, col, select
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _get_venture_or_404(session: Session, venture_id: str) -> Venture:
@@ -145,7 +141,7 @@ def update_venture(session: Session, venture_id: str, payload: VentureUpdate) ->
             setattr(venture, field_name, value.strip())
         else:
             setattr(venture, field_name, value)
-    venture.updated_at = _utc_now()
+    venture.updated_at = utc_now()
 
     session.add(venture)
     session.commit()
@@ -159,7 +155,7 @@ def archive_venture(session: Session, venture_id: str) -> None:
         return
 
     venture.status = "archived"
-    venture.updated_at = _utc_now()
+    venture.updated_at = utc_now()
     session.add(venture)
 
     projects = list(session.exec(select(Project).where(Project.venture_id == venture.id)))
@@ -167,7 +163,7 @@ def archive_venture(session: Session, venture_id: str) -> None:
         if project.status == "active":
             project.status = "archived"
             project.archived_by_venture = True
-            project.updated_at = _utc_now()
+            project.updated_at = utc_now()
             session.add(project)
     session.commit()
 
@@ -176,7 +172,7 @@ def unarchive_venture(session: Session, venture_id: str) -> VentureRead:
     venture = _get_venture_or_404(session, venture_id)
     if venture.status == "archived":
         venture.status = "active"
-        venture.updated_at = _utc_now()
+        venture.updated_at = utc_now()
         session.add(venture)
 
         projects = list(
@@ -190,7 +186,7 @@ def unarchive_venture(session: Session, venture_id: str) -> VentureRead:
         for project in projects:
             project.status = "active"
             project.archived_by_venture = False
-            project.updated_at = _utc_now()
+            project.updated_at = utc_now()
             session.add(project)
         session.commit()
         session.refresh(venture)
