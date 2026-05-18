@@ -59,7 +59,7 @@ def _ensure_slug_unique(
     if current_activity_type_id is not None and existing.id == current_activity_type_id:
         return
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_409_CONFLICT,
         detail="name already exists",
     )
 
@@ -95,7 +95,7 @@ def create_activity_type(session: Session, payload: ActivityTypeCreate) -> Activ
     slug = _slugify(payload.name)
     if slug == _RESERVED_UNCATEGORISED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="uncategorised is reserved",
         )
     _ensure_slug_unique(session, slug)
@@ -120,7 +120,7 @@ def update_activity_type(
     slug = _slugify(payload.name)
     if slug == _RESERVED_UNCATEGORISED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="uncategorised is reserved",
         )
     _ensure_slug_unique(session, slug, current_activity_type_id=activity_type.id)
@@ -141,7 +141,7 @@ def delete_activity_type(session: Session, activity_type_id: str) -> None:
     ).first()
     if used is not None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Activity type is used by time logs.",
         )
     session.delete(activity_type)

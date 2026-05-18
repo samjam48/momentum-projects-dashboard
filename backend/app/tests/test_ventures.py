@@ -151,7 +151,7 @@ def test_create_venture_rejects_unknown_category_label_id(client: TestClient) ->
             "category_label_id": "00000000-0000-0000-0000-000000000000",
         },
     )
-    assert response.status_code in {404, 422}, response.text
+    assert response.status_code == 404, response.text
 
 
 def test_list_ventures_defaults_to_active_and_supports_archived_filter(
@@ -266,7 +266,7 @@ def test_patch_venture_rejects_unknown_category_label_id(client: TestClient) -> 
         f"{VENTURES_ENDPOINT}/{venture_id}",
         json={"category_label_id": "00000000-0000-0000-0000-000000000000"},
     )
-    assert response.status_code in {404, 422}, response.text
+    assert response.status_code == 404, response.text
 
 
 def test_patch_archived_venture_returns_conflict(client: TestClient) -> None:

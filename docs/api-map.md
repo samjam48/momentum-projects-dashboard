@@ -31,9 +31,10 @@ This document describes the **HTTP API implemented by the FastAPI application** 
 | **200** | Successful GET, PATCH, DELETE that returns a body (some DELETEs return 204 instead). |
 | **201** | Successful POST creating a resource. |
 | **204** | Successful DELETE (or PATCH) with **no response body** (`Response` with no content). |
+| **400** | Well-formed request violates a non-state rule (for example, empty PATCH body where at least one field is required). |
 | **404** | `HTTPException` from services when a primary entity is missing (wording varies per `detail` string). |
 | **409** | Conflict rules (e.g. archived entity cannot be modified). |
-| **422** | **Validation:** Pydantic request body/query validation **or** `HTTPException` with `422` used for domain validation (e.g. invalid `order` payload, empty PATCH for time log). FastAPI’s default validation error JSON shape applies for Pydantic failures. |
+| **422** | Validation-layer failures (Pydantic body/query/path validation). FastAPI’s default validation error JSON shape applies. Service-level `422` also remains in a few explicit domain-validation paths: project board reorder payload composition (`order`), `category_label_id: null` on venture PATCH, and slug-content validation in `_slugify()` for activity types and venture category labels (e.g. punctuation-only names → `"name must contain letters or numbers"`). |
 
 There are **no custom global exception handlers** in `main.py`; expect standard FastAPI / Starlette behaviour for unhandled exceptions (typically **500**).
 
@@ -296,7 +297,7 @@ Schemas: `backend/app/schemas/task.py`
 | **Body** | `TimeLogCreate`: required `hours` (> 0), `logged_date`; optional `activity_type_id` (must be **active** type), `notes`, `title`, `location`. |
 | **Response** | `201` — `TimeLogRead`. |
 | **Side effects** | Recomputes `tasks.actual_hours`. |
-| **Errors** | **404** task; **422** invalid activity type. |
+| **Errors** | **404** task; **409** invalid/archived activity type id. |
 
 ---
 
@@ -305,10 +306,10 @@ Schemas: `backend/app/schemas/task.py`
 | | |
 |--|--|
 | **Purpose** | Partial update of log belonging to task. |
-| **Body** | `TimeLogUpdate` — at least one field required (service **422** if empty). |
+| **Body** | `TimeLogUpdate` — at least one field required (service **400** if empty). |
 | **Response** | `200` — `TimeLogRead`. |
 | **Side effects** | Recomputes `tasks.actual_hours` if `hours` changes. |
-| **Errors** | **404** wrong task or missing log; **422** empty body or bad activity type. |
+| **Errors** | **404** wrong task or missing log; **400** empty body; **409** invalid/archived activity type id. |
 
 ---
 
@@ -344,7 +345,7 @@ Schemas: `backend/app/schemas/activity_type.py`
 |--|--|
 | **Body** | `ActivityTypeCreate`: `name` (non-blank, max 25 chars). Slug derived server-side; slug `uncategorised` forbidden. |
 | **Response** | `201` — `ActivityTypeRead`. |
-| **Errors** | **422** duplicate name/slug or reserved slug (HTTPException messages). |
+| **Errors** | **409** duplicate name/slug or reserved slug (`uncategorised`). Shape validation cases remain **422**. |
 
 ---
 
@@ -364,7 +365,7 @@ Schemas: `backend/app/schemas/activity_type.py`
 |--|--|
 | **Purpose** | Hard delete if **no** time logs reference it. |
 | **Response** | `204` empty. |
-| **Errors** | **404**; **422** `"Activity type is used by time logs."` |
+| **Errors** | **404**; **409** `"Activity type is used by time logs."` |
 
 ---
 
@@ -398,7 +399,7 @@ Schemas: `backend/app/schemas/venture_category_label.py`
 
 | | |
 |--|--|
-| **Body** | `VentureCategoryLabelCreate`: `name` (non-blank). Slug derived; duplicate slug → **422** `"name already exists"`. |
+| **Body** | `VentureCategoryLabelCreate`: `name` (non-blank). Slug derived; duplicate slug → **409** `"name already exists"`. |
 | **Response** | `201` — `VentureCategoryLabelRead` with `usage_count: 0`. |
 
 ---
@@ -418,7 +419,7 @@ Schemas: `backend/app/schemas/venture_category_label.py`
 |--|--|
 | **Purpose** | Hard delete when `usage_count == 0`. |
 | **Response** | `204` empty. |
-| **Errors** | **404**; **422** `"Label is in use by one or more ventures."` |
+| **Errors** | **404**; **409** `"Label is in use by one or more ventures."` |
 
 ---
 

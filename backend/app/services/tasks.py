@@ -83,11 +83,11 @@ def _apply_completed_date(status_value: TaskStatus, completed_date: date | None)
     return None
 
 
-def _active_activity_type_name_or_422(session: Session, activity_type_id: str) -> str:
+def _active_activity_type_name_or_409(session: Session, activity_type_id: str) -> str:
     activity_type = session.get(ActivityType, activity_type_id)
     if activity_type is None or activity_type.status != "active":
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="activity_type_id must reference an active activity type",
         )
     return activity_type.name
@@ -143,7 +143,7 @@ def _apply_time_log_update(
     if "activity_type_id" in update_data:
         new_activity_id = update_data["activity_type_id"]
         if new_activity_id is not None:
-            _active_activity_type_name_or_422(session, new_activity_id)
+            _active_activity_type_name_or_409(session, new_activity_id)
         time_log.activity_type_id = new_activity_id
 
     for field_name in ("hours", "logged_date"):
@@ -303,7 +303,7 @@ def create_time_log(session: Session, task_id: str, payload: TimeLogCreate) -> T
     task = ensure_task_mutable(session, task_id)
     activity_type_name: str | None = None
     if payload.activity_type_id is not None:
-        activity_type_name = _active_activity_type_name_or_422(
+        activity_type_name = _active_activity_type_name_or_409(
             session,
             payload.activity_type_id,
         )
@@ -346,7 +346,7 @@ def update_time_log(
     update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field is required.",
         )
 

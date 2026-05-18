@@ -654,7 +654,7 @@ def test_list_time_logs_and_actual_hours_exclude_archived_rows(client: TestClien
     assert detail_response.status_code == 200, detail_response.text
     assert detail_response.json()["actual_hours"] == 1.25
 
-    list_response = client.get(TASKS_ENDPOINT, params={"project_id": project["id"]})
+    list_response = client.get(TASKS_ENDPOINT, params={"project_id": str(project["id"])})
     assert list_response.status_code == 200, list_response.text
     listed_task = next(item for item in list_response.json() if item["id"] == task["id"])
     assert listed_task["actual_hours"] == 1.25
@@ -878,8 +878,8 @@ def test_patch_time_log_rejects_unknown_or_archived_activity_type(
         json={"activity_type_id": archived.id},
     )
 
-    assert unknown.status_code == 422, unknown.text
-    assert bad_archived.status_code == 422, bad_archived.text
+    assert unknown.status_code == 409, unknown.text
+    assert bad_archived.status_code == 409, bad_archived.text
 
 
 def test_patch_time_log_returns_404_for_wrong_task_or_missing_entry(
@@ -913,7 +913,8 @@ def test_patch_time_log_requires_at_least_one_field(client: TestClient) -> None:
         json={},
     )
 
-    assert empty.status_code == 422, empty.text
+    assert empty.status_code == 400, empty.text
+    assert empty.json()["detail"] == "At least one field is required."
 
 
 def test_patch_time_log_rejects_non_positive_hours(client: TestClient) -> None:

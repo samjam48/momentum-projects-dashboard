@@ -57,7 +57,7 @@ def _ensure_slug_unique(
     if current_label_id is not None and existing.id == current_label_id:
         return
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_409_CONFLICT,
         detail="name already exists",
     )
 
@@ -172,7 +172,7 @@ def delete_label(session: Session, label_id: str) -> None:
     )
     if usage_count > 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Label is in use by one or more ventures.",
         )
     session.delete(label)
