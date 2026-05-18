@@ -691,15 +691,6 @@ button.archive-restore-link:hover:not(:disabled) {
   min-width: 220px;
 }
 
-.danger-button {
-  background: #c8553d !important;
-  color: #fff8f0 !important;
-}
-
-.danger-button:hover:not(:disabled) {
-  background: #a7422e !important;
-}
-
 .workspace-panel h2,
 .workspace-panel h3 {
   margin: 0;
@@ -797,14 +788,6 @@ button.archive-restore-link:hover:not(:disabled) {
 
 .secondary-button:hover:not(:disabled) {
   background: #dec3a5;
-}
-
-.danger-button {
-  background: #c8553d;
-}
-
-.danger-button:hover:not(:disabled) {
-  background: #a7422e;
 }
 
 .project-list,

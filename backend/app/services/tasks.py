@@ -7,6 +7,7 @@ from app.models.activity_type import ActivityType
 from app.models.project import Project
 from app.models.task import Task
 from app.models.time_log import TimeLog
+from app.models.venture import Venture
 from app.schemas.task import (
     TaskCreate,
     TaskPriority,
@@ -58,6 +59,28 @@ def _ensure_task_project_is_active(session: Session, project_id: str) -> Project
             detail="Archived projects cannot accept task changes.",
         )
     return project
+
+
+def _ensure_parent_chain_allows_archived_leave_kanban(
+    session: Session,
+    *,
+    prior_status: TaskStatus,
+    task_project_id: str,
+) -> None:
+    """Block leaving archived when restoring into Kanban columns with buried parents."""
+    if prior_status != "archived":
+        return
+
+    project = _ensure_task_project_is_active(session, task_project_id)
+    venture_id = project.venture_id
+    if venture_id is None:
+        return
+    venture = session.get(Venture, venture_id)
+    if venture is None or venture.status == "archived":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot restore archived task while parent venture is archived.",
+        )
 
 
 def _apply_completed_date(status_value: TaskStatus, completed_date: date | None) -> date | None:
@@ -183,6 +206,12 @@ def update_task_status(session: Session, task_id: str, payload: TaskStatusUpdate
     task = _get_task_or_404(session, task_id)
     previous_status = cast(TaskStatus, task.status)
     previous_completed_date = task.completed_date
+
+    _ensure_parent_chain_allows_archived_leave_kanban(
+        session,
+        prior_status=previous_status,
+        task_project_id=task.project_id,
+    )
 
     task.status = payload.status
     task.kanban_order = payload.kanban_order

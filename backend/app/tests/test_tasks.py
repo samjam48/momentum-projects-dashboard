@@ -437,6 +437,72 @@ def test_status_patch_rejects_invalid_status(client: TestClient) -> None:
     assert response.status_code == 422, response.text
 
 
+def test_status_patch_restores_archived_task_to_backlog_when_project_active(
+    client: TestClient,
+) -> None:
+    project = _create_project(client)
+    task = _create_task(client, project_id=str(project["id"]), title="Archived row")
+
+    archive_task = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}",
+        json={"status": "archived"},
+    )
+    assert archive_task.status_code == 200, archive_task.text
+
+    restore = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/status",
+        json={"status": "backlog", "kanban_order": None},
+    )
+    assert restore.status_code == 200, restore.text
+    restored = restore.json()
+    assert restored["status"] == "backlog"
+
+
+def test_status_patch_blocks_restoring_archived_task_when_project_archived(
+    client: TestClient,
+) -> None:
+    project = _create_project(client, name="Archived parent")
+    task = _create_task(client, project_id=str(project["id"]), title="Stranded task")
+
+    archive_task = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}",
+        json={"status": "archived"},
+    )
+    assert archive_task.status_code == 200, archive_task.text
+
+    archive_project = client.delete(f"{PROJECTS_ENDPOINT}/{project['id']}")
+    assert archive_project.status_code in {200, 204}, archive_project.text
+
+    blocked = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/status",
+        json={"status": "backlog"},
+    )
+    assert blocked.status_code == 409, blocked.text
+
+
+def test_status_patch_blocks_restoring_archived_task_when_parent_venture_archived(
+    client: TestClient,
+) -> None:
+    project = _create_project(client, name="Cascade project")
+    venture_id = project["venture_id"]
+    task = _create_task(client, project_id=str(project["id"]), title="Venture cascade task")
+
+    archive_task = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}",
+        json={"status": "archived"},
+    )
+    assert archive_task.status_code == 200, archive_task.text
+
+    archive_venture = client.delete(f"/api/v1/ventures/{venture_id}")
+    assert archive_venture.status_code in {200, 204}, archive_venture.text
+
+    blocked = client.patch(
+        f"{TASKS_ENDPOINT}/{task['id']}/status",
+        json={"status": "backlog"},
+    )
+    assert blocked.status_code == 409, blocked.text
+
+
 def test_time_logs_are_manual_sorted_and_inherit_project_id(client: TestClient) -> None:
     project = _create_project(client)
     task = _create_task(client, project_id=str(project["id"]))

@@ -17,6 +17,7 @@ import { Checkbox } from '../ui/checkbox'
 
 export type SidebarProps = {
   activeProjects: Project[]
+  onArchivedTaskRestored?: () => void | Promise<void>
   onCreateProject: (ventureId: string) => void
   onEditProject: (project: Project) => void
   onEditTask: (task: Task) => void
@@ -35,6 +36,7 @@ function titleCaseCategory(name: string): string {
 
 export function Sidebar({
   activeProjects,
+  onArchivedTaskRestored,
   onCreateProject,
   onEditProject,
   onEditTask,
@@ -324,7 +326,7 @@ export function Sidebar({
         />
       ) : null}
 
-      <ArchiveDialog />
+      <ArchiveDialog onWorkspaceTasksReload={onArchivedTaskRestored} />
     </aside>
   )
 }

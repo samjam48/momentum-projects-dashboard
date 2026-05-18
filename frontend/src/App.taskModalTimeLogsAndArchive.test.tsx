@@ -73,7 +73,7 @@ function getTaskDialogFooter(dialog: HTMLElement): HTMLElement {
   return within(dialog).getByRole('contentinfo', { name: /task actions/i })
 }
 
-describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
+describe('Task modal: time logs, chrome, and archive affordance', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetTestStorage()
@@ -409,7 +409,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
     })
   })
 
-  describe('task archive affordance and archive dialog (1.6-8)', () => {
+  describe('task archive affordance and archive dialog', () => {
     it('exposes Archive in the edit modal footer', async () => {
       installWorkspaceBackendMock({
         projects: [alphaProject],
@@ -422,7 +422,7 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
       expect(within(getTaskDialogFooter(dialog)).getByRole('button', { name: /^archive$/i })).toBeInTheDocument()
     })
 
-    it('archive dialog lists only ventures and projects tabs and does not fetch archived tasks', async () => {
+    it('archive dialog lists ventures, projects, and tasks tabs; archived tasks fetch only after opening the tasks tab', async () => {
       const { fetchMock } = installWorkspaceBackendMock({
         projects: [alphaProject],
         tasks: [releaseNotesTask, archivedTask],
@@ -435,7 +435,9 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
 
       expect(within(archiveDialog).getByRole('tab', { name: /archived ventures/i })).toBeInTheDocument()
       expect(within(archiveDialog).getByRole('tab', { name: /archived projects/i })).toBeInTheDocument()
-      expect(within(archiveDialog).queryByRole('tab', { name: /archived tasks/i })).not.toBeInTheDocument()
+      expect(within(archiveDialog).getByRole('tab', { name: /archived tasks/i })).toBeInTheDocument()
+
+      const callCountBeforeTabs = fetchMock.mock.calls.length
 
       fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived ventures/i }))
       fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived projects/i }))
@@ -449,11 +451,23 @@ describe('Ticket 1b-5 task modal, time logs, and archived tasks', () => {
         ).toBe(true)
       })
 
-      const archivedTasksRequests = fetchMock.mock.calls.filter(([input]) => {
-        const url = urlFromFetchMockFirstArg(input)
-        return url.pathname === '/api/v1/tasks' && url.searchParams.get('status') === 'archived'
+      const archivedTasksRequestsBeforeTasksTab = fetchMock.mock.calls
+        .slice(callCountBeforeTabs)
+        .filter(([input]) => {
+          const url = urlFromFetchMockFirstArg(input)
+          return url.pathname === '/api/v1/tasks' && url.searchParams.get('status') === 'archived'
+        })
+      expect(archivedTasksRequestsBeforeTasksTab).toHaveLength(0)
+
+      fireEvent.click(within(archiveDialog).getByRole('tab', { name: /archived tasks/i }))
+
+      await waitFor(() => {
+        const archivedTasksRequestsAfterTasksTab = fetchMock.mock.calls.filter(([input]) => {
+          const url = urlFromFetchMockFirstArg(input)
+          return url.pathname === '/api/v1/tasks' && url.searchParams.get('status') === 'archived'
+        })
+        expect(archivedTasksRequestsAfterTasksTab.length).toBeGreaterThan(0)
       })
-      expect(archivedTasksRequests).toHaveLength(0)
     })
 
     it('removes an archived task from the active Kanban after Archive is confirmed', async () => {

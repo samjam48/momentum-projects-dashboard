@@ -3,11 +3,12 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 import type { ApiError } from '../api/client'
 import type { Venture, VentureCategoryLabel, VenturePayload } from '../api/types'
 import { ColourPicker } from './ColourPicker'
+import { VentureCategoryCreatableCombobox } from './VentureCategoryCreatableCombobox'
+import { DialogFormFooter } from './ui/DialogFormFooter'
 import { Button } from './ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog'
@@ -27,14 +28,6 @@ export type VentureDialogProps = {
   open: boolean
   venture: Venture | null
   ventureError: ApiError | null
-}
-
-function displayCategoryTitle(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
 }
 
 export function VentureDialog({
@@ -58,7 +51,6 @@ export function VentureDialog({
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState('')
   const [name, setName] = useState('')
-  const [newLabelName, setNewLabelName] = useState('')
 
   const prevOpenRef = useRef(false)
   const initSessionKeyRef = useRef<string | null>(null)
@@ -90,7 +82,6 @@ export function VentureDialog({
       setColour(venture.colour ?? '#D97048')
       setIcon(venture.icon ?? '')
       setCategoryLabelId(venture.category_label_id)
-      setNewLabelName('')
       return
     }
 
@@ -99,7 +90,6 @@ export function VentureDialog({
     setColour('#D97048')
     setIcon('')
     setCategoryLabelId(hustleLabelId ?? categoryLabels[0]?.id ?? '')
-    setNewLabelName('')
   }, [open, mode, venture, hustleLabelId, categoryLabels])
 
   /** Create mode only: when labels load after open, adopt default category without touching other fields. */
@@ -130,22 +120,6 @@ export function VentureDialog({
       icon: icon.trim() ? icon.trim() : null,
       category_label_id: categoryLabelId || undefined,
     })
-  }
-
-  const handleCreateLabel = async (): Promise<void> => {
-    const trimmed = newLabelName.trim()
-    if (!trimmed) {
-      return
-    }
-
-    onResetLabelError()
-    try {
-      const created = await onCreateCategoryLabel(trimmed)
-      setCategoryLabelId(created.id)
-      setNewLabelName('')
-    } catch {
-      /* surfaced via labelError */
-    }
   }
 
   const dialogTitle = mode === 'create' ? 'New venture' : venture?.name ?? 'Venture'
@@ -204,44 +178,18 @@ export function VentureDialog({
             />
           </label>
 
-          <label className="field">
-            <span>Category label</span>
-            <select
-              aria-label="Category label"
-              value={categoryLabelId}
-              onChange={(event) => setCategoryLabelId(event.target.value)}
-            >
-              {categoryLabels.map((label) => (
-                <option key={label.id} value={label.id}>
-                  {displayCategoryTitle(label.name)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="field">
-            <label className="block">
-              <span>New category label</span>
-              <input
-                aria-label="New category label"
-                type="text"
-                value={newLabelName}
-                onChange={(event) => {
-                  setNewLabelName(event.target.value)
-                  onResetLabelError()
-                }}
-              />
-            </label>
-            <Button
-              className="mt-2"
-              disabled={isSaving || !newLabelName.trim()}
-              type="button"
-              variant="secondary"
-              onClick={() => void handleCreateLabel()}
-            >
-              Create label
-            </Button>
-          </div>
+          <VentureCategoryCreatableCombobox
+            categoryLabels={categoryLabels}
+            disabled={isSaving}
+            labelError={labelError}
+            selectedLabelId={categoryLabelId}
+            onClearError={onResetLabelError}
+            onCreate={onCreateCategoryLabel}
+            onSelectedLabelIdChange={(id) => {
+              setCategoryLabelId(id)
+              onResetVentureError()
+            }}
+          />
 
           {ventureError?.formError ? (
             <p className="form-error" role="alert">
@@ -249,31 +197,30 @@ export function VentureDialog({
             </p>
           ) : null}
 
-          {labelError?.formError ? (
-            <p className="form-error" role="alert">
-              {labelError.formError}
-            </p>
-          ) : null}
-
-          {mode === 'edit' && venture && onArchive ? (
-            <Button
-              className="danger-button"
-              disabled={isSaving}
-              type="button"
-              onClick={() => void onArchive(venture.id)}
-            >
-              Archive venture
-            </Button>
-          ) : null}
-
-          <DialogFooter className="gap-2 sm:justify-between">
-            <Button disabled={isSaving} type="submit">
-              {mode === 'create' ? 'Create venture' : 'Save venture'}
-            </Button>
-            <Button disabled={isSaving} type="button" variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-          </DialogFooter>
+          <DialogFormFooter
+            destructiveAction={
+              mode === 'edit' && venture && onArchive ? (
+                <Button
+                  disabled={isSaving}
+                  type="button"
+                  variant="destructive"
+                  onClick={() => void onArchive(venture.id)}
+                >
+                  Archive venture
+                </Button>
+              ) : null
+            }
+            cancelAction={
+              <Button disabled={isSaving} type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+            }
+            primaryAction={
+              <Button disabled={isSaving} type="submit">
+                {mode === 'create' ? 'Create venture' : 'Save venture'}
+              </Button>
+            }
+          />
         </form>
       </DialogContent>
     </Dialog>

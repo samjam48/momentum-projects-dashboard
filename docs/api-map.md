@@ -255,8 +255,6 @@ Schemas: `backend/app/schemas/task.py`
 | **Body** | `TaskUpdate` — optional fields include `project_id`, `status` (full set including `archived`), etc. |
 | **Errors** | **404** task; **404**/ **409** if target project archived when applying change. |
 
-**Note:** `PATCH /tasks/{task_id}/status` does **not** re-check project archived state in code (unlike `update_task` path for `project_id`). Agents changing behaviour should read `update_task_status` in `tasks.py` service.
-
 ---
 
 ### `DELETE /api/v1/tasks/{task_id}`
@@ -276,6 +274,7 @@ Schemas: `backend/app/schemas/task.py`
 | **Purpose** | Kanban status update with optional `kanban_order`. |
 | **Body** | `TaskStatusUpdate`: `status` (`backlog` \| `in_progress` \| `review` \| `done`), optional `kanban_order`. |
 | **Response** | `200` — `TaskRead`. |
+| **Errors** | **404** task; **409** when moving **`archived` → Kanban** if parent project **`archived`**, parent venture **`archived`**, or venture missing while `venture_id` is set. |
 
 ---
 

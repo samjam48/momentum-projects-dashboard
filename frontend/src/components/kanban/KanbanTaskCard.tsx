@@ -1,9 +1,7 @@
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-
 import type { Project, Task } from '../../api/types'
 import { formatDueDateDisplay } from '../../lib/formatDate'
 import type { BoardDisplayOptions } from '../../stores/boardDisplayOptions'
+import { KanbanCardShell } from './KanbanCardShell'
 
 function formatMetricValue(value: number | string | null): string {
   if (value === null || value === '') {
@@ -30,30 +28,20 @@ export function KanbanTaskCard({
   showProjectNameOnCard,
   task,
 }: KanbanTaskCardProps): JSX.Element {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: `kanban-task:${task.id}`,
-      data: {
-        type: 'task',
-        taskId: task.id,
-        status: task.status,
-      },
-      disabled: draggingDisabled,
-    })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
   const showProjectPill =
     boardDisplayOptions.showProjectName && showProjectNameOnCard && project !== null
 
   return (
-    <li
-      ref={setNodeRef}
-      className={`task-card kanban-task-card${isDragging ? ' task-card-dragging' : ''}`}
-      style={{ ...style, padding: '16px' }}
-      {...attributes}
-      {...listeners}
+    <KanbanCardShell
+      className="task-card kanban-task-card"
+      dragData={{
+        type: 'task',
+        taskId: task.id,
+        status: task.status,
+      }}
+      draggingDisabled={draggingDisabled}
+      id={`kanban-task:${task.id}`}
+      style={{ padding: '16px' }}
     >
       <div className="kanban-task-linear">
         <div className="kanban-task-title-row">
@@ -99,6 +87,6 @@ export function KanbanTaskCard({
           ) : null}
         </div>
       </div>
-    </li>
+    </KanbanCardShell>
   )
 }
