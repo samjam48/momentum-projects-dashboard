@@ -158,6 +158,10 @@ function parseJsonBody(init: RequestInit | undefined): Record<string, unknown> {
     : {}
 }
 
+function slugHasContent(name: string): boolean {
+  return /[a-z0-9]/.test(name.toLowerCase())
+}
+
 function compareTasksForKanban(left: Task, right: Task): number {
   if (left.kanban_order !== null && right.kanban_order !== null) {
     if (left.kanban_order !== right.kanban_order) {
@@ -363,6 +367,14 @@ export function installWorkspaceBackendMock(
             status: 422,
           })
         }
+        if (!slugHasContent(trimmedName)) {
+          return jsonResponse({
+            body: {
+              detail: [{ loc: ['body', 'name'], msg: 'Name must include letters or numbers' }],
+            },
+            status: 422,
+          })
+        }
 
         const duplicate = ventureLabels.some(
           (label) => label.name.trim().toLowerCase() === trimmedName.toLowerCase(),
@@ -372,7 +384,7 @@ export function installWorkspaceBackendMock(
             body: {
               detail: [{ loc: ['body', 'name'], msg: 'A label with this name already exists' }],
             },
-            status: 422,
+            status: 409,
           })
         }
 
@@ -412,6 +424,14 @@ export function installWorkspaceBackendMock(
             status: 422,
           })
         }
+        if (!slugHasContent(trimmedName)) {
+          return jsonResponse({
+            body: {
+              detail: [{ loc: ['body', 'name'], msg: 'Name must include letters or numbers' }],
+            },
+            status: 422,
+          })
+        }
 
         if (trimmedName.length > 25) {
           return jsonResponse({
@@ -437,7 +457,7 @@ export function installWorkspaceBackendMock(
                 },
               ],
             },
-            status: 422,
+            status: 409,
           })
         }
 
@@ -454,7 +474,7 @@ export function installWorkspaceBackendMock(
                 },
               ],
             },
-            status: 422,
+            status: 409,
           })
         }
 
@@ -492,6 +512,89 @@ export function installWorkspaceBackendMock(
       }
 
       const activityTypeMatch = pathname.match(/^\/api\/v1\/activity-types\/([^/]+)$/)
+      if (activityTypeMatch && method === 'PATCH') {
+        const [, activityTypeId] = activityTypeMatch
+        const typeIndex = activityTypes.findIndex((type) => type.id === activityTypeId)
+
+        if (typeIndex < 0) {
+          return jsonResponse({ body: { detail: 'Activity type not found' }, status: 404 })
+        }
+
+        const payload = body as { name?: string }
+        const trimmedName = typeof payload.name === 'string' ? payload.name.trim() : ''
+
+        if (!trimmedName) {
+          return jsonResponse({
+            body: { detail: [{ loc: ['body', 'name'], msg: 'Name is required' }] },
+            status: 422,
+          })
+        }
+        if (!slugHasContent(trimmedName)) {
+          return jsonResponse({
+            body: {
+              detail: [{ loc: ['body', 'name'], msg: 'Name must include letters or numbers' }],
+            },
+            status: 422,
+          })
+        }
+
+        if (trimmedName.length > 25) {
+          return jsonResponse({
+            body: {
+              detail: [
+                {
+                  loc: ['body', 'name'],
+                  msg: 'Activity type name must be at most 25 characters',
+                },
+              ],
+            },
+            status: 422,
+          })
+        }
+
+        if (trimmedName.toLowerCase() === 'uncategorised') {
+          return jsonResponse({
+            body: {
+              detail: [
+                {
+                  loc: ['body', 'name'],
+                  msg: 'Reserved name "uncategorised" cannot be used for an activity type',
+                },
+              ],
+            },
+            status: 409,
+          })
+        }
+
+        const duplicate = activityTypes.some(
+          (type, index) =>
+            index !== typeIndex &&
+            type.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+        )
+        if (duplicate) {
+          return jsonResponse({
+            body: {
+              detail: [
+                {
+                  loc: ['body', 'name'],
+                  msg: 'An activity type with this name already exists',
+                },
+              ],
+            },
+            status: 409,
+          })
+        }
+
+        activityTypes[typeIndex] = {
+          ...activityTypes[typeIndex],
+          name: trimmedName,
+          slug: trimmedName.toLowerCase().replace(/\s+/g, '-'),
+          updated_at: '2026-05-13T12:15:00Z',
+        }
+
+        return jsonResponse({ body: activityTypes[typeIndex] })
+      }
+
       if (activityTypeMatch && method === 'DELETE') {
         const [, activityTypeId] = activityTypeMatch
         const typeIndex = activityTypes.findIndex((type) => type.id === activityTypeId)
@@ -509,7 +612,7 @@ export function installWorkspaceBackendMock(
             body: {
               detail: 'This activity type is referenced by time logs and cannot be deleted.',
             },
-            status: 422,
+            status: 409,
           })
         }
 
