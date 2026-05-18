@@ -9,17 +9,25 @@ from app.schemas.activity_type import (
     ActivityTypeStatus,
     ActivityTypeUpdate,
 )
+from app.schemas.pagination import PaginatedResponse
 from app.services import activity_types
 
 router = APIRouter(prefix="/activity-types")
 
 
-@router.get("", response_model=list[ActivityTypeRead])
+@router.get("", response_model=list[ActivityTypeRead] | PaginatedResponse[ActivityTypeRead])
 def list_activity_types(
     session: SessionDep,
     status_filter: ActivityTypeStatus | None = Query(default=None, alias="status"),
-) -> list[ActivityTypeRead]:
-    return activity_types.list_activity_types(session, status_filter)
+    limit: int | None = Query(default=None, ge=1, le=500),
+    cursor: str | None = None,
+) -> list[ActivityTypeRead] | PaginatedResponse[ActivityTypeRead]:
+    return activity_types.list_activity_types_paginated(
+        session,
+        status_filter,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.post("", response_model=ActivityTypeRead, status_code=status.HTTP_201_CREATED)

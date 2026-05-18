@@ -9,9 +9,11 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.time_log import TimeLog
 from app.models.venture import Venture
+from app.schemas.pagination import PaginatedResponse, encode_cursor
 from app.schemas.task import (
     TaskCreate,
     TaskPriority,
+    TaskRead,
     TaskStatus,
     TaskStatusUpdate,
     TaskUpdate,
@@ -19,6 +21,7 @@ from app.schemas.task import (
     TimeLogRead,
     TimeLogUpdate,
 )
+from app.services.pagination import apply_cursor_limit
 from app.services.task_guards import ensure_project_mutable, ensure_task_mutable
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -171,6 +174,51 @@ def list_tasks(
 
     statement = statement.order_by(col(Task.created_at))
     return list(session.exec(statement))
+
+
+def list_tasks_paginated(
+    session: Session,
+    project_id: str | None,
+    task_status: TaskStatus | None,
+    priority: TaskPriority | None,
+    *,
+    limit: int | None,
+    cursor: str | None,
+) -> list[Task] | PaginatedResponse[TaskRead]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+    if limit is None:
+        return list_tasks(session, project_id, task_status, priority)
+
+    statement = select(Task)
+    if project_id is not None:
+        statement = statement.where(Task.project_id == project_id)
+    if task_status is not None:
+        statement = statement.where(Task.status == task_status)
+    else:
+        statement = statement.where(Task.status != "archived")
+    if priority is not None:
+        statement = statement.where(Task.priority == priority)
+
+    statement = apply_cursor_limit(
+        statement,
+        limit,
+        cursor,
+        (col(Task.created_at), col(Task.id)),
+    )
+    page_rows = list(session.exec(statement))
+    page_items = page_rows[:limit]
+    next_cursor = None
+    if len(page_rows) > limit and page_items:
+        last_item = page_items[-1]
+        next_cursor = encode_cursor((last_item.created_at.isoformat(), last_item.id))
+    return PaginatedResponse(
+        items=[TaskRead.model_validate(item) for item in page_items],
+        next_cursor=next_cursor,
+    )
 
 
 def create_task(session: Session, payload: TaskCreate) -> Task:

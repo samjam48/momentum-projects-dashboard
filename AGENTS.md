@@ -40,7 +40,7 @@ npm run test -- --coverage  # ≥ 70%
 ---
 ## Current Sprint — Backend hardening refactor (pre Phase 2 income)
 **Goal:** Close code-review P0/P1 backend gaps: unified task/time-log mutation guards, time-log archive on task delete, `project_id` integrity, HTTP status semantics, POST archive routes, `utc_now` DRY, and opt-in list pagination — per signed-off planning package (2026-05-18).
-**Status (2026-05-18):** Planning **SIGNED OFF**. Implementation on **`feat/backend-refactor`** (or stacked `feat/backend-refactor-*`) via orchestrator — one ticket at a time, tests before code, per-ticket commits.
+**Status (2026-05-18):** Planning **SIGNED OFF**. Phases **A-F** are implemented and committed on **`feat/backend-refactor`** via orchestrator. Awaiting owner verification, final review summary, and merge decision.
 **Ticket source:** `plans/tickets-backend-refactor-2026-05-18.md` in dependency order (**BR-1** through **BR-17**).
 **Primary references:** `plans/PRD-backend-refactor-2026-05-18.md`, `plans/TRD-backend-refactor-2026-05-18.md`, `ADR/001`–`003`, `docs/api-map.md`, `docs/database-schema.md`.
 **Out of scope:** Auth, Postgres, Phase 2 income schema/endpoints, frontend refactor (coordinate only for BR-10/BR-14), true purge UI.

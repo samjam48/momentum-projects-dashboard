@@ -11,6 +11,7 @@ from app.schemas.activity_type import (
     ActivityTypeStatus,
     ActivityTypeUpdate,
 )
+from app.schemas.pagination import PaginatedResponse, decode_cursor, encode_cursor
 from fastapi import HTTPException, status
 from sqlmodel import Session, col, select
 
@@ -75,16 +76,71 @@ def _to_read(activity_type: ActivityType) -> ActivityTypeRead:
 def list_activity_types(
     session: Session,
     status_filter: ActivityTypeStatus | None,
-) -> list[ActivityTypeRead]:
+) -> list[ActivityTypeRead] | PaginatedResponse[ActivityTypeRead]:
+    return list_activity_types_paginated(
+        session,
+        status_filter,
+        limit=None,
+        cursor=None,
+    )
+
+
+def list_activity_types_paginated(
+    session: Session,
+    status_filter: ActivityTypeStatus | None,
+    *,
+    limit: int | None,
+    cursor: str | None,
+) -> list[ActivityTypeRead] | PaginatedResponse[ActivityTypeRead]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+
     active_filter = status_filter or "active"
-    rows = list(
-        session.exec(
-            select(ActivityType)
-            .where(ActivityType.status == active_filter)
-            .order_by(col(ActivityType.sort_order).nulls_last(), col(ActivityType.created_at))
+    statement = (
+        select(ActivityType)
+        .where(ActivityType.status == active_filter)
+        .order_by(
+            col(ActivityType.sort_order).nulls_last(),
+            col(ActivityType.created_at),
         )
     )
-    return [_to_read(row) for row in rows]
+    rows = list(session.exec(statement))
+    if limit is None:
+        return [_to_read(row) for row in rows]
+
+    start_index = 0
+    if cursor is not None:
+        try:
+            cursor_values = decode_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            ) from exc
+        if len(cursor_values) != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        cursor_id = cursor_values[0]
+        matching_indices = [idx for idx, row in enumerate(rows) if row.id == cursor_id]
+        if not matching_indices:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        start_index = matching_indices[0] + 1
+
+    page_items = rows[start_index : start_index + limit]
+    has_more = start_index + limit < len(rows)
+    next_cursor = encode_cursor((page_items[-1].id,)) if has_more and page_items else None
+    return PaginatedResponse(
+        items=[_to_read(row) for row in page_items],
+        next_cursor=next_cursor,
+    )
 
 
 def create_activity_type(session: Session, payload: ActivityTypeCreate) -> ActivityTypeRead:

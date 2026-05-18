@@ -143,11 +143,11 @@ Schemas: `backend/app/schemas/project.py`
 | | |
 |--|--|
 | **Purpose** | List projects for a status tab / filters. |
-| **Query params** | `status` (alias for `status_filter`): optional `active` \| `archived`. **Default if omitted:** service treats as **`active`**. `venture_id`: optional string. `board_status`: optional `idea` \| `active` \| `paused` \| `shipped`. `project_type`: optional `project` \| `asset` \| `gig` \| `contract`. `finished`: optional boolean. |
-| **Response** | `200` — JSON array of `ProjectRead`. |
-| **Ordering** | Service: board status rank (idea → active → paused → shipped), then `kanban_order` nulls last, then `created_at`, then `id`. |
+| **Query params** | `status` (alias for `status_filter`): optional `active` \| `archived`. **Default if omitted:** service treats as **`active`**. `venture_id`: optional string. `board_status`: optional `idea` \| `active` \| `paused` \| `shipped`. `project_type`: optional `project` \| `asset` \| `gig` \| `contract`. `finished`: optional boolean. `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: JSON array of `ProjectRead`. With `limit`: `{ "items": ProjectRead[], "next_cursor": string \| null }`. |
+| **Ordering** | Service: board status rank (idea → active → paused → shipped), then `kanban_order` nulls last, then `created_at`, then `id`. Paginated responses preserve this same ordering. |
 | **DB** | `projects` |
-| **Errors** | Standard validation if query types invalid → **422**. |
+| **Errors** | Standard validation if query types invalid → **422**. Invalid cursor token → **400**. |
 
 **Example:** `GET /api/v1/projects?venture_id=<uuid>&board_status=active`
 
@@ -240,10 +240,11 @@ Schemas: `backend/app/schemas/task.py`
 | | |
 |--|--|
 | **Purpose** | List tasks. |
-| **Query** | `project_id` optional. `status` optional (`backlog` \| `in_progress` \| `review` \| `done` \| `archived`). **If `status` omitted**, service excludes `archived` by default. `priority` optional (`low` \| `medium` \| `high` \| `urgent`). |
-| **Response** | `200` — list of `TaskRead`. |
+| **Query** | `project_id` optional. `status` optional (`backlog` \| `in_progress` \| `review` \| `done` \| `archived`). **If `status` omitted**, service excludes `archived` by default. `priority` optional (`low` \| `medium` \| `high` \| `urgent`). `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `TaskRead[]`. With `limit`: `{ "items": TaskRead[], "next_cursor": string \| null }`. |
 | **DB** | `tasks` |
 | **Ordering** | `created_at` ascending. |
+| **Errors** | Invalid cursor token → **400**. `cursor` without `limit` or invalid `limit` bounds → **422**. |
 
 ---
 
@@ -303,6 +304,7 @@ Schemas: `backend/app/schemas/task.py`
 | | |
 |--|--|
 | **Purpose** | List time logs for task, newest `logged_date` / `created_at` first; returns only rows with `status='active'` still attached to this task (`task_id` match). Archived/detached rows are excluded. |
+| **Pagination** | Deferred by design in this phase: `limit`/`cursor` are ignored on this endpoint; response shape remains `TimeLogRead[]`. |
 | **Response** | `200` — `TimeLogRead[]` with `activity_type_name` / `activity_type_display_name` populated when linked. |
 | **Errors** | **404** if task id invalid. |
 
@@ -352,8 +354,8 @@ Schemas: `backend/app/schemas/activity_type.py`
 
 | | |
 |--|--|
-| **Query** | `status`: optional `active` \| `archived`. **Default:** `active`. |
-| **Response** | `200` — `ActivityTypeRead[]` ordered by `sort_order` nulls last, then `created_at`. |
+| **Query** | `status`: optional `active` \| `archived`. **Default:** `active`. `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `ActivityTypeRead[]` ordered by `sort_order` nulls last, then `created_at`. With `limit`: `{ "items": ActivityTypeRead[], "next_cursor": string \| null }`, using the same ordering sequence. |
 | **DB** | `activity_types` |
 
 ---
@@ -409,7 +411,8 @@ Schemas: `backend/app/schemas/venture_category_label.py`
 | | |
 |--|--|
 | **Purpose** | List all labels with `usage_count` (number of ventures referencing each). |
-| **Response** | `200` — `VentureCategoryLabelRead[]` (seeded slugs sort first per service). |
+| **Query** | `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `VentureCategoryLabelRead[]` (seeded slugs sort first per service). With `limit`: `{ "items": VentureCategoryLabelRead[], "next_cursor": string \| null }`, preserving the same seeded-rank/name/id ordering. |
 | **DB** | `venture_category_labels`, aggregate on `ventures` |
 
 ---
@@ -452,8 +455,8 @@ Schemas: `backend/app/schemas/venture.py`
 
 | | |
 |--|--|
-| **Query** | `status`: optional `active` \| `archived` — **default `active`**. `category_label_id` optional filter. |
-| **Response** | `200` — `VentureRead[]` each including nested `category_label` summary. |
+| **Query** | `status`: optional `active` \| `archived` — **default `active`**. `category_label_id` optional filter. `limit`: optional int (1..500) enables cursor pagination. `cursor`: optional string; valid only when `limit` is provided. |
+| **Response** | `200` — without `limit`: `VentureRead[]` each including nested `category_label` summary. With `limit`: `{ "items": VentureRead[], "next_cursor": string \| null }`. |
 | **DB** | `ventures`, `venture_category_labels` |
 
 ---

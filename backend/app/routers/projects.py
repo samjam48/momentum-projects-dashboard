@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.db.database import SessionDep
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.project import (
     ProjectArchive,
     ProjectBoardStatus,
@@ -18,7 +19,7 @@ from app.services import projects as project_services
 router = APIRouter(prefix="/projects")
 
 
-@router.get("", response_model=list[ProjectRead])
+@router.get("", response_model=list[ProjectRead] | PaginatedResponse[ProjectRead])
 def list_projects(
     session: SessionDep,
     status_filter: ProjectStatus | None = Query(default=None, alias="status"),
@@ -26,7 +27,9 @@ def list_projects(
     board_status: ProjectBoardStatus | None = None,
     project_type: ProjectType | None = None,
     finished: bool | None = None,
-) -> list[ProjectRead]:
+    limit: int | None = Query(default=None, ge=1, le=500),
+    cursor: str | None = None,
+) -> list[ProjectRead] | PaginatedResponse[ProjectRead]:
     projects = project_services.list_projects(
         session,
         status_filter,
@@ -34,7 +37,14 @@ def list_projects(
         board_status=board_status,
         project_type=project_type,
         finished=finished,
+        limit=limit,
+        cursor=cursor,
     )
+    if isinstance(projects, PaginatedResponse):
+        return PaginatedResponse(
+            items=[ProjectRead.model_validate(project) for project in projects.items],
+            next_cursor=projects.next_cursor,
+        )
     return [ProjectRead.model_validate(project) for project in projects]
 
 

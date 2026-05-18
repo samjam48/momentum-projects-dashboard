@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Response, status
 
 from app.db.database import SessionDep
 from app.models.task import Task
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.task import (
     TaskCreate,
     TaskPriority,
@@ -20,14 +21,23 @@ from app.services import tasks as task_services
 router = APIRouter(prefix="/tasks")
 
 
-@router.get("", response_model=list[TaskRead])
+@router.get("", response_model=list[TaskRead] | PaginatedResponse[TaskRead])
 def list_tasks(
     session: SessionDep,
     project_id: str | None = None,
     status_filter: TaskStatus | None = Query(default=None, alias="status"),
     priority: TaskPriority | None = None,
-) -> list[Task]:
-    return task_services.list_tasks(session, project_id, status_filter, priority)
+    limit: int | None = Query(default=None, ge=1, le=500),
+    cursor: str | None = None,
+) -> list[Task] | PaginatedResponse[TaskRead]:
+    return task_services.list_tasks_paginated(
+        session,
+        project_id,
+        status_filter,
+        priority,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)

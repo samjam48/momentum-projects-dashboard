@@ -5,6 +5,7 @@ import re
 from app.core.time import utc_now
 from app.models.venture import Venture
 from app.models.venture_category_label import VentureCategoryLabel
+from app.schemas.pagination import PaginatedResponse, decode_cursor, encode_cursor
 from app.schemas.venture_category_label import (
     VentureCategoryLabelCreate,
     VentureCategoryLabelRead,
@@ -93,7 +94,24 @@ def _build_read_rows(
     ]
 
 
-def list_labels(session: Session) -> list[VentureCategoryLabelRead]:
+def list_labels(
+    session: Session,
+) -> list[VentureCategoryLabelRead] | PaginatedResponse[VentureCategoryLabelRead]:
+    return list_labels_paginated(session, limit=None, cursor=None)
+
+
+def list_labels_paginated(
+    session: Session,
+    *,
+    limit: int | None,
+    cursor: str | None,
+) -> list[VentureCategoryLabelRead] | PaginatedResponse[VentureCategoryLabelRead]:
+    if cursor is not None and limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cursor requires limit.",
+        )
+
     seeded_rank = case(
         _SEEDED_ORDER,
         value=func.lower(col(VentureCategoryLabel.slug)),
@@ -108,7 +126,40 @@ def list_labels(session: Session) -> list[VentureCategoryLabelRead]:
             )
         )
     )
-    return _build_read_rows(labels, _load_usage_counts(session))
+    if limit is None:
+        return _build_read_rows(labels, _load_usage_counts(session))
+
+    start_index = 0
+    if cursor is not None:
+        try:
+            cursor_values = decode_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            ) from exc
+        if len(cursor_values) != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        cursor_id = cursor_values[0]
+        matching_indices = [idx for idx, row in enumerate(labels) if row.id == cursor_id]
+        if not matching_indices:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid cursor.",
+            )
+        start_index = matching_indices[0] + 1
+
+    page_items = labels[start_index : start_index + limit]
+    has_more = start_index + limit < len(labels)
+    usage_counts = _load_usage_counts(session)
+    next_cursor = encode_cursor((page_items[-1].id,)) if has_more and page_items else None
+    return PaginatedResponse(
+        items=_build_read_rows(page_items, usage_counts),
+        next_cursor=next_cursor,
+    )
 
 
 def create_label(
