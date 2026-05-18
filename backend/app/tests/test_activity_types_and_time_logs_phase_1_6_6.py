@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TypedDict, cast
 from uuid import uuid4
 
@@ -15,6 +16,10 @@ from app.models.venture_category_label import VentureCategoryLabel
 
 TASKS_ENDPOINT = "/api/v1/tasks"
 ACTIVITY_TYPES_ENDPOINT = "/api/v1/activity-types"
+APP_DIR = Path(__file__).resolve().parents[1]
+ACTIVITY_TYPES_ROUTER_FILE = APP_DIR / "routers" / "activity_types.py"
+ACTIVITY_TYPES_SERVICE_FILE = APP_DIR / "services" / "activity_types.py"
+ACTIVITY_TYPE_SCHEMA_FILE = APP_DIR / "schemas" / "activity_type.py"
 
 
 class _EntityId(TypedDict):
@@ -112,21 +117,9 @@ def _time_log_activity_type_id(task_id: str) -> str | None:
 
 
 def test_activity_types_router_and_service_modules_exist() -> None:
-    router_path = (
-        "/Users/samjam/Code/momentum-projects-dashboard/backend/app/routers/activity_types.py"
-    )
-    service_path = (
-        "/Users/samjam/Code/momentum-projects-dashboard/backend/app/services/activity_types.py"
-    )
-    schema_path = (
-        "/Users/samjam/Code/momentum-projects-dashboard/backend/app/schemas/activity_type.py"
-    )
-    with open(router_path, encoding="utf-8") as _:
-        pass
-    with open(service_path, encoding="utf-8") as _:
-        pass
-    with open(schema_path, encoding="utf-8") as _:
-        pass
+    assert ACTIVITY_TYPES_ROUTER_FILE.is_file()
+    assert ACTIVITY_TYPES_SERVICE_FILE.is_file()
+    assert ACTIVITY_TYPE_SCHEMA_FILE.is_file()
 
 
 def test_list_activity_types_defaults_to_active_and_supports_archived_filter(
